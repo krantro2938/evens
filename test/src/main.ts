@@ -1,12 +1,17 @@
 import {
     waitForEvenAppBridge,
     TextContainerProperty,
+    ImageContainerProperty,
     CreateStartUpPageContainer,
     RebuildPageContainer,
     OsEventTypeList,
-    TextContainerUpgrade,
 } from "@evenrealities/even_hub_sdk";
 import {
+    AI_EVENT_LAYER_ID,
+    AI_PAGER_H,
+    AI_PAGER_ID,
+    AI_PAGER_Y,
+    AI_TILE_IDS,
     BODY_H,
     BODY_PAD,
     BODY_RADIUS,
@@ -17,11 +22,14 @@ import {
     GESTURE_EVENTS,
     MENU_ITEMS,
     PAGES,
+    TILE_H,
+    TILE_W,
 } from "./constants";
 import { GlobalState } from "./state";
 import { handleDashboardEvent } from "./dashboard";
 import { stringToShortId } from "./utils";
-import { handleAiPageEvent } from "./ai";
+import { enterAiPage, handleAiPageEvent, leaveAiPage } from "./ai";
+import { tileLayout } from "./render/rasterize";
 import { appLog } from "./debug";
 
 // Wait for the bridge to be ready before doing anything else.
@@ -136,7 +144,13 @@ bridge.onEvenHubEvent((event) => {
             }
 
             appLog("Exit gesture");
+            leaveAiPage();
             bridge.shutDownPageContainer(1);
+            break;
+
+        case OsEventTypeList.SYSTEM_EXIT_EVENT:
+        case OsEventTypeList.ABNORMAL_EXIT_EVENT:
+            leaveAiPage();
             break;
     }
 });
@@ -167,22 +181,61 @@ export async function buildPage(page: PAGES) {
             if (!rebuilt) appLog("Dashboard rebuild failed");
             break;
 
-        case PAGES.AI:
+        case PAGES.AI: {
+            // Full-screen transparent text layer receives the temple gestures
+            // (image containers can't capture events).
+            const eventLayer = new TextContainerProperty({
+                xPosition: 0,
+                yPosition: 0,
+                width: 576,
+                height: 288,
+                borderWidth: 0,
+                borderColor: 0,
+                paddingLength: 0,
+                containerID: AI_EVENT_LAYER_ID,
+                containerName: "aiEvent",
+                content: " ",
+                isEventCapture: 1,
+            });
+
+            const pager = new TextContainerProperty({
+                xPosition: 0,
+                yPosition: AI_PAGER_Y,
+                width: 576,
+                height: AI_PAGER_H,
+                borderWidth: 0,
+                borderColor: 5,
+                paddingLength: 4,
+                containerID: AI_PAGER_ID,
+                containerName: "pager",
+                content: "Loading…",
+                isEventCapture: 0,
+            });
+
+            // Four image tiles form the 2×2 grid the document renders into.
+            const tiles = tileLayout().map(
+                (t) =>
+                    new ImageContainerProperty({
+                        xPosition: t.x,
+                        yPosition: t.y,
+                        width: TILE_W,
+                        height: TILE_H,
+                        containerID: AI_TILE_IDS[t.index],
+                        containerName: `tile${t.index}`,
+                    }),
+            );
+
             await bridge.rebuildPageContainer(
                 new RebuildPageContainer({
-                    containerTotalNum: 1,
-                    textObject: [main],
+                    containerTotalNum: 2 + tiles.length,
+                    textObject: [eventLayer, pager],
+                    imageObject: tiles,
                 }),
             );
 
-            await bridge.textContainerUpgrade(
-                new TextContainerUpgrade({
-                    containerID: 1,
-                    containerName: "main",
-                    content: "Ai Page",
-                }),
-            );
+            await enterAiPage();
             break;
+        }
 
         default:
             const text = new TextContainerProperty({
@@ -211,6 +264,9 @@ export async function buildPage(page: PAGES) {
 }
 
 export function navigate(page: PAGES) {
+    if (GlobalState.currentPage === PAGES.AI && page !== PAGES.AI) {
+        leaveAiPage();
+    }
     GlobalState.currentPage = page;
     appLog("Navigate to", PAGES[page]);
     void buildPage(page).catch((error) => appLog("Page render failed", error));
