@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
 
-// The markdown server (see /server) runs on a different origin, which the
+// The document server (see /server) runs on a different origin, which the
 // simulator's webview refuses to open a cross-origin EventSource against.
-// Proxy /markdown and /events through Vite so the app talks to them
-// same-origin. Point the proxy elsewhere with VITE_MD_TARGET.
+// Proxy its routes through Vite so the app talks to them same-origin. Point the
+// proxy elsewhere with VITE_MD_TARGET.
 const MD_TARGET = process.env.VITE_MD_TARGET ?? 'http://192.168.0.117:8787'
 
 export default defineConfig({
@@ -12,7 +12,10 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/markdown': { target: MD_TARGET, changeOrigin: true },
+      '/tiles': { target: MD_TARGET, changeOrigin: true },
       '/events': { target: MD_TARGET, changeOrigin: true },
+      // /assignment/{markdown,tiles,events,status,toggle}
+      '/assignment': { target: MD_TARGET, changeOrigin: true },
     },
   },
   build: { target: 'esnext' },

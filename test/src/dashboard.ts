@@ -21,8 +21,8 @@ export function handleDashboardEvent(gesture: GESTURE_EVENTS) {
                 case "Yula":
                     navigate(PAGES.YULA);
                     break;
-                case "Photo":
-                    navigate(PAGES.PHOTO);
+                case "Assign":
+                    navigate(PAGES.ASSIGNMENT);
                     break;
             }
             break;

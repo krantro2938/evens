@@ -7,17 +7,22 @@ import {
     OsEventTypeList,
 } from "@evenrealities/even_hub_sdk";
 import {
-    AI_EVENT_LAYER_ID,
-    AI_PAGER_H,
-    AI_PAGER_ID,
-    AI_PAGER_Y,
-    AI_TILE_IDS,
     BODY_H,
     BODY_PAD,
     BODY_RADIUS,
     BODY_W,
     CONTAINER_PAD,
     DEFAULT_COLOR,
+    DOC_EVENT_LAYER_ID,
+    DOC_FEEDBACK_ID,
+    DOC_PAGER_H,
+    DOC_PAGER_ID,
+    DOC_PAGER_Y,
+    DOC_TILE_IDS,
+    FEEDBACK_H,
+    FEEDBACK_W,
+    FEEDBACK_X,
+    FEEDBACK_Y,
     FOCUSED_COLOR,
     GESTURE_EVENTS,
     MENU_ITEMS,
@@ -29,7 +34,12 @@ import { GlobalState } from "./state";
 import { handleDashboardEvent } from "./dashboard";
 import { stringToShortId } from "./utils";
 import { enterAiPage, handleAiPageEvent, leaveAiPage } from "./ai";
-import { tileLayout } from "./render/rasterize";
+import {
+    enterAssignmentPage,
+    handleAssignmentPageEvent,
+    leaveAssignmentPage,
+} from "./assignment";
+import { tileLayout } from "./render/tiles";
 import { appLog } from "./debug";
 
 // Wait for the bridge to be ready before doing anything else.
@@ -144,13 +154,13 @@ bridge.onEvenHubEvent((event) => {
             }
 
             appLog("Exit gesture");
-            leaveAiPage();
+            leaveCurrentPage();
             bridge.shutDownPageContainer(1);
             break;
 
         case OsEventTypeList.SYSTEM_EXIT_EVENT:
         case OsEventTypeList.ABNORMAL_EXIT_EVENT:
-            leaveAiPage();
+            leaveCurrentPage();
             break;
     }
 });
@@ -165,7 +175,100 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.AI:
             handleAiPageEvent(gesture);
             break;
+        case PAGES.ASSIGNMENT:
+            handleAssignmentPageEvent(gesture);
+            break;
     }
+}
+
+// Document pages hold an SSE connection and a poll timer; leaving one without
+// tearing those down leaks a live stream per visit.
+function leaveCurrentPage() {
+    switch (GlobalState.currentPage) {
+        case PAGES.AI:
+            leaveAiPage();
+            break;
+        case PAGES.ASSIGNMENT:
+            leaveAssignmentPage();
+            break;
+    }
+}
+
+// The container layout shared by every document page: a 2×2 grid of image
+// tiles, a gesture-capturing layer behind them, and a footer pager. The
+// assignment page adds a bordered corner box for camera advice / start-stop.
+async function buildDocumentPage(withFeedback: boolean) {
+    // Full-screen transparent text layer receives the temple gestures
+    // (image containers can't capture events).
+    const eventLayer = new TextContainerProperty({
+        xPosition: 0,
+        yPosition: 0,
+        width: BODY_W,
+        height: BODY_H,
+        borderWidth: 0,
+        borderColor: 0,
+        paddingLength: 0,
+        containerID: DOC_EVENT_LAYER_ID,
+        containerName: "docEvent",
+        content: " ",
+        isEventCapture: 1,
+    });
+
+    const pager = new TextContainerProperty({
+        xPosition: 0,
+        yPosition: DOC_PAGER_Y,
+        width: BODY_W,
+        height: DOC_PAGER_H,
+        borderWidth: 0,
+        borderColor: 5,
+        paddingLength: 4,
+        containerID: DOC_PAGER_ID,
+        containerName: "pager",
+        content: "Loading…",
+        isEventCapture: 0,
+    });
+
+    const textObject = [eventLayer, pager];
+
+    if (withFeedback) {
+        textObject.push(
+            new TextContainerProperty({
+                xPosition: FEEDBACK_X,
+                yPosition: FEEDBACK_Y,
+                width: FEEDBACK_W,
+                height: FEEDBACK_H,
+                borderWidth: 2,
+                borderColor: FOCUSED_COLOR,
+                borderRadius: BODY_RADIUS,
+                paddingLength: 6,
+                containerID: DOC_FEEDBACK_ID,
+                containerName: "feedback",
+                content: "Connecting…",
+                isEventCapture: 0,
+            }),
+        );
+    }
+
+    // Four image tiles form the 2×2 grid the document renders into.
+    const tiles = tileLayout().map(
+        (t) =>
+            new ImageContainerProperty({
+                xPosition: t.x,
+                yPosition: t.y,
+                width: TILE_W,
+                height: TILE_H,
+                containerID: DOC_TILE_IDS[t.index],
+                containerName: `tile${t.index}`,
+            }),
+    );
+
+    await bridge.rebuildPageContainer(
+        new RebuildPageContainer({
+            containerTotalNum: textObject.length + tiles.length,
+            textObject,
+            imageObject: tiles,
+        }),
+    );
 }
 
 export async function buildPage(page: PAGES) {
@@ -181,61 +284,15 @@ export async function buildPage(page: PAGES) {
             if (!rebuilt) appLog("Dashboard rebuild failed");
             break;
 
-        case PAGES.AI: {
-            // Full-screen transparent text layer receives the temple gestures
-            // (image containers can't capture events).
-            const eventLayer = new TextContainerProperty({
-                xPosition: 0,
-                yPosition: 0,
-                width: 576,
-                height: 288,
-                borderWidth: 0,
-                borderColor: 0,
-                paddingLength: 0,
-                containerID: AI_EVENT_LAYER_ID,
-                containerName: "aiEvent",
-                content: " ",
-                isEventCapture: 1,
-            });
-
-            const pager = new TextContainerProperty({
-                xPosition: 0,
-                yPosition: AI_PAGER_Y,
-                width: 576,
-                height: AI_PAGER_H,
-                borderWidth: 0,
-                borderColor: 5,
-                paddingLength: 4,
-                containerID: AI_PAGER_ID,
-                containerName: "pager",
-                content: "Loading…",
-                isEventCapture: 0,
-            });
-
-            // Four image tiles form the 2×2 grid the document renders into.
-            const tiles = tileLayout().map(
-                (t) =>
-                    new ImageContainerProperty({
-                        xPosition: t.x,
-                        yPosition: t.y,
-                        width: TILE_W,
-                        height: TILE_H,
-                        containerID: AI_TILE_IDS[t.index],
-                        containerName: `tile${t.index}`,
-                    }),
-            );
-
-            await bridge.rebuildPageContainer(
-                new RebuildPageContainer({
-                    containerTotalNum: 2 + tiles.length,
-                    textObject: [eventLayer, pager],
-                    imageObject: tiles,
-                }),
-            );
-
+        case PAGES.AI:
+            await buildDocumentPage(false);
             await enterAiPage();
             break;
-        }
+
+        case PAGES.ASSIGNMENT:
+            await buildDocumentPage(true);
+            await enterAssignmentPage();
+            break;
 
         default:
             const text = new TextContainerProperty({
@@ -264,9 +321,7 @@ export async function buildPage(page: PAGES) {
 }
 
 export function navigate(page: PAGES) {
-    if (GlobalState.currentPage === PAGES.AI && page !== PAGES.AI) {
-        leaveAiPage();
-    }
+    if (GlobalState.currentPage !== page) leaveCurrentPage();
     GlobalState.currentPage = page;
     appLog("Navigate to", PAGES[page]);
     void buildPage(page).catch((error) => appLog("Page render failed", error));
