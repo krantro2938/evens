@@ -182,8 +182,11 @@ export function createDocPage(config: DocPageConfig): DocPage {
     }
 
     // Fetch and show the latest tiles, unless we already have this version.
+    // Compared by inequality, not by ordering: solution.md versions are mtimes
+    // and only ever climb, but the assignment's is a content hash, so a newer
+    // document is as likely to hash lower as higher.
     async function refresh(version: number): Promise<void> {
-        if (version <= state.version && state.pages.length) return;
+        if (version === state.version && state.pages.length) return;
         try {
             const { pages, version: tileVersion } = await fetchTiles(base);
             await applyTiles(pages, tileVersion);
