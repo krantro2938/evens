@@ -225,6 +225,21 @@ app.get("/events", documentStream(aiSource, { get: getSolverStatus, subscribe: s
 //   the routine  /solution/claim, /submit, /fail — gated, because they hand out
 //                the assignment and accept what gets displayed on the glasses
 
+// Everything the agent does arrives here, and when it goes wrong it goes wrong
+// silently — a 401 from a mistyped token looks exactly like an agent that never
+// ran. Caddy in this stack logs errors only, so this is the one place that can
+// say "something knocked". Status polling is the glasses and would drown it.
+app.use("/solution/*", async (c, next) => {
+  const path = c.req.path;
+  const quiet = path === "/solution/status";
+  await next();
+  if (quiet) return;
+  console.log(
+    `[solver] ${c.req.method} ${path} -> ${c.res.status}` +
+      ` (${c.req.header("x-forwarded-for") ?? "direct"})`,
+  );
+});
+
 app.get("/solution/status", async (c) => c.json(await getSolverStatus()));
 
 // The trigger button. Records the run, then kicks the routine; a run that
