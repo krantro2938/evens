@@ -13,6 +13,14 @@ export type DocState = {
     version: number;
     /** Status shown in the pager while there are no pages yet. */
     status: string;
+    /**
+     * The host couldn't send the tiles to the glasses (`sendFailed`). The
+     * document is fine and so are the containers — the BLE transfer isn't. Worth
+     * saying out loud: the failure is silent and invisible otherwise, and looks
+     * exactly like a rendering bug, since the pager keeps updating over a blank
+     * panel.
+     */
+    linkError: boolean;
 };
 
 /** Mirror of the server's `status` SSE payload (see server/assignment.ts). */
@@ -75,6 +83,7 @@ const newDocState = (): DocState => ({
     currentPage: 0,
     version: -1,
     status: "Loading...",
+    linkError: false,
 });
 
 export class GLOBAL_STATE {

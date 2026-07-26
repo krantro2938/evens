@@ -79,6 +79,15 @@ interface Snapshot {
     version: number;
 }
 
+/** A tile the host failed to *send* is worth trying again, briefly. */
+const PUSH_ATTEMPTS = 3;
+const PUSH_RETRY_MS = 400;
+/** Then, one level up: the whole page, a few times per visit to the page. */
+const RETRY_DELAY_MS = 4_000;
+const RETRIES_PER_VISIT = 3;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function createDocPage(config: DocPageConfig): DocPage {
     const { state, base, name } = config;
 
@@ -100,6 +109,10 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // over. Document updates keep flowing into `state`; they just don't reach
     // the screen until the overlay comes down.
     let masked = false;
+
+    // Retry bookkeeping for tiles the host couldn't send (see pushTile).
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retriesLeft = RETRIES_PER_VISIT;
 
     function sameBytes(a: Uint8Array | null, b: Uint8Array): boolean {
         if (!a || a.length !== b.length) return false;
@@ -144,28 +157,79 @@ export function createDocPage(config: DocPageConfig): DocPage {
         state.currentPage = clamped;
         const page = pages[clamped];
 
-        for (const tile of page.tiles) await pushTile(tile.index, tile.bytes);
-        displayedPage = clamped;
+        let landed = true;
+        for (const tile of page.tiles) {
+            landed = (await pushTile(tile.index, tile.bytes)) && landed;
+        }
+
+        if (landed) {
+            displayedPage = clamped;
+            state.linkError = false;
+        } else {
+            // Do NOT record this page as displayed: a later gesture or document
+            // update must be free to try again, and the early-return on
+            // `clamped === displayedPage` would otherwise make a transient
+            // failure permanent — a blank panel until the page number changed.
+            displayedPage = -1;
+            state.linkError = true;
+            scheduleRetry();
+        }
         await updatePager();
         await config.afterShow?.();
     }
 
-    /** Push one image into a tile container, keeping the dedup cache honest. */
-    async function pushTile(index: number, bytes: Uint8Array): Promise<void> {
-        if (sameBytes(displayedTiles[index], bytes)) return;
-        const result = await bridge.updateImageRawData(
-            new ImageRawDataUpdate({
-                containerID: DOC_TILE_IDS[index],
-                containerName: `tile${index}`,
-                imageData: bytes,
-            }),
-        );
-        if (result !== "success") {
-            appLog(name, "tile push", index, String(result));
+    /**
+     * Try the page again after a link failure. Bounded: a link that is properly
+     * down (glasses asleep, host app gone) should leave the pager saying so
+     * rather than retrying all evening — and any gesture or document update
+     * retries anyway, because the failure left `displayedPage` unset.
+     */
+    function scheduleRetry(): void {
+        if (retryTimer || retriesLeft <= 0 || !active) return;
+        retryTimer = setTimeout(() => {
+            retryTimer = null;
+            if (!active || !state.linkError) return;
+            retriesLeft -= 1;
+            appLog(name, "retrying tiles after link failure");
+            enqueue(() => showPage(state.currentPage));
+        }, RETRY_DELAY_MS);
+    }
+
+    /**
+     * Push one image into a tile container, keeping the dedup cache honest.
+     * Returns false if the tile is not on the panel afterwards.
+     *
+     * `sendFailed` is the host telling us the BLE transfer to the glasses failed
+     * — the image itself was fine (that would be imageException or
+     * imageSizeInvalid). A tile is ~18KB of gray4 where a text upgrade is a few
+     * bytes, so a weak link drops these and nothing else, and the page goes blank
+     * while the pager keeps updating perfectly. It is also usually transient,
+     * which is the whole reason to try again.
+     */
+    async function pushTile(index: number, bytes: Uint8Array): Promise<boolean> {
+        if (sameBytes(displayedTiles[index], bytes)) return true;
+
+        for (let attempt = 1; attempt <= PUSH_ATTEMPTS; attempt++) {
+            const result = await bridge.updateImageRawData(
+                new ImageRawDataUpdate({
+                    containerID: DOC_TILE_IDS[index],
+                    containerName: `tile${index}`,
+                    imageData: bytes,
+                }),
+            );
+            if (result === "success") {
+                displayedTiles[index] = bytes;
+                return true;
+            }
+
+            appLog(name, "tile push", index, String(result), `attempt ${attempt}`);
             displayedTiles[index] = null;
-            return;
+            // A rejected image will be rejected again; only the transport is
+            // worth a second go.
+            if (String(result) !== "sendFailed") return false;
+            if (attempt < PUSH_ATTEMPTS) await sleep(PUSH_RETRY_MS);
         }
-        displayedTiles[index] = bytes;
+        return false;
     }
 
     async function overlayTiles(bytes: readonly Uint8Array[]): Promise<void> {
@@ -313,6 +377,8 @@ export function createDocPage(config: DocPageConfig): DocPage {
         async enter(): Promise<void> {
             active = true;
             displayedPage = -1;
+            retriesLeft = RETRIES_PER_VISIT;
+            state.linkError = false;
             // Leaving the page with a menu open skips the backdrop teardown —
             // the containers are being destroyed anyway. Clearing this on the
             // way back in is what stops the page returning permanently blank.
@@ -327,6 +393,10 @@ export function createDocPage(config: DocPageConfig): DocPage {
         /** Tear down live connections when leaving the page. */
         leave(): void {
             active = false;
+            if (retryTimer) {
+                clearTimeout(retryTimer);
+                retryTimer = null;
+            }
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;

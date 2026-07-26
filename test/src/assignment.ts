@@ -54,6 +54,9 @@ function status(): AssignmentStatus | null {
 function pagerLabel(state: DocState): string {
     const selection = menu.line();
     if (selection) return selection;
+    // See the AI page: a blank panel with a healthy pager is a link failure, not
+    // a document that failed to render.
+    if (state.linkError) return "Glasses link error - tiles not sent";
     const s = status();
     if (s && s.upstream !== "open") return `Reader ${s.upstream}`;
     if (!state.pages.length) return s?.running ? "Reading the page..." : state.status;

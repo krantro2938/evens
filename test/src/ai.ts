@@ -180,6 +180,10 @@ function pagerLabel(state: DocState): string {
     const selection = menu.line();
     if (selection) return selection;
 
+    // Ahead of everything else, because it explains a blank panel that otherwise
+    // looks like a bug in the document: the tiles never reached the glasses.
+    if (state.linkError) return "Glasses link error - tiles not sent";
+
     const s = status();
     if (!s) return state.status;
 
