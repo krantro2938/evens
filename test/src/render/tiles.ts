@@ -34,8 +34,9 @@ export function base64ToBytes(b64: string): Uint8Array {
  */
 export async function fetchTiles(
     base = "",
+    query = "",
 ): Promise<{ version: number; pages: TilePage[] }> {
-    const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/tiles`);
+    const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/tiles${query}`);
     if (!res.ok) throw new Error(`tiles HTTP ${res.status}`);
     const json = (await res.json()) as TilesResponse;
     const pages: TilePage[] = json.pages.map((p) => ({

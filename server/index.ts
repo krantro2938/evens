@@ -101,8 +101,27 @@ const fileSource: DocSource = {
 // What the AI page shows: Claude's latest solution, or solution.md until there
 // is one. The file stays watched either way, so editing it by hand still pushes.
 const aiSource = createAiSource(fileSource);
-
-const getAiTiles = createTileCache(aiSource);
+const aiSources = new Map<string, DocSource>([["latest", aiSource]]);
+const aiTileCaches = new Map<string, ReturnType<typeof createTileCache>>();
+function selectedAiSource(c: Context): { key: string; source: DocSource } {
+  const raw = c.req.query("solution_id");
+  const id = raw === undefined || raw === "" ? undefined : Number(raw);
+  const key = id !== undefined && Number.isInteger(id) && id > 0 ? String(id) : "latest";
+  let source = aiSources.get(key);
+  if (!source) {
+    source = createAiSource(fileSource, Number(key));
+    aiSources.set(key, source);
+  }
+  return { key, source };
+}
+function aiTiles(key: string, source: DocSource) {
+  let get = aiTileCaches.get(key);
+  if (!get) {
+    get = createTileCache(source);
+    aiTileCaches.set(key, get);
+  }
+  return get;
+}
 // The assignment page keeps a permanent panel in the bottom-right corner (the
 // model's camera advice). A text container is transparent, so the background
 // has to come from the tile itself — the client has no spare image layer to put
@@ -234,7 +253,7 @@ app.delete("/log", (c) => {
 
 app.get("/markdown", async (c) => {
   try {
-    return c.json(await aiSource.read());
+    return c.json(await selectedAiSource(c).source.read());
   } catch (err) {
     console.error("read AI document failed:", err);
     return c.json({ error: "markdown_unavailable" }, 500);
@@ -243,14 +262,18 @@ app.get("/markdown", async (c) => {
 
 app.get("/tiles", async (c) => {
   try {
-    return c.json(await getAiTiles());
+    const { key, source } = selectedAiSource(c);
+    return c.json(await aiTiles(key, source)());
   } catch (err) {
     console.error("render tiles failed:", err);
     return c.json({ error: "tiles_unavailable" }, 500);
   }
 });
 
-app.get("/events", documentStream(aiSource, { get: getSolverStatus, subscribe: subscribeSolver }));
+app.get("/events", (c) => {
+  const { source } = selectedAiSource(c);
+  return documentStream(source, { get: getSolverStatus, subscribe: subscribeSolver })(c);
+});
 
 // ── the solve loop ──────────────────────────────────────────────────────────
 //

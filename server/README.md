@@ -32,9 +32,9 @@ Default port `8787` (override with `PORT`).
 
 | Route | Purpose |
 |---|---|
-| `GET /markdown` | `{ content, version }` — the newest submitted solution, or `solution.md` until there is one. `version` is a content hash (the file's mtime in the fallback case). |
-| `GET /tiles` | `{ version, pages: [{ tiles: [{ index, data }] }] }` — server-rendered PNG tiles (`data` is base64), 2×2 grid of 288×126 per page. Cached per `version`. |
-| `GET /events` | SSE. Emits `event: markdown` with `{ version, content }` on connect and whenever the solution (or `solution.md`) changes, `event: status` with the solve state, `event: ping` heartbeats. The client refetches `/tiles` when `version` advances. |
+| `GET /markdown[?solution_id=ID]` | `{ content, version }` for the newest solution, or `solution.md` until there is one. Pass a solution ID to open history. |
+| `GET /tiles[?solution_id=ID]` | `{ version, pages: [{ tiles: [{ index, data }] }] }` — server-rendered PNG tiles for the selected solution, cached per solution and `version`. |
+| `GET /events[?solution_id=ID]` | SSE. Emits `event: markdown` for the selected solution, `event: status` with solve state and recent solution metadata, and `event: ping` heartbeats. |
 | `GET /solution/status` | the `status` payload on demand (poll fallback) |
 | `POST /solution/solve` | the trigger button: mint a run and start the routine → `{ ok, action: "triggered"\|"queued", run_id, detail? }` |
 | `POST /solution/cancel` | abandon the live run → `{ ok, action: "cancelled", run_id }` |

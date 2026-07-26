@@ -43,6 +43,7 @@ export interface DocPageConfig {
     onPrimaryAction?(): void;
     /** Extra SSE events to listen for, beyond `markdown`. */
     events?: Record<string, (data: unknown) => void>;
+    query?(): string;
     /** Run after tiles land, e.g. to refresh an overlay container. */
     afterShow?(): Promise<void>;
 }
@@ -73,6 +74,7 @@ export interface DocPage {
      * inside `enqueue`, where it is the truth.
      */
     isMasked(): boolean;
+    reload(): Promise<void>;
 }
 
 interface Snapshot {
@@ -279,7 +281,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
     }
 
     async function fetchSnapshot(): Promise<Snapshot> {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/markdown`);
+        const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/markdown${config.query?.() ?? ""}`);
         if (!res.ok) throw new Error(`markdown HTTP ${res.status}`);
         return (await res.json()) as Snapshot;
     }
@@ -318,7 +320,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
     async function refresh(version: number): Promise<void> {
         if (version === state.version && state.pages.length) return;
         try {
-            const { pages, version: tileVersion } = await fetchTiles(base);
+            const { pages, version: tileVersion } = await fetchTiles(base, config.query?.());
             await applyTiles(pages, tileVersion);
         } catch (err) {
             appLog(name, "tiles fetch failed → text fallback", err);
@@ -328,7 +330,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
 
     async function loadInitial(): Promise<void> {
         try {
-            const { pages, version } = await fetchTiles(base);
+            const { pages, version } = await fetchTiles(base, config.query?.());
             await applyTiles(pages, version);
         } catch (err) {
             appLog(name, "initial tiles failed → text fallback", err);
@@ -350,7 +352,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
 
     function subscribeLive(): void {
         try {
-            eventSource = new EventSource(`${MARKDOWN_SERVER_URL}${base}/events`);
+            eventSource = new EventSource(`${MARKDOWN_SERVER_URL}${base}/events${config.query?.() ?? ""}`);
             eventSource.addEventListener("markdown", (ev) => {
                 try {
                     const { version } = JSON.parse((ev as MessageEvent).data);
@@ -386,6 +388,17 @@ export function createDocPage(config: DocPageConfig): DocPage {
         overlayTiles,
         restoreTiles,
         isMasked: () => masked,
+        async reload(): Promise<void> {
+            if (!active) return;
+            eventSource?.close();
+            eventSource = null;
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = null;
+            displayedPage = -1;
+            resetDisplayedTiles();
+            await enqueue(loadInitial);
+            subscribeLive();
+        },
 
         /** Called by main.ts after the page containers are built. */
         async enter(): Promise<void> {

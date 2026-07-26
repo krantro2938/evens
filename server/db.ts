@@ -283,6 +283,19 @@ export function latestSolutionFor(version: number): SolutionRow | null {
   );
 }
 
+/** Metadata for the glasses' version picker; markdown remains server-side. */
+export function recentSolutions(limit = 8): SolutionRow[] {
+  return db
+    .query<SolutionRow, [number]>(
+      `SELECT * FROM solutions ORDER BY created_at DESC, id DESC LIMIT ?1`,
+    )
+    .all(Math.max(1, Math.min(50, limit)));
+}
+
+export function solutionById(id: number): SolutionRow | null {
+  return db.query<SolutionRow, [number]>(`SELECT * FROM solutions WHERE id=?1`).get(id) ?? null;
+}
+
 export function solutionCount(): number {
   return (
     db.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM solutions`).get()?.n ??

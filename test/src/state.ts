@@ -76,6 +76,13 @@ export type SolverStatus = {
     } | null;
     trigger: { configured: boolean; detail: string };
     solutions: number;
+    solution_history: Array<{
+        id: number;
+        created_at: number;
+        model: string | null;
+        assignment_version: number | null;
+        chars: number;
+    }>;
 };
 
 const newDocState = (): DocState => ({

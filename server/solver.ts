@@ -34,9 +34,11 @@ import {
   latestRun,
   latestSolution,
   latestSolutionFor,
+  recentSolutions,
   recordTrigger,
   runByToken,
   solutionCount,
+  solutionById,
   type RunRow,
   type SolutionRow,
 } from "./db";
@@ -101,6 +103,13 @@ export interface SolverStatus {
   trigger: { configured: boolean; detail: string };
   /** How many solutions are on disk, so the count survives a restart visibly. */
   solutions: number;
+  solution_history: Array<{
+    id: number;
+    created_at: number;
+    model: string | null;
+    assignment_version: number | null;
+    chars: number;
+  }>;
 }
 
 const statusListeners = new Set<() => void>();
@@ -222,6 +231,13 @@ export async function getSolverStatus(): Promise<SolverStatus> {
       : null,
     trigger: { configured: triggerConfigured(), detail: triggerDescription() },
     solutions: solutionCount(),
+    solution_history: recentSolutions().map((item) => ({
+      id: item.id,
+      created_at: item.created_at,
+      model: item.model,
+      assignment_version: item.assignment_version,
+      chars: item.markdown.length,
+    })),
   };
 }
 
@@ -250,11 +266,11 @@ assignmentSource.subscribe(() => {
  * the pager labels as belonging to a previous version — and the button is there
  * to solve the new one when you want it.
  */
-export function createAiSource(fallback: DocSource): DocSource {
+export function createAiSource(fallback: DocSource, selectedId?: number): DocSource {
   return {
     name: "ai",
     async read(): Promise<Snapshot> {
-      const solution = latestSolution();
+      const solution = selectedId === undefined ? latestSolution() : solutionById(selectedId);
       if (!solution) return fallback.read();
       // Hash the markdown rather than using the row id: a re-solve that
       // produces identical text then costs no render and no BLE push.

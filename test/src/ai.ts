@@ -39,6 +39,8 @@ const SOLVE_BASE = "/solution";
 // A solve request is a round trip that ends in a cloud session being started;
 // ignore gestures until it lands so an impatient double-press can't queue two.
 let requestInFlight = false;
+/** null follows the live/latest solution; a number pins the reader to history. */
+let selectedSolutionId: number | null = null;
 
 // Progress is the one thing the server can't push often enough — a queued run
 // sends no events at all while it waits for the agent to pick it up. So the
@@ -204,11 +206,26 @@ function pagerLabel(state: DocState): string {
         case "solved": {
             if (!state.pages.length) return state.status;
             const pages = `${state.currentPage + 1} / ${state.pages.length}`;
-            return s.solution
-                ? `${pages}  -  solved ${elapsed(s.solution.age_ms)} ago`
+            const opened = selectedSolutionId === null
+                ? s.solution
+                : s.solution_history.find((item) => item.id === selectedSolutionId);
+            return opened
+                ? `${pages}  - opened ${formatDate(opened.created_at)}`
                 : pages;
         }
     }
+}
+
+function formatDate(timestamp: number): string {
+    const date = new Date(timestamp);
+    return `${String(date.getDate()).padStart(2, "0")} ${date.toLocaleString([], {
+        month: "short",
+    })} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function openSolution(id: number | null): void {
+    selectedSolutionId = id;
+    void page.reload();
 }
 
 // ── the action menu ─────────────────────────────────────────────────────────
@@ -224,15 +241,23 @@ function buildMenu(): MenuEntry[] {
 
     if (s?.state === "queued" || s?.state === "solving") {
         items.push({ label: "Cancel this solve", run: () => post("/cancel", "Cancelling") });
-    } else if (s?.state === "solved") {
-        items.push({ label: "Solve again", run: () => post("/solve", "Solving") });
-    } else if (s?.state === "idle" || s?.state === "failed") {
+    } else if (s?.state === "idle" || s?.state === "failed" || s?.state === "solved") {
         // Same as a tap, offered anyway: the menu is where you look when you
         // don't trust what a tap will do.
-        items.push({ label: "Solve now", run: () => post("/solve", "Solving") });
+        items.push({ label: s.state === "solved" ? "Solve again" : "Solve now", run: () => {
+            selectedSolutionId = null;
+            void post("/solve", "Solving");
+        } });
     }
 
-    items.push({ label: "Close", run: () => {} });
+    // Keep the picker in the same compact menu: newest first, timestamped so a
+    // re-solve is distinguishable even when it produced identical markdown.
+    for (const solution of (s?.solution_history ?? []).slice(0, 3)) {
+        items.push({
+            label: `${selectedSolutionId === solution.id ? "* " : "Open "}${formatDate(solution.created_at)}`,
+            run: () => openSolution(solution.id),
+        });
+    }
     return items;
 }
 
@@ -343,6 +368,7 @@ const page = createDocPage({
     name: "AI",
     base: DOC_BASE_SOLUTION,
     state: GlobalState.aiState,
+    query: () => selectedSolutionId === null ? "" : `?solution_id=${selectedSolutionId}`,
     // Tap presses the button when it's up; otherwise it turns the page. That
     // decision needs live state, so it is made in handleAiPageEvent rather than
     // fixed here.
@@ -351,6 +377,9 @@ const page = createDocPage({
     events: {
         status: (data) => {
             GlobalState.solverStatus = data as SolverStatus;
+            if (GlobalState.solverStatus.state === "queued" || GlobalState.solverStatus.state === "solving") {
+                selectedSolutionId = null;
+            }
             statusReceivedAt = Date.now();
             syncTicker();
             paintButton();
