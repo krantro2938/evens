@@ -33,19 +33,22 @@ the transcription to a solver and the answer arrives on the glasses when it's
 done. Every solution is kept in SQLite, so nothing is lost across restarts — see
 [`server/README.md`](server/README.md#the-solve-loop).
 
-**The solver is `routine/runner.sh` for now, not the cloud routine.** A tap always
-records the run server-side; what picks it up is deliberately separate. The cloud
-routine can't, because an Anthropic cloud session's egress proxy refuses
-`CONNECT even.aansl.com:443` — so run the runner on a machine with a logged-in
-`claude` CLI:
+A tap always records the run server-side; **what picks it up is deliberately
+separate**, and there are two solvers:
 
-```bash
-SOLVER_TOKEN=<same as .env> ./routine/runner.sh --watch
-```
+- the **routine** — a cloud session fired by the tap through its API trigger.
+  It needs a repository selected and its environment's network access opened to
+  this server's domain, or a fire returns 200 and nothing happens. See
+  [`routine/solve.md`](routine/solve.md).
+- **`routine/runner.sh`** — the same protocol from a machine with a logged-in
+  `claude` CLI. The fallback, and the thing to run when a run is stuck queued:
 
-Tap with no runner up and the run simply waits; the glasses say `QUEUED` rather
-than pretending. See [`routine/solve.md`](routine/solve.md) for the routine, why
-it's disabled, and what re-enabling it needs.
+  ```bash
+  SOLVER_TOKEN=<same as .env> ./routine/runner.sh --watch
+  ```
+
+Tap with neither available and the run simply waits; the glasses say `QUEUED`
+rather than pretending.
 
 The glasses app talks to **one origin only**: the document server. Everything
 upstream of it — the reader, the camera stack, the API keys — is the document
@@ -58,8 +61,8 @@ Each service owns one file. Nothing is configured in two places.
 | File | Owns | Key settings |
 |---|---|---|
 | `test/.env.local` | the glasses app | `VITE_MD_TARGET` (dev proxy), `VITE_MD_SERVER` (packed build) |
-| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `CLAUDE_TRIGGER_ID` |
-| the routine, at [claude.ai/code/routines](https://claude.ai/code/routines) | the solving agent | its prompt (a copy lives in `routine/solve.md`), its model, and `SOLVER_TOKEN` again |
+| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `ROUTINE_ID`, `ROUTINE_TOKEN` |
+| the routine, at [claude.ai/code/routines](https://claude.ai/code/routines) | the solving agent | its prompt (a copy lives in `routine/solve.md`), its model, its **network allowlist**, and `SOLVER_TOKEN` again |
 | `vps/docker/.env` in the lookcam repo | the camera stack and the reader | `GEMINI_API_KEY`, `ASSIGNMENT_TOKEN`, `SNAPSHOT_TOKEN`, `DOMAIN`, `ASSIGNMENT_DOMAIN`, `EVENS_DOMAIN` |
 
 Two values have to match across files, and both fail quietly if they don't:

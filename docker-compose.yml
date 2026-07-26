@@ -36,14 +36,12 @@ services:
       # a public vhost means anyone can read the assignment and post a
       # "solution" onto your glasses.
       SOLVER_TOKEN: ${SOLVER_TOKEN:?set SOLVER_TOKEN in .env}
-      # The routine to run when the glasses ask for a solve. Without it a tap
-      # still queues the work — the routine's own cron picks it up within the
-      # hour — so this is optional, and its absence is reported on the glasses
-      # rather than looking like a dead button.
-      CLAUDE_TRIGGER_ID: ${CLAUDE_TRIGGER_ID:-}
-      # claude.ai OAuth credentials, needed only to trigger on demand. See
-      # .env.example; the file is mounted read-write because refresh rotates it.
-      CLAUDE_OAUTH_FILE: /app/data/claude-oauth.json
+      # The routine a tap fires, and its API-trigger token — both from
+      # claude.ai/code/routines. Without them a tap still queues the work, so
+      # these are optional, and their absence is reported on the glasses rather
+      # than looking like a dead button.
+      ROUTINE_ID: ${ROUTINE_ID:-}
+      ROUTINE_TOKEN: ${ROUTINE_TOKEN:-}
     volumes:
       - solver_data:/app/data
     networks: [lookcam]

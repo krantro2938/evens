@@ -6,33 +6,31 @@ alongside the server it talks to; the live copy lives in the routine itself at
 <https://claude.ai/code/routines>, with `<EVENS_URL>` and `<SOLVER_TOKEN>`
 substituted for real values.
 
-> **BLOCKED, and disabled for now.** An Anthropic cloud session's outbound
-> traffic goes through a proxy that allows `anthropic.com` and the package
-> registries and nothing else, so the routine's very first request dies at the
-> gateway:
+> **The routine needs its environment opened up, or it cannot do this job at
+> all.** A cloud environment defaults to *Trusted* network access: the package
+> registries are reachable and every other domain is refused at the egress proxy.
+> The first attempt here failed exactly there —
 >
 > ```
 > connect_rejected: gateway answered 403 to CONNECT   even.aansl.com:443
 > curl: (56) CONNECT tunnel failed, response 403
 > ```
 >
-> It can neither claim work nor post an answer, which is why the routine
-> (`trig_01Ez1UmxHhLrJXpsCzgNsiXA`) is currently `enabled: false` — an hourly
-> cron that always dies at the proxy is a session an hour for nothing. Until
-> `even.aansl.com` is allowlisted for the cloud environment,
-> **[`runner.sh`](runner.sh) is what drains the queue**: it speaks exactly this
-> API from a machine that has network access and a logged-in `claude` CLI.
+> — so it could neither claim work nor post an answer. Fix it in **Edit routine →
+> the environment's settings → Network access: Custom**, with `even.aansl.com` in
+> *Allowed domains*. A routine also needs **a repository** selected: with none,
+> firing it returns 200 and creates no session.
 >
-> Nothing on the server assumes one or the other. If the allowlist changes,
-> re-enable the routine and both paths work — the queue and its one-time tokens
-> are transport-agnostic by design.
+> [`runner.sh`](runner.sh) does the same job from a machine with a logged-in
+> `claude` CLI, and stays useful as the offline fallback — the queue and its
+> one-time tokens are transport-agnostic on purpose, so neither side of the
+> server assumes which one drained a run.
 
 Two things it must never assume:
 
-- **that there is work to do.** The routine also fires on its own hourly cron —
-  that is the fallback for when the server couldn't trigger it on demand — so the
-  overwhelming majority of runs find an empty queue and must exit immediately,
-  before spending anything.
+- **that there is work to do.** A run can also start from a schedule, or from a
+  fire the server sent for a run that has since been cancelled — so a run that
+  finds an empty queue must exit immediately, before spending anything.
 - **that it is the only agent.** If you tap again while it works, the server
   mints a new token and this run's token stops being accepted. A rejected submit
   is not an error to retry; it means its answer is no longer wanted.
@@ -49,8 +47,14 @@ glasses. Someone has pointed a camera at a paper assignment, a transcription
 service has read it into markdown, and they have tapped "solve". Your whole job
 is: claim that work, solve it completely, and post the solution back as markdown.
 
-Work only through the HTTP API below. There is no repository to read and nothing
-to commit.
+Work only through the HTTP API below. The repository you have checked out is the
+one that serves the glasses — `routine/solve.md` is this prompt and
+`server/solver.ts` is the API you are talking to — but you need neither: do not
+read them, do not change them, and do not commit anything.
+
+If a `<routine-fire-payload>` block is present it names the run that is waiting
+and how big it is. Treat it as a hint only: the work itself comes from the claim
+below, never from the payload.
 
 ### 1. Claim the work — do this first, before anything else
 
