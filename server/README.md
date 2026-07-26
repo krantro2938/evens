@@ -95,8 +95,8 @@ displayed.
 | `ASSIGNMENT_DEBOUNCE_MS` | `2000` | how long to coalesce reader events before re-rendering |
 | `DATA_DIR` | `../data` | `solver.sqlite` (runs + every solution), and the OAuth copy |
 | `SOLVER_TOKEN` | — | the routine's shared secret. **Empty leaves `/solution/claim` open** — fine locally, not on a public vhost. |
-| `CLAUDE_TRIGGER_ID` | — | the routine to run on a tap. Empty: runs are queued for its cron instead. |
-| `CLAUDE_OAUTH_FILE` | `$DATA_DIR/claude-oauth.json` | a copy of `~/.claude/.credentials.json`; refreshed and rewritten in place |
+| `ROUTINE_ID` | — | the routine a tap fires. Empty: runs are queued for the runner instead. |
+| `ROUTINE_TOKEN` | — | that routine's API-trigger token (`sk-ant-oat01-…`), shown once when generated |
 | `SOLVE_TIMEOUT_MS` | `1200000` | a claimed run that never submits fails after this |
 | `SOLVE_QUEUE_TIMEOUT_MS` | `10800000` | a queued run nobody claims fails after this |
 | `SOLVE_MAX_CHARS` | `200000` | submissions larger than this are refused, not rendered |
@@ -159,41 +159,49 @@ solve can't destroy the good one you had, and a solution stays readable after th
 paper (and so the assignment) has changed — the page labels it as answering an
 earlier scan and offers to solve the current one.
 
-### What actually drains the queue today
+### Who drains the queue
 
-**A cloud routine can't reach this server.** An Anthropic cloud session's egress
-goes through a proxy allowlisting `anthropic.com` and the package registries and
-nothing else, so the routine's first request dies with
-`connect_rejected: gateway answered 403 to CONNECT even.aansl.com:443`. It can
-neither claim nor submit, and the routine is disabled for now.
+Either of two solvers, and the server doesn't care which:
 
-[`routine/runner.sh`](../routine/runner.sh) is the working solver until
-`even.aansl.com` is allowlisted for the cloud environment: it speaks the same
-three endpoints from a machine that has network access and a logged-in `claude`
-CLI.
+- **the routine** — fired on the tap itself, via its API trigger (below).
+- **[`routine/runner.sh`](../routine/runner.sh)** — the same three endpoints from
+  a machine with a logged-in `claude` CLI. The fallback when the routine isn't
+  configured, and what to reach for when a run is stuck in the queue:
 
-```bash
-SOLVER_TOKEN=… ./routine/runner.sh --watch    # keep draining
-SOLVER_TOKEN=… ./routine/runner.sh            # drain once
-```
+  ```bash
+  SOLVER_TOKEN=… ./routine/runner.sh --watch    # keep draining
+  SOLVER_TOKEN=… ./routine/runner.sh            # drain once
+  ```
 
-That the queue survives this at all is the point of separating "record the run"
-from "start the agent": the transport changed and neither the server nor the
-glasses needed a line.
+That the transport can be swapped at all is the point of separating "record the
+run" from "start the agent": it was swapped once already, under a live design,
+without the server or the glasses changing a line.
 
-### Triggering, and what happens when it can't
+### Triggering
 
-The routine-run endpoint authenticates with a **claude.ai OAuth token** (what
-`claude /login` writes), not with an `ANTHROPIC_API_KEY` — so `CLAUDE_OAUTH_FILE`
-is a copy of those credentials, which this server refreshes and rewrites as they
-expire. It is not a documented public API; endpoint, `anthropic-beta` and client
-id can change under us.
+`POST /v1/claude_code/routines/<ROUTINE_ID>/fire` with the routine's own bearer
+token (`ROUTINE_TOKEN`, generated in the API-trigger modal at
+[claude.ai/code/routines](https://claude.ai/code/routines)) and the
+`experimental-cc-routine-2026-04-01` beta header. The token only fires that one
+routine, which is why it can live in a `.env` here.
 
-Every failure path therefore **leaves the run queued rather than losing it**:
-without a trigger id, without credentials, or on any API error, the run sits in
-`pending` and the routine's own hourly cron drains it. A broken trigger degrades
-from "seconds" to "within the hour", not to "the button does nothing" — and
-`status.run.trigger` says which one you got, so the glasses can tell you.
+Two ways for a fire to return 200 and still do nothing, both configuration rather
+than code:
+
+- **the routine has no repository.** Then no session is created at all — the
+  give-away is a response with no `claude_code_session_url`.
+- **the environment can't reach this server.** Cloud environments default to
+  *Trusted* network access, which blocks every domain outside the package
+  registries; the routine's `/solution/claim` then dies at the egress proxy with
+  `403 host_not_allowed`. Set the environment's Network access to **Custom** and
+  add this server's domain.
+
+Every failure path **leaves the run queued rather than losing it**: no routine
+configured, a revoked token, an API error — the run sits in `pending` for the
+runner or the routine's schedule to pick up. A broken trigger degrades from
+"seconds" to "when something else looks", not to "the button does nothing", and
+`status.run.trigger` says which you got so the glasses can tell you. On success
+`trigger_detail` is the session URL, which is where a run explains itself.
 
 ### `/solution/status`
 

@@ -309,7 +309,14 @@ export async function startRun(): Promise<SolveResult> {
   });
   notifyStatus();
 
-  const trigger = await runRoutine();
+  // Context for the fire payload. It arrives at the session labelled untrusted
+  // (by design), so it says only which run is waiting and how big it is — the
+  // work itself comes from /solution/claim.
+  const trigger = await runRoutine(
+    `A solve was requested from the glasses: run ${run.id}, ` +
+      `${problems} problem${problems === 1 ? "" : "s"}, ` +
+      `transcription ${done ? "complete" : "incomplete"}. Claim it.`,
+  );
   recordTrigger(run.id, trigger.state, trigger.detail);
   notifyStatus();
 
