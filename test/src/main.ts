@@ -26,6 +26,7 @@ import {
     FOCUSED_COLOR,
     GESTURE_EVENTS,
     HUD_FEEDBACK_RECT,
+    IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
     SOLVE_RECT,
@@ -125,7 +126,14 @@ if (result !== 0) {
 
 // Which build is on the glasses, in the log the glasses can actually send. The
 // z-order mode is the first thing to know when tiles stop arriving.
-appLog("Dashboard created", result, "| z-order", Z_ORDER_ENABLED ? "on" : "OFF");
+appLog(
+    "Dashboard created",
+    result,
+    "| z-order",
+    Z_ORDER_ENABLED ? "on" : "OFF",
+    "| image payload",
+    IMAGE_PAYLOAD,
+);
 
 // Single event subscription - all OS events arrive through onEvenHubEvent.
 // Tap and double-tap events typically arrive through sysEvent; textEvent is

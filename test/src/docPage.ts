@@ -15,6 +15,7 @@ import {
     DOC_EVENT_LAYER_ID,
     DOC_PAGER_ID,
     DOC_TILE_IDS,
+    IMAGE_PAYLOAD,
     GESTURE_EVENTS,
     MARKDOWN_SERVER_URL,
     POLL_INTERVAL_MS,
@@ -209,14 +210,27 @@ export function createDocPage(config: DocPageConfig): DocPage {
     async function pushTile(index: number, bytes: Uint8Array): Promise<boolean> {
         if (sameBytes(displayedTiles[index], bytes)) return true;
 
+        const update = new ImageRawDataUpdate({
+            containerID: DOC_TILE_IDS[index],
+            containerName: `tile${index}`,
+            imageData: bytes,
+        });
+
+        if (IMAGE_PAYLOAD === "legacy") {
+            // Send what 0.0.10 sent. The SDK's own toJson() adds
+            // `compressMode: 2` unconditionally, and a host that predates LZ4
+            // support answers every such send with sendFailed — see the note at
+            // IMAGE_PAYLOAD. Overriding toJson is the whole of the fix: the
+            // bridge serializes through it.
+            (update as unknown as { toJson(): unknown }).toJson = () => ({
+                containerID: DOC_TILE_IDS[index],
+                containerName: `tile${index}`,
+                imageData: Array.from(bytes),
+            });
+        }
+
         for (let attempt = 1; attempt <= PUSH_ATTEMPTS; attempt++) {
-            const result = await bridge.updateImageRawData(
-                new ImageRawDataUpdate({
-                    containerID: DOC_TILE_IDS[index],
-                    containerName: `tile${index}`,
-                    imageData: bytes,
-                }),
-            );
+            const result = await bridge.updateImageRawData(update);
             if (result === "success") {
                 displayedTiles[index] = bytes;
                 return true;

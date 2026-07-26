@@ -65,6 +65,28 @@ export const DOC_FEEDBACK_ID = 7; // assignment only: camera advice / start-stop
 export const DOC_MENU_ID = 8; // both document pages: the centred action menu
 export const DOC_SOLVE_ID = 9; // AI only: the trigger button / solve progress
 
+// ── image payload shape ─────────────────────────────────────────────────────
+// SDK 0.0.12 stamps `compressMode: 2` — LZ4 — into every `updateImageRawData`
+// payload, in ImageRawDataUpdate.toJson(), with no way to turn it off. 0.0.10
+// sent no such field.
+//
+// That is what stopped the tiles arriving: on the day this project moved from
+// ^0.0.10 to ^0.0.12 (for zOrderIndex), every image push began returning
+// `sendFailed` while text upgrades — which carry no compressMode — kept working
+// perfectly. An Even Hub host that predates LZ4 support cannot take the
+// compressed payload, so it refuses the send. Nothing reaches the glasses, and
+// nothing about the image itself is wrong.
+//
+//   "legacy"  send the pre-0.0.12 shape: no compressMode. Works with the host
+//             that is actually on the phone.
+//   "sdk"     let 0.0.12 do what it wants. Switch to this once the Even Hub app
+//             on the phone is new enough — it is the supported path, and LZ4 on
+//             a ~10-30 KB/s link is worth having.
+//
+// The startup log line says which mode a build is running, because this is
+// exactly the sort of thing you cannot tell by looking at the glasses.
+export const IMAGE_PAYLOAD: "legacy" | "sdk" = "legacy";
+
 // ── stacking order (SDK >= 0.0.12) ──────────────────────────────────────────
 // Larger values draw in front. Without this the host stacks by declaration
 // order, and `rebuildPageContainer` sends textObject and imageObject as
