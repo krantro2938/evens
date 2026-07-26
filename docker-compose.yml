@@ -1,0 +1,34 @@
+# Deploys the document server next to the lookcam camera stack:
+#
+#   cp .env.example .env && nano .env
+#   docker compose up -d --build
+#
+# It deliberately publishes no ports. It joins the lookcam stack's network
+# instead, which is what lets it reach the assignment reader as `assignment`
+# and lets that stack's Caddy route even.aansl.com here as `evens` — so the
+# glasses talk to one HTTPS host and nothing extra is exposed on the VPS.
+#
+# That network must already exist, i.e. the lookcam stack is up. It is created
+# by `docker compose up` in cam-capture/vps/docker (project name `lookcam`).
+
+name: evens
+
+services:
+  evens:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      PORT: 8787
+      # Same compose network, so this is the container, not the public vhost —
+      # no TLS, no Caddy hop, and the token never leaves the docker bridge.
+      ASSIGNMENT_URL: ${ASSIGNMENT_URL:-http://assignment:8091}
+      # Must equal ASSIGNMENT_TOKEN in the lookcam stack's .env.
+      ASSIGNMENT_TOKEN: ${ASSIGNMENT_TOKEN:?set ASSIGNMENT_TOKEN in .env}
+      ASSIGNMENT_DEBOUNCE_MS: ${ASSIGNMENT_DEBOUNCE_MS:-2000}
+    networks: [lookcam]
+
+networks:
+  lookcam:
+    external: true
+    name: lookcam_default
