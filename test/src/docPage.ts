@@ -62,6 +62,16 @@ export interface DocPage {
     overlayTiles(bytes: readonly Uint8Array[]): Promise<void>;
     /** Put the document's own tiles back after an overlay. */
     restoreTiles(): Promise<void>;
+    /**
+     * Whether an overlay currently owns the tiles.
+     *
+     * The one honest answer to "is the document visible right now", and the
+     * reason it is exposed: an owner that kept its own copy of this would be
+     * reading a snapshot taken before the write queue drained, and would decide
+     * to leave the backdrop up on a page that had already moved on. Read it
+     * inside `enqueue`, where it is the truth.
+     */
+    isMasked(): boolean;
 }
 
 interface Snapshot {
@@ -297,6 +307,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
         updatePager,
         overlayTiles,
         restoreTiles,
+        isMasked: () => masked,
 
         /** Called by main.ts after the page containers are built. */
         async enter(): Promise<void> {

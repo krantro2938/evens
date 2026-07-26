@@ -40,11 +40,6 @@ const SOLVE_BASE = "/solution";
 // ignore gestures until it lands so an impatient double-press can't queue two.
 let requestInFlight = false;
 
-// The backdrop is up and the tiles are hidden. Tracked because the menu shares
-// the backdrop: closing the menu must not restore the document from under a
-// button that is still showing.
-let masked = false;
-
 // Progress is the one thing the server can't push often enough — a queued run
 // sends no events at all while it waits for the agent to pick it up. So the
 // elapsed time is counted locally from the last status we saw.
@@ -270,12 +265,12 @@ const menu = createMenu({
         await page.updatePager();
     },
     backdrop: {
-        // Already dark when the button is up: putting it up twice would push four
-        // identical tiles over BLE for nothing.
-        show: (tiles) => (masked ? Promise.resolve() : showBackdrop(tiles)),
-        // ...and taking it down while the button still needs it would restore the
+        // Putting it up twice is free — the tiles dedup identical bytes — so this
+        // needs no "already dark?" test of its own.
+        show: (tiles) => page.overlayTiles(tiles),
+        // Taking it down while the button still needs it would restore the
         // document under a button that is still on screen.
-        hide: () => (buttonUp() ? Promise.resolve() : hideBackdrop()),
+        hide: () => (buttonUp() ? Promise.resolve() : page.restoreTiles()),
     },
 });
 
@@ -289,30 +284,38 @@ const solveBox = createPanel({
     enqueue: (task) => page.enqueue(task),
 });
 
-async function showBackdrop(tiles: readonly Uint8Array[]): Promise<void> {
-    await page.overlayTiles(tiles);
-    // overlayTiles refuses while the document's own tiles have never arrived —
-    // there would be nothing to restore afterwards. So we are only masked if
-    // there was something to mask; if not, `afterShow` puts the backdrop up as
-    // soon as the first tiles land.
-    masked = GlobalState.aiState.pages.length > 0;
+/**
+ * Put the backdrop where it belongs — the only writer, and it decides *inside*
+ * the page's write chain.
+ *
+ * That matters more than it looks. Deciding outside the chain means deciding from
+ * a snapshot: two status events landing together (a finished solve sends the
+ * document and the status at once) would queue "put the backdrop up" and then,
+ * reading a flag the first task hadn't yet set, queue nothing to take it down.
+ * The backdrop went up last and stayed there — a blank document with a perfectly
+ * up-to-date pager over it, and no further event to fix it. On the glasses every
+ * bridge write costs hundreds of milliseconds, so that window was wide open;
+ * in a browser the queue drained first and it looked fine.
+ *
+ * `page.isMasked()` read here is the truth, and overlay/restore are cheap when
+ * they have nothing to do.
+ */
+function syncBackdrop(): void {
+    void page.enqueue(async () => {
+        const wanted = buttonUp();
+        if (wanted && !page.isMasked()) await page.overlayTiles(backdrop());
+        else if (!wanted && page.isMasked() && !menu.isOpen()) {
+            await page.restoreTiles();
+        }
+    });
 }
 
-async function hideBackdrop(): Promise<void> {
-    await page.restoreTiles();
-    masked = false;
-}
-
-/** Text into the box, backdrop under it, both only when they should be. */
+/** The box's text, and the backdrop under it. */
 function paintButton(): void {
-    const wanted = buttonUp();
-
     // The menu owns the rectangle while it is open; the button gets it back when
     // the menu closes (onPaint runs then too).
-    solveBox.set(menu.isOpen() || !wanted ? " " : buttonText());
-
-    if (wanted && !masked) void page.enqueue(() => showBackdrop(backdrop()));
-    else if (!wanted && masked && !menu.isOpen()) void page.enqueue(hideBackdrop);
+    solveBox.set(menu.isOpen() || !buttonUp() ? " " : buttonText());
+    syncBackdrop();
 }
 
 /** Repaint on a timer while a run is in flight, so the elapsed time moves. */
@@ -408,7 +411,8 @@ function leavePage(): void {
 
 /** Called by main.ts after the AI page containers are built. */
 export async function enterAiPage(): Promise<void> {
-    masked = false; // fresh containers: nothing is covering anything yet
+    // page.enter() clears the overlay state itself — the containers are new, so
+    // nothing can be covering anything.
     await page.enter();
     paintButton();
 }
@@ -421,7 +425,6 @@ export function leaveAiPage(): void {
     }
     // No repaint: the containers are about to be torn down with the page.
     menu.close(false);
-    masked = false;
     page.leave();
 }
 

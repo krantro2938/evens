@@ -24,6 +24,8 @@ const DOC_ROUTES = [
     "/events",
     "/assignment",
     "/solution",
+    // The app ships its own log here — the glasses have no console.
+    "/log",
 ];
 
 export default defineConfig(({ mode }) => {

@@ -195,6 +195,43 @@ function documentStream(source: DocSource, statusFeed?: StatusFeed) {
     });
 }
 
+// ── the app's log ───────────────────────────────────────────────────────────
+//
+// The glasses have no console. Whatever the bridge refuses — a page rebuild the
+// host rejected, a tile push that didn't land — is invisible on the device and
+// obvious in the simulator, which is precisely backwards from where the bugs
+// live. So the app ships its log here (see test/src/debug.ts) and `curl /log`
+// reads it back.
+//
+// In memory and bounded: this is a debug aid, not a record. It resets on restart.
+
+const LOG_CAPACITY = 500;
+const appLogLines: string[] = [];
+
+app.post("/log", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    source?: unknown;
+    lines?: unknown;
+  };
+  const source = typeof body.source === "string" ? body.source.slice(0, 16) : "app";
+  const lines = Array.isArray(body.lines) ? body.lines : [];
+  for (const line of lines.slice(0, 100)) {
+    appLogLines.push(`${source} ${String(line).slice(0, 500)}`);
+  }
+  while (appLogLines.length > LOG_CAPACITY) appLogLines.shift();
+  return c.json({ ok: true, held: appLogLines.length });
+});
+
+app.get("/log", (c) => {
+  const tail = Number(c.req.query("tail") ?? 200);
+  return c.text(appLogLines.slice(-Math.max(1, tail)).join("\n") + "\n");
+});
+
+app.delete("/log", (c) => {
+  appLogLines.length = 0;
+  return c.json({ ok: true });
+});
+
 app.get("/markdown", async (c) => {
   try {
     return c.json(await aiSource.read());
