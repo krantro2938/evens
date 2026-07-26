@@ -159,6 +159,28 @@ solve can't destroy the good one you had, and a solution stays readable after th
 paper (and so the assignment) has changed — the page labels it as answering an
 earlier scan and offers to solve the current one.
 
+### What actually drains the queue today
+
+**A cloud routine can't reach this server.** An Anthropic cloud session's egress
+goes through a proxy allowlisting `anthropic.com` and the package registries and
+nothing else, so the routine's first request dies with
+`connect_rejected: gateway answered 403 to CONNECT even.aansl.com:443`. It can
+neither claim nor submit, and the routine is disabled for now.
+
+[`routine/runner.sh`](../routine/runner.sh) is the working solver until
+`even.aansl.com` is allowlisted for the cloud environment: it speaks the same
+three endpoints from a machine that has network access and a logged-in `claude`
+CLI.
+
+```bash
+SOLVER_TOKEN=… ./routine/runner.sh --watch    # keep draining
+SOLVER_TOKEN=… ./routine/runner.sh            # drain once
+```
+
+That the queue survives this at all is the point of separating "record the run"
+from "start the agent": the transport changed and neither the server nor the
+glasses needed a line.
+
 ### Triggering, and what happens when it can't
 
 The routine-run endpoint authenticates with a **claude.ai OAuth token** (what

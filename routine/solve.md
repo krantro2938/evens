@@ -6,6 +6,27 @@ alongside the server it talks to; the live copy lives in the routine itself at
 <https://claude.ai/code/routines>, with `<EVENS_URL>` and `<SOLVER_TOKEN>`
 substituted for real values.
 
+> **BLOCKED, and disabled for now.** An Anthropic cloud session's outbound
+> traffic goes through a proxy that allows `anthropic.com` and the package
+> registries and nothing else, so the routine's very first request dies at the
+> gateway:
+>
+> ```
+> connect_rejected: gateway answered 403 to CONNECT   even.aansl.com:443
+> curl: (56) CONNECT tunnel failed, response 403
+> ```
+>
+> It can neither claim work nor post an answer, which is why the routine
+> (`trig_01Ez1UmxHhLrJXpsCzgNsiXA`) is currently `enabled: false` — an hourly
+> cron that always dies at the proxy is a session an hour for nothing. Until
+> `even.aansl.com` is allowlisted for the cloud environment,
+> **[`runner.sh`](runner.sh) is what drains the queue**: it speaks exactly this
+> API from a machine that has network access and a logged-in `claude` CLI.
+>
+> Nothing on the server assumes one or the other. If the allowlist changes,
+> re-enable the routine and both paths work — the queue and its one-time tokens
+> are transport-agnostic by design.
+
 Two things it must never assume:
 
 - **that there is work to do.** The routine also fires on its own hourly cron —

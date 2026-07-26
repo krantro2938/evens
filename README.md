@@ -27,11 +27,25 @@ server that renders them.
                                               (cloud session)
 ```
 
-The AI page shows whatever the routine last solved. When there is no solution for
-the paper currently under the camera, it shows a trigger button instead: a tap
-hands the transcription to the routine and the answer arrives on the glasses when
-it's done. Every solution is kept in SQLite, so nothing is lost across restarts —
-see [`server/README.md`](server/README.md#the-solve-loop).
+The AI page shows whatever was last solved. When there is no solution for the
+paper currently under the camera, it shows a trigger button instead: a tap hands
+the transcription to a solver and the answer arrives on the glasses when it's
+done. Every solution is kept in SQLite, so nothing is lost across restarts — see
+[`server/README.md`](server/README.md#the-solve-loop).
+
+**The solver is `routine/runner.sh` for now, not the cloud routine.** A tap always
+records the run server-side; what picks it up is deliberately separate. The cloud
+routine can't, because an Anthropic cloud session's egress proxy refuses
+`CONNECT even.aansl.com:443` — so run the runner on a machine with a logged-in
+`claude` CLI:
+
+```bash
+SOLVER_TOKEN=<same as .env> ./routine/runner.sh --watch
+```
+
+Tap with no runner up and the run simply waits; the glasses say `QUEUED` rather
+than pretending. See [`routine/solve.md`](routine/solve.md) for the routine, why
+it's disabled, and what re-enabling it needs.
 
 The glasses app talks to **one origin only**: the document server. Everything
 upstream of it — the reader, the camera stack, the API keys — is the document
