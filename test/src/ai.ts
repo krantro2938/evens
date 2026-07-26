@@ -135,27 +135,26 @@ function buttonText(): string {
             return lines.join("\n");
         }
 
+        // One visible state for the whole time a solve is in flight. The server
+        // distinguishes "the agent hasn't picked it up yet" from "it is working",
+        // because it has to time those out differently — but from here they are
+        // the same wait, and naming the seam only invited the question of whether
+        // anything was actually happening.
         case "queued":
-            // Two very different waits. A triggered run is a cloud session
-            // starting up; an untriggered one is sitting in the queue until the
-            // routine's own schedule comes round, which is not something to stare
-            // at for an hour.
-            return s.run?.trigger === "triggered"
-                ? [
-                      "SENT TO CLAUDE",
-                      "",
-                      "waiting for the agent",
-                      elapsed(runElapsedMs()),
-                  ].join("\n")
-                : [
-                      "QUEUED",
-                      "",
-                      "no trigger configured -",
-                      "the routine's next run",
-                      "will pick this up",
-                  ].join("\n");
-
         case "solving":
+            // The exception, because it is the one case where the answer is
+            // "nothing, and it won't happen on its own".
+            if (s.state === "queued" && s.run?.trigger !== "triggered") {
+                return [
+                    "WAITING",
+                    "",
+                    "no solver is configured,",
+                    "so nothing is working",
+                    "on this yet",
+                    "",
+                    "2x = menu",
+                ].join("\n");
+            }
             return [
                 "CLAUDE IS SOLVING",
                 "",
@@ -197,11 +196,10 @@ function pagerLabel(state: DocState): string {
                 ? "Tap to solve"
                 : "Tap to solve (page incomplete)";
         case "queued":
-            return s.run?.trigger === "triggered"
-                ? `Sent to Claude - ${elapsed(runElapsedMs())}`
-                : "Queued for the next routine run";
         case "solving":
-            return `Solving - ${elapsed(runElapsedMs())}`;
+            return s.state === "queued" && s.run?.trigger !== "triggered"
+                ? "Waiting - no solver configured"
+                : `Solving - ${elapsed(runElapsedMs())}`;
         case "failed":
             return "Solve failed - tap to retry";
         case "solved": {
@@ -249,7 +247,6 @@ function menuHeading(): string {
         case "idle":
             return `READY - ${s.assignment.problems} problems`;
         case "queued":
-            return `QUEUED - ${elapsed(runElapsedMs())}`;
         case "solving":
             return `SOLVING - ${elapsed(runElapsedMs())}`;
         case "failed":

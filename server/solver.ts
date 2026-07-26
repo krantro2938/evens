@@ -189,7 +189,10 @@ export async function getSolverStatus(): Promise<SolverStatus> {
   if (active) state = run!.state === "claimed" ? "solving" : "queued";
   else if (solvedThis) state = "solved";
   else if (!snapshot || problems === 0) state = "no_assignment";
-  else if (run && (run.state === "failed" || run.state === "cancelled")) state = "failed";
+  // Only a real failure reports as one. Cancelling your own solve is a decision,
+  // and reading it back as "SOLVE FAILED - no reason given" made the glasses
+  // accuse the person who pressed the button.
+  else if (run?.state === "failed") state = "failed";
   else state = "idle";
 
   return {
