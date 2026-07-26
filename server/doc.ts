@@ -3,7 +3,7 @@
 // cache, the SSE fan-out — is written against this interface, so adding a
 // second document (the assignment reader) costs no rendering code at all.
 
-import { renderTiles, type TilePage } from "./render/tiles";
+import { renderTiles, type RenderOptions, type TilePage } from "./render/tiles";
 
 export interface Snapshot {
     content: string;
@@ -33,7 +33,10 @@ export interface TilesResult {
  * concurrent requests — a burst of glasses clients renders once. One cache per
  * source; they hold different documents and their versions are unrelated.
  */
-export function createTileCache(source: DocSource): () => Promise<TilesResult> {
+export function createTileCache(
+    source: DocSource,
+    opts: RenderOptions = {},
+): () => Promise<TilesResult> {
     let cache: TilesResult | null = null;
     let inFlight: Promise<TilesResult> | null = null;
 
@@ -44,7 +47,7 @@ export function createTileCache(source: DocSource): () => Promise<TilesResult> {
 
         inFlight = (async () => {
             const started = Date.now();
-            const pages = await renderTiles(content);
+            const pages = await renderTiles(content, opts);
             const result: TilesResult = { version, pages };
             cache = result;
             console.log(

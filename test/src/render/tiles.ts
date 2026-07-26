@@ -20,7 +20,8 @@ interface TilesResponse {
     pages: { tiles: { index: number; data: string }[] }[];
 }
 
-function base64ToBytes(b64: string): Uint8Array {
+/** Also used for the menu's backdrop tiles, which ship base64 in the bundle. */
+export function base64ToBytes(b64: string): Uint8Array {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);

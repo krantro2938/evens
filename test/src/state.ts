@@ -34,11 +34,47 @@ export type AssignmentStatus = {
     error: string | null;
 };
 
+/** Mirror of the server's AI-page `status` payload (see server/solver.ts). */
+export type SolverStatus = {
+    /** no_assignment | idle | queued | solving | solved | failed. `idle` and
+     *  `failed` are what put the trigger button on screen. */
+    state: "no_assignment" | "idle" | "queued" | "solving" | "solved" | "failed";
+    assignment: {
+        available: boolean;
+        version: number | null;
+        problems: number;
+        /** The reader believes it has the whole page. */
+        done: boolean;
+    };
+    solution: {
+        created_at: number;
+        age_ms: number;
+        model: string | null;
+        assignment_version: number | null;
+        /** What's displayed answers an EARLIER scan than the current paper. */
+        stale: boolean;
+        chars: number;
+    } | null;
+    run: {
+        id: number;
+        state: string;
+        created_at: number;
+        age_ms: number;
+        claimed: boolean;
+        /** triggered | unconfigured | failed — how the routine was (not) kicked. */
+        trigger: string | null;
+        trigger_detail: string | null;
+        error: string | null;
+    } | null;
+    trigger: { configured: boolean; detail: string };
+    solutions: number;
+};
+
 const newDocState = (): DocState => ({
     pages: [],
     currentPage: 0,
     version: -1,
-    status: "Loading…",
+    status: "Loading...",
 });
 
 export class GLOBAL_STATE {
@@ -49,6 +85,8 @@ export class GLOBAL_STATE {
     assignmentState: DocState = newDocState();
     /** Live job/camera state from the reader; null until the first `status`. */
     assignmentStatus: AssignmentStatus | null = null;
+    /** Live solve state for the AI page; null until the first `status`. */
+    solverStatus: SolverStatus | null = null;
     currentPage: PAGES = PAGES.DASHBOARD;
 
     constructor() {}

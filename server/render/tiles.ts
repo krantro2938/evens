@@ -8,9 +8,18 @@
 // payload the client forwards stays small.
 
 import { chromium, type Browser } from "playwright";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { RENDER_CSS, RENDER_WIDTH } from "./styles";
-import { PAGE_H, PAGE_OVERLAP, TILE_H, TILES_X, TILES_Y, TILE_W } from "./constants";
+import {
+    HUD_BORDER,
+    PAGE_H,
+    PAGE_OVERLAP,
+    TILE_H,
+    TILES_X,
+    TILES_Y,
+    TILE_W,
+    type Rect,
+} from "./constants";
 import { renderMarkdownToHtml } from "./markdown";
 
 export interface TileData {
@@ -68,27 +77,56 @@ async function screenshot(bodyHtml: string): Promise<Buffer> {
     }
 }
 
+/**
+ * A page-sized RGBA layer: transparent everywhere except the reserved regions,
+ * which are opaque black with a bright frame.
+ *
+ * Built once per render at page scale rather than per tile, so a region that
+ * straddles a tile boundary needs no special handling — each tile just takes
+ * its own crop of this.
+ */
+function reservedLayer(rects: readonly Rect[]): Buffer {
+    const width = TILE_W * TILES_X;
+    const layer = Buffer.alloc(width * PAGE_H * 4, 0); // transparent
+
+    const put = (x: number, y: number, value: number) => {
+        if (x < 0 || y < 0 || x >= width || y >= PAGE_H) return;
+        const i = (y * width + x) * 4;
+        layer[i] = layer[i + 1] = layer[i + 2] = value;
+        layer[i + 3] = 0xff; // opaque
+    };
+
+    for (const r of rects) {
+        for (let y = r.y; y < r.y + r.h; y++) {
+            for (let x = r.x; x < r.x + r.w; x++) {
+                const onBorder =
+                    x < r.x + HUD_BORDER ||
+                    x >= r.x + r.w - HUD_BORDER ||
+                    y < r.y + HUD_BORDER ||
+                    y >= r.y + r.h - HUD_BORDER;
+                put(x, y, onBorder ? 0xff : 0x00);
+            }
+        }
+    }
+    return layer;
+}
+
 // Slice the tall screenshot into pages of four tiles. Regions past the document
 // end are padded with black so every tile is a full 288×128.
-async function slice(png: Buffer): Promise<TilePage[]> {
+async function slice(png: Buffer, reserved: readonly Rect[] = []): Promise<TilePage[]> {
     const meta = await sharp(png).metadata();
     const imgW = meta.width ?? RENDER_WIDTH;
     const imgH = meta.height ?? 0;
-
-    const blackTile = (
-        await sharp({
-            create: { width: TILE_W, height: TILE_H, channels: 3, background: "#000" },
-        })
-            .grayscale()
-            .png({ compressionLevel: 9, palette: true, colours: 16 })
-            .toBuffer()
-    ).toString("base64");
 
     // Each page advances by (PAGE_H - PAGE_OVERLAP) so consecutive pages share
     // PAGE_OVERLAP rows of context.
     const stride = Math.max(1, PAGE_H - PAGE_OVERLAP);
     const pageCount = imgH <= PAGE_H ? 1 : Math.ceil((imgH - PAGE_H) / stride) + 1;
     const pages: TilePage[] = [];
+
+    // Same on every page and every tile position, so build it once and crop.
+    const pageW = TILE_W * TILES_X;
+    const layer = reserved.length ? reservedLayer(reserved) : null;
 
     for (let p = 0; p < pageCount; p++) {
         const pageTop = p * stride;
@@ -101,18 +139,40 @@ async function slice(png: Buffer): Promise<TilePage[]> {
                 const availW = Math.min(TILE_W, imgW - sx);
                 const availH = Math.min(TILE_H, imgH - sy);
 
-                if (availW <= 0 || availH <= 0) {
-                    tiles.push({ index, data: blackTile });
-                    continue;
+                const layers: OverlayOptions[] = [];
+
+                // Past the end of the document this stays empty and the tile is
+                // just the black background.
+                if (availW > 0 && availH > 0) {
+                    layers.push({
+                        input: await sharp(png)
+                            .extract({ left: sx, top: sy, width: availW, height: availH })
+                            .toBuffer(),
+                        left: 0,
+                        top: 0,
+                    });
                 }
 
-                const region = await sharp(png)
-                    .extract({ left: sx, top: sy, width: availW, height: availH })
-                    .toBuffer();
+                // The reserved panel backgrounds go on last, over the document —
+                // covering it is the entire point.
+                if (layer) {
+                    const crop = Buffer.alloc(TILE_W * TILE_H * 4);
+                    for (let y = 0; y < TILE_H; y++) {
+                        const from = ((ty * TILE_H + y) * pageW + tx * TILE_W) * 4;
+                        layer.copy(crop, y * TILE_W * 4, from, from + TILE_W * 4);
+                    }
+                    layers.push({
+                        input: crop,
+                        raw: { width: TILE_W, height: TILE_H, channels: 4 },
+                        left: 0,
+                        top: 0,
+                    });
+                }
+
                 const tileBuf = await sharp({
                     create: { width: TILE_W, height: TILE_H, channels: 3, background: "#000" },
                 })
-                    .composite([{ input: region, left: 0, top: 0 }])
+                    .composite(layers)
                     .grayscale()
                     .png({ compressionLevel: 9, palette: true, colours: 16 })
                     .toBuffer();
@@ -125,8 +185,20 @@ async function slice(png: Buffer): Promise<TilePage[]> {
     return pages;
 }
 
-export async function renderTiles(markdown: string): Promise<TilePage[]> {
+export interface RenderOptions {
+    /**
+     * Regions the glasses keep a permanent text panel over. Painted dark with a
+     * frame so the panel's text is legible — see the note at HUD_FEEDBACK for
+     * why this can't be done on the device.
+     */
+    reserved?: readonly Rect[];
+}
+
+export async function renderTiles(
+    markdown: string,
+    opts: RenderOptions = {},
+): Promise<TilePage[]> {
     const html = await renderMarkdownToHtml(markdown);
     const png = await screenshot(html);
-    return slice(png);
+    return slice(png, opts.reserved ?? []);
 }

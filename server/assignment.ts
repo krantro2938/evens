@@ -7,7 +7,8 @@
 //   - ONE upstream SSE connection, shared by every glasses client
 //   - a document view: the markdown, versioned by content hash
 //   - a status view: job state + the model's camera advice ("move_down", …)
-//   - toggle(): start | stop | reset+start, decided from live job state
+//   - control(): start | stop | reset | restart | extend, and a toggle() that
+//     picks the sensible one from live job state
 //
 // The reader's API token stays on this side. The glasses app never sees it,
 // which matters because EventSource can't set headers — a browser-side client
@@ -321,54 +322,131 @@ async function post(path: string, body?: unknown): Promise<Response> {
     });
 }
 
-export interface ToggleResult {
+/** How much extra budget "extend" buys past a `max_captures` stop. */
+const EXTEND_BY = 20;
+
+/**
+ * What the caller asks for. Everything except `toggle` is literal — the glasses
+ * menu names these directly, so the reader's state machine can't surprise it.
+ *
+ *   start    begin, or resume into the existing transcription
+ *   stop     end the running job, keeping what's been read
+ *   reset    archive the attempt and clear, without spending a capture
+ *   restart  reset, then start — a rescan from scratch
+ *   extend   raise the capture ceiling and carry on (the `max_captures` exit)
+ *   toggle   whichever of the above fits the current state (the tap gesture)
+ */
+export type ControlAction =
+    | "start"
+    | "stop"
+    | "reset"
+    | "restart"
+    | "extend"
+    | "toggle";
+
+export interface ControlResult {
     ok: boolean;
     /** What we actually did, so the caller can label its button. */
-    action: "started" | "stopped" | "restarted" | "failed";
+    action: "started" | "stopped" | "reset" | "restarted" | "extended" | "failed";
     detail?: string;
 }
 
+/** @deprecated name kept for the tap path; `control` is the general form. */
+export type ToggleResult = ControlResult;
+
+const fail = (detail: string): ControlResult => ({ ok: false, action: "failed", detail });
+
+/** POST that turns a non-2xx into the message we'd want to read on the glasses. */
+async function call(path: string, body?: unknown): Promise<string | null> {
+    const res = await post(path, body);
+    if (res.ok) return null;
+    const text = await res.text().catch(() => "");
+    return text.slice(0, 200) || `${path} HTTP ${res.status}`;
+}
+
+/** The reader answers 409 with a JSON blob; unreadable in a two-line box. */
+const BUSY = "a job is already running";
+
 /**
- * One call the glasses can make without knowing the reader's state machine.
+ * Every control the glasses can ask for, in one call.
  *
- * /start answers 409 both while a job runs AND once the assignment is complete
- * (that one wants /reset first). Deciding here — where the live job state
- * already is — keeps that branching out of the glasses app.
+ * The reader's endpoints are individually simple but their preconditions are
+ * not: /start answers 409 both while a job runs AND once the assignment is
+ * complete, and after a `max_captures` stop it "succeeds" while doing nothing —
+ * the ceiling counts captures per version, so the job re-finishes immediately.
+ * Composing that here, where the live job state already is, keeps the branching
+ * out of the glasses app.
  */
-export async function toggle(): Promise<ToggleResult> {
-    if (!isConfigured()) return { ok: false, action: "failed", detail: "ASSIGNMENT_URL not set" };
+export async function control(action: ControlAction): Promise<ControlResult> {
+    if (!isConfigured()) return fail("ASSIGNMENT_URL not set");
 
     try {
-        if (status.running) {
-            const res = await post("/stop");
-            if (!res.ok) return { ok: false, action: "failed", detail: `stop HTTP ${res.status}` };
-            status.running = false;
-            notifyStatus();
-            return { ok: true, action: "stopped" };
-        }
+        switch (action) {
+            case "toggle":
+                return control(defaultAction());
 
-        // A finished assignment has to be archived before a new pass; without
-        // this the glasses would just get a 409 they can't act on.
-        const restarting = status.done;
-        if (restarting) {
-            const res = await post("/reset");
-            if (!res.ok) return { ok: false, action: "failed", detail: `reset HTTP ${res.status}` };
-        }
+            case "stop": {
+                const err = await call("/stop");
+                if (err) return fail(err);
+                status.running = false;
+                notifyStatus();
+                return { ok: true, action: "stopped" };
+            }
 
-        const res = await post("/start");
-        if (!res.ok) {
-            const detail = await res.text().catch(() => "");
-            return { ok: false, action: "failed", detail: detail.slice(0, 200) || `start HTTP ${res.status}` };
+            case "reset": {
+                const err = await call("/reset");
+                if (err) return fail(err);
+                // The reader's own `reset` event clears the rest; this just stops
+                // the box claiming a job is live until it arrives.
+                status.running = false;
+                notifyStatus();
+                return { ok: true, action: "reset" };
+            }
+
+            case "restart": {
+                // /reset also stops a running job, so this covers "scrap this and
+                // start over" from any state.
+                const err = await call("/reset");
+                if (err) return fail(err);
+                return afterStart(await call("/start"), "restarted");
+            }
+
+            case "extend": {
+                // Resuming after `max_captures` needs a bigger ceiling or the job
+                // ends on the same check it ended on last time.
+                if (status.running) return fail(BUSY);
+                const err = await call("/start", {
+                    max_captures: status.captures + EXTEND_BY,
+                });
+                return afterStart(err, "extended");
+            }
+
+            case "start":
+                if (status.running) return fail(BUSY);
+                return afterStart(await call("/start"), "started");
         }
-        status.running = true;
-        status.reason = null;
-        notifyStatus();
-        return { ok: true, action: restarting ? "restarted" : "started" };
     } catch (err) {
-        return {
-            ok: false,
-            action: "failed",
-            detail: err instanceof Error ? err.message : String(err),
-        };
+        return fail(err instanceof Error ? err.message : String(err));
     }
 }
+
+/** Shared tail of every action that leaves a job running. */
+function afterStart(err: string | null, action: ControlResult["action"]): ControlResult {
+    if (err) return fail(err);
+    status.running = true;
+    status.reason = null;
+    notifyStatus();
+    return { ok: true, action };
+}
+
+/** What a plain tap should do, given where the job is. */
+export function defaultAction(): Exclude<ControlAction, "toggle"> {
+    if (status.running) return "stop";
+    // Both of these leave /start unable to make progress: a complete assignment
+    // is 409, and a spent budget re-finishes on the first loop check.
+    if (status.done || status.reason === "max_captures") return "restart";
+    return "start";
+}
+
+/** The tap gesture: one call, no knowledge of the reader's state machine. */
+export const toggle = (): Promise<ControlResult> => control("toggle");

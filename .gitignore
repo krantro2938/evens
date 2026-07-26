@@ -66,6 +66,14 @@ web_modules/
 .env.*
 !.env.example
 
+# The solve loop's state: solution history, and a copy of the claude.ai OAuth
+# credentials when the trigger is configured locally. Never commit either.
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+claude-oauth.json
+
 # Misc OS / editor files
 .DS_Store
 Thumbs.db

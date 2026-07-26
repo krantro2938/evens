@@ -6,8 +6,11 @@ server that renders them.
 - **`test/`** — the glasses app (Vite + TypeScript + Even Hub SDK).
 - **`server/`** — the document server: watches `solution.md`, bridges the
   [lookcam assignment reader](https://github.com/krantro2938/math-server-capture),
-  and pre-renders both into PNG tiles so the glasses stay thin.
-- **`solution.md`** — the worked solutions shown on the AI page.
+  runs the solve loop, and pre-renders every document into PNG tiles so the
+  glasses stay thin.
+- **`routine/solve.md`** — the prompt the Claude routine runs when you tap
+  "solve" on the glasses.
+- **`solution.md`** — the fallback for the AI page, until a solve has landed.
 
 ## How the pieces connect
 
@@ -17,7 +20,18 @@ server that renders them.
                                                          ▼
  solution.md ──────────── watched ──────────▶ document server ──▶ glasses app
                                               (renders tiles)      (this repo)
+                                                    │  ▲
+                                    trigger on tap   │  │  markdown back
+                                                     ▼  │
+                                              Claude routine
+                                              (cloud session)
 ```
+
+The AI page shows whatever the routine last solved. When there is no solution for
+the paper currently under the camera, it shows a trigger button instead: a tap
+hands the transcription to the routine and the answer arrives on the glasses when
+it's done. Every solution is kept in SQLite, so nothing is lost across restarts —
+see [`server/README.md`](server/README.md#the-solve-loop).
 
 The glasses app talks to **one origin only**: the document server. Everything
 upstream of it — the reader, the camera stack, the API keys — is the document
@@ -30,12 +44,18 @@ Each service owns one file. Nothing is configured in two places.
 | File | Owns | Key settings |
 |---|---|---|
 | `test/.env.local` | the glasses app | `VITE_MD_TARGET` (dev proxy), `VITE_MD_SERVER` (packed build) |
-| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS` |
+| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `CLAUDE_TRIGGER_ID` |
+| the routine, at [claude.ai/code/routines](https://claude.ai/code/routines) | the solving agent | its prompt (a copy lives in `routine/solve.md`), its model, and `SOLVER_TOKEN` again |
 | `vps/docker/.env` in the lookcam repo | the camera stack and the reader | `GEMINI_API_KEY`, `ASSIGNMENT_TOKEN`, `SNAPSHOT_TOKEN`, `DOMAIN`, `ASSIGNMENT_DOMAIN`, `EVENS_DOMAIN` |
 
-`ASSIGNMENT_TOKEN` is the one value that must match across two files — this
-repo's `.env` and the lookcam stack's. If the assignment page is empty and
-`/assignment/status` reports an error, check that first.
+Two values have to match across files, and both fail quietly if they don't:
+
+- `ASSIGNMENT_TOKEN` — this repo's `.env` and the lookcam stack's. If the
+  assignment page is empty and `/assignment/status` reports an error, check that
+  first.
+- `SOLVER_TOKEN` — this repo's `.env` and the routine's prompt. If a tap says
+  "solving" and nothing ever arrives, the routine is being answered `401` at
+  `/solution/claim`.
 
 Templates: `.env.example` in this directory and in `test/`.
 

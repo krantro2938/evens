@@ -5,6 +5,8 @@ import {
     CreateStartUpPageContainer,
     RebuildPageContainer,
     OsEventTypeList,
+    validateEvenHubPageContainerZOrder,
+    formatEvenHubPageContainerValidationError,
 } from "@evenrealities/even_hub_sdk";
 import {
     BODY_H,
@@ -15,20 +17,26 @@ import {
     DEFAULT_COLOR,
     DOC_EVENT_LAYER_ID,
     DOC_FEEDBACK_ID,
+    DOC_MENU_ID,
     DOC_PAGER_H,
     DOC_PAGER_ID,
     DOC_PAGER_Y,
+    DOC_SOLVE_ID,
     DOC_TILE_IDS,
-    FEEDBACK_H,
-    FEEDBACK_W,
-    FEEDBACK_X,
-    FEEDBACK_Y,
     FOCUSED_COLOR,
     GESTURE_EVENTS,
+    HUD_FEEDBACK_RECT,
     MENU_ITEMS,
     PAGES,
+    SOLVE_RECT,
     TILE_H,
     TILE_W,
+    Z_BACKDROP,
+    Z_FEEDBACK,
+    Z_PAGER,
+    Z_SOLVE,
+    Z_TILE_BASE,
+    zOrder,
 } from "./constants";
 import { GlobalState } from "./state";
 import { handleDashboardEvent } from "./dashboard";
@@ -40,6 +48,8 @@ import {
     leaveAssignmentPage,
 } from "./assignment";
 import { tileLayout } from "./render/tiles";
+import { menuContainer } from "./menu";
+import { panelContainer } from "./panel";
 import { appLog } from "./debug";
 
 // Wait for the bridge to be ready before doing anything else.
@@ -61,6 +71,7 @@ const main = new TextContainerProperty({
     containerName: "main",
     content: " ",
     isEventCapture: 1, // ← receive click events on this container
+    ...zOrder(Z_BACKDROP),
 });
 
 function createDashboardTiles() {
@@ -82,6 +93,7 @@ function createDashboardTiles() {
             containerName: item,
             content: item,
             isEventCapture: 0,
+            ...zOrder(Z_TILE_BASE + index),
         });
     });
 }
@@ -89,12 +101,20 @@ function createDashboardTiles() {
 const dashboardTiles = createDashboardTiles();
 
 // Render the page. `result` is 0 on success.
-const result = await bridge.createStartUpPageContainer(
-    new CreateStartUpPageContainer({
-        containerTotalNum: dashboardTiles.length + 1,
-        textObject: [main, ...dashboardTiles],
-    }),
-);
+const startUpPage = new CreateStartUpPageContainer({
+    containerTotalNum: dashboardTiles.length + 1,
+    textObject: [main, ...dashboardTiles],
+});
+
+// The dashboard's containers don't overlap, so their order is irrelevant — but
+// z-order is all-or-nothing, and a page that skips it once the app has used it
+// elsewhere is the sort of inconsistency that shows up as a blank panel.
+const startUpZ = validateEvenHubPageContainerZOrder(startUpPage);
+if (!startUpZ.valid) {
+    appLog("Z-ORDER INVALID (dashboard)", formatEvenHubPageContainerValidationError(startUpZ));
+}
+
+const result = await bridge.createStartUpPageContainer(startUpPage);
 
 if (result !== 0) {
     console.error("createStartUpPageContainer failed:", result);
@@ -194,10 +214,21 @@ function leaveCurrentPage() {
     }
 }
 
+/** What a document page adds on top of tiles + gesture layer + pager. */
+interface DocumentPageExtras {
+    /** Assignment: the camera-advice panel, backed by a server-reserved rect. */
+    feedback?: boolean;
+    /** AI: the solve trigger / progress box, over the menu's backdrop. */
+    solve?: boolean;
+    /** The centred action menu. Both pages have one. */
+    menu?: boolean;
+}
+
 // The container layout shared by every document page: a 2×2 grid of image
-// tiles, a gesture-capturing layer behind them, and a footer pager. The
-// assignment page adds a bordered corner box for camera advice / start-stop.
-async function buildDocumentPage(withFeedback: boolean) {
+// tiles, a gesture-capturing layer behind them, and a footer pager. Each page
+// adds its own overlay containers — declared here rather than created on demand,
+// because border width and geometry are fixed when the page is built.
+async function buildDocumentPage(extras: DocumentPageExtras = {}) {
     // Full-screen transparent text layer receives the temple gestures
     // (image containers can't capture events).
     const eventLayer = new TextContainerProperty({
@@ -212,6 +243,7 @@ async function buildDocumentPage(withFeedback: boolean) {
         containerName: "docEvent",
         content: " ",
         isEventCapture: 1,
+        ...zOrder(Z_BACKDROP),
     });
 
     const pager = new TextContainerProperty({
@@ -224,29 +256,45 @@ async function buildDocumentPage(withFeedback: boolean) {
         paddingLength: 4,
         containerID: DOC_PAGER_ID,
         containerName: "pager",
-        content: "Loading…",
+        content: "Loading...",
         isEventCapture: 0,
+        ...zOrder(Z_PAGER),
     });
 
     const textObject = [eventLayer, pager];
 
-    if (withFeedback) {
+    if (extras.feedback) {
+        // Camera advice. Its dark background and frame are baked into the
+        // assignment's tiles by the server (see panel.ts), so this is text only.
         textObject.push(
-            new TextContainerProperty({
-                xPosition: FEEDBACK_X,
-                yPosition: FEEDBACK_Y,
-                width: FEEDBACK_W,
-                height: FEEDBACK_H,
-                borderWidth: 2,
-                borderColor: FOCUSED_COLOR,
-                borderRadius: BODY_RADIUS,
-                paddingLength: 6,
+            panelContainer({
                 containerID: DOC_FEEDBACK_ID,
-                containerName: "feedback",
-                content: "Connecting…",
-                isEventCapture: 0,
+                name: "feedback",
+                rect: HUD_FEEDBACK_RECT,
+                zOrderIndex: Z_FEEDBACK,
             }),
         );
+    }
+
+    if (extras.solve) {
+        // The solve button. Blank until there is something to say, and its frame
+        // comes from the menu's backdrop rather than a border — it occupies the
+        // menu's rectangle for exactly that reason (see SOLVE_RECT).
+        textObject.push(
+            panelContainer({
+                containerID: DOC_SOLVE_ID,
+                name: "solve",
+                rect: SOLVE_RECT,
+                zOrderIndex: Z_SOLVE,
+                padding: CONTAINER_PAD,
+            }),
+        );
+    }
+
+    if (extras.menu) {
+        // The action menu, blank until a double tap fills it. See menu.ts for
+        // why it is declared here rather than created on demand.
+        textObject.push(menuContainer(DOC_MENU_ID));
     }
 
     // Four image tiles form the 2×2 grid the document renders into.
@@ -259,15 +307,34 @@ async function buildDocumentPage(withFeedback: boolean) {
                 height: TILE_H,
                 containerID: DOC_TILE_IDS[t.index],
                 containerName: `tile${t.index}`,
+                ...zOrder(Z_TILE_BASE + t.index),
             }),
     );
 
-    await bridge.rebuildPageContainer(
-        new RebuildPageContainer({
-            containerTotalNum: textObject.length + tiles.length,
-            textObject,
-            imageObject: tiles,
-        }),
+    const payload = new RebuildPageContainer({
+        containerTotalNum: textObject.length + tiles.length,
+        textObject,
+        imageObject: tiles,
+    });
+
+    // z-order is all-or-nothing and must be unique across the page. Getting it
+    // wrong is silent at the bridge, so check before sending: a page that
+    // reverts to declaration-order stacking puts the image tiles back on top of
+    // the menu, which is the bug this whole mechanism exists to fix.
+    const zCheck = validateEvenHubPageContainerZOrder(payload);
+    if (!zCheck.valid) {
+        appLog("Z-ORDER INVALID", formatEvenHubPageContainerValidationError(zCheck));
+    }
+
+    // SDK limits: containerTotalNum 1~12, textObject <= 8, imageObject <= 4.
+    // A rejected rebuild leaves the PREVIOUS page's containers in place, so the
+    // symptom is a page that half works — old containers still update, new ones
+    // silently don't exist.
+    const built = await bridge.rebuildPageContainer(payload);
+    appLog(
+        "Document page rebuild",
+        built ? "ok" : "FAILED",
+        `${textObject.length} text + ${tiles.length} image`,
     );
 }
 
@@ -275,22 +342,30 @@ export async function buildPage(page: PAGES) {
     appLog("Render page", PAGES[page]);
     switch (page) {
         case PAGES.DASHBOARD:
-            const rebuilt = await bridge.rebuildPageContainer(
-                new RebuildPageContainer({
-                    containerTotalNum: dashboardTiles.length + 1,
-                    textObject: [main, ...createDashboardTiles()],
-                }),
-            );
+            // createDashboardTiles() rebuilds from focus state, so this carries
+            // the same z-order the start-up page did — see Z_BACKDROP.
+            const dashboard = new RebuildPageContainer({
+                containerTotalNum: dashboardTiles.length + 1,
+                textObject: [main, ...createDashboardTiles()],
+            });
+            const dashZ = validateEvenHubPageContainerZOrder(dashboard);
+            if (!dashZ.valid) {
+                appLog(
+                    "Z-ORDER INVALID (dashboard)",
+                    formatEvenHubPageContainerValidationError(dashZ),
+                );
+            }
+            const rebuilt = await bridge.rebuildPageContainer(dashboard);
             if (!rebuilt) appLog("Dashboard rebuild failed");
             break;
 
         case PAGES.AI:
-            await buildDocumentPage(false);
+            await buildDocumentPage({ solve: true, menu: true });
             await enterAiPage();
             break;
 
         case PAGES.ASSIGNMENT:
-            await buildDocumentPage(true);
+            await buildDocumentPage({ feedback: true, menu: true });
             await enterAssignmentPage();
             break;
 
@@ -307,8 +382,9 @@ export async function buildPage(page: PAGES) {
                 containerID: 1,
                 containerName: "main",
                 content:
-                    "☹ Currently this page is absent \n\n Double click to go back",
+                    "Currently this page is absent \n\n Double click to go back",
                 isEventCapture: 1, // ← receive click events on this container
+                ...zOrder(Z_BACKDROP),
             });
 
             await bridge.rebuildPageContainer(

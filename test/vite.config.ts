@@ -16,8 +16,15 @@ import { defineConfig, loadEnv } from "vite";
 const DEFAULT_TARGET = "https://even.aansl.com";
 
 /** Every route the document server owns. Both document pages are instances of
- *  the same component, so this list is the complete surface. */
-const DOC_ROUTES = ["/markdown", "/tiles", "/events", "/assignment"];
+ *  the same component, so this list is the complete surface. `/solution` is the
+ *  AI page's solve state and its trigger button. */
+const DOC_ROUTES = [
+    "/markdown",
+    "/tiles",
+    "/events",
+    "/assignment",
+    "/solution",
+];
 
 export default defineConfig(({ mode }) => {
     // "" prefix: these are build-time config, not VITE_-exposed client vars.

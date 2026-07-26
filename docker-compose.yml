@@ -26,7 +26,32 @@ services:
       # Must equal ASSIGNMENT_TOKEN in the lookcam stack's .env.
       ASSIGNMENT_TOKEN: ${ASSIGNMENT_TOKEN:?set ASSIGNMENT_TOKEN in .env}
       ASSIGNMENT_DEBOUNCE_MS: ${ASSIGNMENT_DEBOUNCE_MS:-2000}
+
+      # ── the solve loop (server/solver.ts) ─────────────────────────────────
+      # Every solution ever submitted lives in the volume below, so a rebuild
+      # or a restart can't lose one.
+      DATA_DIR: /app/data
+      # The Claude routine's shared secret: it claims work with this. Also goes
+      # in the routine's own prompt. Empty leaves /solution/claim open, which on
+      # a public vhost means anyone can read the assignment and post a
+      # "solution" onto your glasses.
+      SOLVER_TOKEN: ${SOLVER_TOKEN:?set SOLVER_TOKEN in .env}
+      # The routine to run when the glasses ask for a solve. Without it a tap
+      # still queues the work — the routine's own cron picks it up within the
+      # hour — so this is optional, and its absence is reported on the glasses
+      # rather than looking like a dead button.
+      CLAUDE_TRIGGER_ID: ${CLAUDE_TRIGGER_ID:-}
+      # claude.ai OAuth credentials, needed only to trigger on demand. See
+      # .env.example; the file is mounted read-write because refresh rotates it.
+      CLAUDE_OAUTH_FILE: /app/data/claude-oauth.json
+    volumes:
+      - solver_data:/app/data
     networks: [lookcam]
+
+volumes:
+  # Named, not a bind mount: this holds the solution history and the OAuth
+  # credentials, and `docker compose down` must not take them with it.
+  solver_data:
 
 networks:
   lookcam:

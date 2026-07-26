@@ -3,16 +3,24 @@
 // Serves two documents through one markdown → PNG tile pipeline, so the glasses
 // client stays thin (no marked/MathJax/html2canvas on-device):
 //
-//   solution.md (repo root, watched)     assignment (lookcam reader, live)
+//   the AI document                      assignment (lookcam reader, live)
 //   GET /markdown                        GET  /assignment/markdown
 //   GET /tiles                           GET  /assignment/tiles
 //   GET /events                          GET  /assignment/events
-//                                        GET  /assignment/status
-//                                        POST /assignment/toggle
+//   GET /solution/status                 GET  /assignment/status
+//   POST /solution/solve                 POST /assignment/toggle
+//   POST /solution/cancel                POST /assignment/control
+//   GET  /solution/claim   ─┐ the Claude routine's side of the solve loop
+//   POST /solution/submit   │ (see solver.ts) — token-gated, not for the glasses
+//   POST /solution/fail    ─┘
 //
-// `version` is what the client refetches on: the file mtime for solution.md, a
-// content hash for the assignment (whose own `version` field only bumps on
-// /reset, so it would never signal an individual capture's edits).
+// The AI document is whatever Claude last solved (SQLite, see db.ts), falling
+// back to the repo's solution.md until something has been. Both are watched, so
+// either changing pushes new tiles.
+//
+// `version` is what the client refetches on: a content hash for both remote
+// documents (the reader's own `version` field only bumps on /reset, so it would
+// never signal an individual capture's edits), the file mtime for solution.md.
 //
 // Run with: bun run index.ts   (or `bun run dev` to auto-restart on edits)
 
@@ -27,12 +35,29 @@ import { dirname, resolve } from "node:path";
 import { createTileCache, type DocSource, type Snapshot } from "./doc";
 import {
   assignmentSource,
+  control,
   getStatus,
   isConfigured as assignmentConfigured,
   startUpstream,
   subscribeStatus,
   toggle,
+  type ControlAction,
 } from "./assignment";
+import {
+  authorizeSolver,
+  cancelRun,
+  claimRun,
+  createAiSource,
+  failRun,
+  getSolverStatus,
+  solverTokenRequired,
+  startRun,
+  submitSolution,
+  subscribeSolver,
+} from "./solver";
+import { HUD_FEEDBACK } from "./render/constants";
+import { DB_PATH } from "./db";
+import { triggerDescription } from "./trigger";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // solution.md lives in the repo root, one level up from server/.
@@ -73,8 +98,18 @@ const fileSource: DocSource = {
   },
 };
 
-const getFileTiles = createTileCache(fileSource);
-const getAssignmentTiles = createTileCache(assignmentSource);
+// What the AI page shows: Claude's latest solution, or solution.md until there
+// is one. The file stays watched either way, so editing it by hand still pushes.
+const aiSource = createAiSource(fileSource);
+
+const getAiTiles = createTileCache(aiSource);
+// The assignment page keeps a permanent panel in the bottom-right corner (the
+// model's camera advice). A text container is transparent, so the background
+// has to come from the tile itself — the client has no spare image layer to put
+// underneath. The AI page has no such panel, so its tiles are untouched.
+const getAssignmentTiles = createTileCache(assignmentSource, {
+  reserved: [HUD_FEEDBACK],
+});
 
 // ── routes ──────────────────────────────────────────────────────────────────
 
@@ -84,12 +119,22 @@ const app = new Hono();
 app.use("*", cors());
 
 /**
+ * A page's out-of-band state: the assignment's job/camera status, the AI page's
+ * solve status. Pushed separately from the document because it changes several
+ * times per capture (or per solve) while the document often doesn't, and a text
+ * container upgrade is far cheaper than four tiles over BLE.
+ */
+interface StatusFeed {
+  get(): unknown | Promise<unknown>;
+  subscribe(onChange: () => void): () => void;
+}
+
+/**
  * SSE for one document. Emits `markdown` with `{ content, version }` on connect
  * and on every change; `ping` heartbeats keep proxies from timing the stream
- * out. With `withStatus`, also emits `status` — job state and the model's
- * camera advice, which change far more often than the document does.
+ * out. With a `status` feed, also emits `status` on every change to it.
  */
-function documentStream(source: DocSource, withStatus = false) {
+function documentStream(source: DocSource, statusFeed?: StatusFeed) {
   return (c: Context) =>
     streamSSE(c, async (stream) => {
       let closed = false;
@@ -119,17 +164,23 @@ function documentStream(source: DocSource, withStatus = false) {
           console.error(`[${source.name}] SSE read failed:`, err);
         }
       };
-      const sendStatus = () => write("status", JSON.stringify(getStatus()));
+      const sendStatus = async () => {
+        try {
+          await write("status", JSON.stringify(await statusFeed!.get()));
+        } catch (err) {
+          console.error(`[${source.name}] SSE status failed:`, err);
+        }
+      };
 
       const unsubscribeDoc = source.subscribe(() => void sendDoc());
-      const unsubscribeStatus = withStatus
-        ? subscribeStatus(() => void sendStatus())
+      const unsubscribeStatus = statusFeed
+        ? statusFeed.subscribe(() => void sendStatus())
         : null;
 
       // Push the current state immediately so a fresh subscriber is in sync.
       // Status first: if the document is unavailable (reader down, nothing
       // captured yet) the client still learns why.
-      if (withStatus) await sendStatus();
+      if (statusFeed) await sendStatus();
       await sendDoc();
 
       try {
@@ -146,23 +197,99 @@ function documentStream(source: DocSource, withStatus = false) {
 
 app.get("/markdown", async (c) => {
   try {
-    return c.json(await readFileSnapshot());
+    return c.json(await aiSource.read());
   } catch (err) {
-    console.error("read solution.md failed:", err);
+    console.error("read AI document failed:", err);
     return c.json({ error: "markdown_unavailable" }, 500);
   }
 });
 
 app.get("/tiles", async (c) => {
   try {
-    return c.json(await getFileTiles());
+    return c.json(await getAiTiles());
   } catch (err) {
     console.error("render tiles failed:", err);
     return c.json({ error: "tiles_unavailable" }, 500);
   }
 });
 
-app.get("/events", documentStream(fileSource));
+app.get("/events", documentStream(aiSource, { get: getSolverStatus, subscribe: subscribeSolver }));
+
+// ── the solve loop ──────────────────────────────────────────────────────────
+//
+// Two audiences, deliberately separated:
+//
+//   the glasses  /solution/status, /solve, /cancel — no secret, same as the
+//                assignment controls, because the app ships to a device and
+//                can't hold one
+//   the routine  /solution/claim, /submit, /fail — gated, because they hand out
+//                the assignment and accept what gets displayed on the glasses
+
+app.get("/solution/status", async (c) => c.json(await getSolverStatus()));
+
+// The trigger button. Records the run, then kicks the routine; a run that
+// couldn't be triggered is still queued, and the response says which happened.
+app.post("/solution/solve", async (c) => {
+  const result = await startRun();
+  return c.json(result, result.ok ? 200 : 409);
+});
+
+app.post("/solution/cancel", (c) => {
+  const result = cancelRun();
+  return c.json(result, result.ok ? 200 : 409);
+});
+
+/** The routine's shared secret, in a header or `?token=`. */
+function solverAuthorized(c: Context): boolean {
+  const header =
+    c.req.header("x-solver-token") ??
+    c.req.header("authorization")?.replace(/^Bearer\s+/i, "") ??
+    c.req.query("token");
+  return authorizeSolver(header);
+}
+
+app.use("/solution/claim", async (c, next) => {
+  if (!solverAuthorized(c)) return c.json({ ok: false, reason: "unauthorized" }, 401);
+  await next();
+});
+
+/**
+ * The routine's first call: it gets the assignment text *and* the one-time token
+ * it must submit with. 200 with `ok: false` when the queue is empty — a cron run
+ * that finds nothing to do should exit cleanly, not treat it as an error.
+ */
+app.get("/solution/claim", (c) => c.json(claimRun()));
+
+/** The submit token identifies the run, so these need no other secret. */
+function runToken(c: Context, body: Record<string, unknown>): string {
+  return String(
+    c.req.header("x-run-token") ??
+      c.req.header("authorization")?.replace(/^Bearer\s+/i, "") ??
+      body.run_token ??
+      body.token ??
+      "",
+  );
+}
+
+app.post("/solution/submit", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const markdown = typeof body.markdown === "string" ? body.markdown : "";
+  const result = submitSolution(
+    runToken(c, body),
+    markdown,
+    typeof body.model === "string" ? body.model : null,
+    typeof body.notes === "string" ? body.notes : null,
+  );
+  // 409, not 401: a superseded token is a race the agent lost, not a bad
+  // credential — you tapped again while it was working.
+  return c.json(result, result.ok ? 200 : 409);
+});
+
+app.post("/solution/fail", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const result = failRun(runToken(c, body), String(body.error ?? ""));
+  return c.json(result, result.ok ? 200 : 409);
+});
 
 // ── assignment ──────────────────────────────────────────────────────────────
 
@@ -198,10 +325,37 @@ app.get("/assignment/tiles", async (c) => {
 
 app.get("/assignment/status", (c) => c.json(getStatus()));
 
-app.get("/assignment/events", documentStream(assignmentSource, true));
+app.get(
+  "/assignment/events",
+  documentStream(assignmentSource, { get: getStatus, subscribe: subscribeStatus }),
+);
 
+// The tap gesture: let the server pick start / stop / restart.
 app.post("/assignment/toggle", async (c) => {
   const result = await toggle();
+  return c.json(result, result.ok ? 200 : 502);
+});
+
+// The menu: the glasses name the action outright.
+const CONTROL_ACTIONS: ControlAction[] = [
+  "start",
+  "stop",
+  "reset",
+  "restart",
+  "extend",
+  "toggle",
+];
+
+app.post("/assignment/control", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const action = (body as { action?: string }).action;
+  if (!CONTROL_ACTIONS.includes(action as ControlAction)) {
+    return c.json(
+      { ok: false, action: "failed", detail: `unknown action "${action}"` },
+      400,
+    );
+  }
+  const result = await control(action as ControlAction);
   return c.json(result, result.ok ? 200 : 502);
 });
 
@@ -213,6 +367,12 @@ console.log(
   assignmentConfigured()
     ? `Assignment reader at ${process.env.ASSIGNMENT_URL}`
     : "Assignment reader disabled (set ASSIGNMENT_URL to enable)",
+);
+console.log(`Solutions in ${DB_PATH}`);
+console.log(
+  `Solve trigger: ${triggerDescription()}${
+    solverTokenRequired() ? "" : "  (SOLVER_TOKEN unset — /solution/claim is open)"
+  }`,
 );
 
 export default {

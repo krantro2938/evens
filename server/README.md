@@ -9,8 +9,12 @@ Two documents, one pipeline:
 
 | Document | Source | Glasses page |
 |---|---|---|
-| `solution.md` | the repo root, watched with `fs.watch` | AI |
+| the AI document | whatever Claude last solved (SQLite), falling back to `solution.md` in the repo root, watched with `fs.watch` | AI |
 | the assignment | the [lookcam assignment reader](../../lookcam/assignment), over SSE | Assignment |
+
+It also owns the **solve loop**: the AI page's trigger button hands the
+transcribed assignment to a Claude routine and displays the markdown that comes
+back. See [the solve loop](#the-solve-loop) below.
 
 ## Run
 
@@ -24,13 +28,16 @@ Default port `8787` (override with `PORT`).
 
 ## Endpoints
 
-### solution.md
+### the AI document
 
 | Route | Purpose |
 |---|---|
-| `GET /markdown` | `{ content, version }` — `version` is the file mtime (ms). Raw text; used for the client's text fallback and as the poll trigger. |
+| `GET /markdown` | `{ content, version }` — the newest submitted solution, or `solution.md` until there is one. `version` is a content hash (the file's mtime in the fallback case). |
 | `GET /tiles` | `{ version, pages: [{ tiles: [{ index, data }] }] }` — server-rendered PNG tiles (`data` is base64), 2×2 grid of 288×126 per page. Cached per `version`. |
-| `GET /events` | SSE. Emits `event: markdown` with `{ version, content }` on connect and whenever `solution.md` changes; `event: ping` heartbeats keep the stream alive. The client refetches `/tiles` when `version` advances. |
+| `GET /events` | SSE. Emits `event: markdown` with `{ version, content }` on connect and whenever the solution (or `solution.md`) changes, `event: status` with the solve state, `event: ping` heartbeats. The client refetches `/tiles` when `version` advances. |
+| `GET /solution/status` | the `status` payload on demand (poll fallback) |
+| `POST /solution/solve` | the trigger button: mint a run and start the routine → `{ ok, action: "triggered"\|"queued", run_id, detail? }` |
+| `POST /solution/cancel` | abandon the live run → `{ ok, action: "cancelled", run_id }` |
 
 ### assignment
 
@@ -44,6 +51,7 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 | `GET /assignment/events` | SSE. `event: markdown` when the transcription changes, `event: status` on job/camera-advice changes, `event: ping` heartbeats |
 | `GET /assignment/status` | the `status` payload on demand (poll fallback) |
 | `POST /assignment/toggle` | start / stop / reset+start, chosen from live job state → `{ ok, action, detail? }` |
+| `POST /assignment/control` | `{"action":"start\|stop\|reset\|restart\|extend\|toggle"}` — the same, named outright → `{ ok, action, detail? }` |
 
 `status` is:
 
@@ -64,6 +72,19 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 }
 ```
 
+### the solve loop's own routes
+
+These are the Claude routine's side of the conversation, not the glasses'. They
+are gated by `SOLVER_TOKEN` (header `x-solver-token`, `Authorization: Bearer`, or
+`?token=`) because between them they hand out the assignment and decide what gets
+displayed.
+
+| Route | Purpose |
+|---|---|
+| `GET /solution/claim` | The agent's first call: takes the oldest queued run and returns the assignment text **plus a one-time `run_token`**. `{"ok":false,"reason":"no_pending_run"}` with status 200 when the queue is empty, so a cron run that finds nothing exits cleanly. |
+| `POST /solution/submit` | `{ markdown, model?, notes? }` with the run token → stores it, ends the run, pushes new tiles. `409 unknown_or_superseded_token` if the run is no longer the current one. |
+| `POST /solution/fail` | `{ error }` with the run token → the reason shows on the glasses instead of a timeout. |
+
 ### Configuration
 
 | Var | Default | Notes |
@@ -72,6 +93,13 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 | `ASSIGNMENT_URL` | — | e.g. `http://<vps-ip>:8091`. Empty disables the assignment routes. |
 | `ASSIGNMENT_TOKEN` | — | the reader's `API_TOKEN` |
 | `ASSIGNMENT_DEBOUNCE_MS` | `2000` | how long to coalesce reader events before re-rendering |
+| `DATA_DIR` | `../data` | `solver.sqlite` (runs + every solution), and the OAuth copy |
+| `SOLVER_TOKEN` | — | the routine's shared secret. **Empty leaves `/solution/claim` open** — fine locally, not on a public vhost. |
+| `CLAUDE_TRIGGER_ID` | — | the routine to run on a tap. Empty: runs are queued for its cron instead. |
+| `CLAUDE_OAUTH_FILE` | `$DATA_DIR/claude-oauth.json` | a copy of `~/.claude/.credentials.json`; refreshed and rewritten in place |
+| `SOLVE_TIMEOUT_MS` | `1200000` | a claimed run that never submits fails after this |
+| `SOLVE_QUEUE_TIMEOUT_MS` | `10800000` | a queued run nobody claims fails after this |
+| `SOLVE_MAX_CHARS` | `200000` | submissions larger than this are refused, not rendered |
 
 CORS is open so the app (served from the Vite dev origin) can reach it.
 
@@ -97,10 +125,94 @@ The reader's token stays here. The glasses never hold it — `EventSource` can't
 set headers, so a browser-side client would have to carry it in a query string,
 i.e. in the shipped app bundle.
 
-`POST /assignment/toggle` exists because `/start` answers `409` both while a job
-runs *and* once the assignment is complete (that one wants `/reset` first).
-Deciding here, where the live job state already is, keeps that state machine out
-of the glasses app.
+## The solve loop
+
+A tap on the AI page's trigger button asks a **Claude routine** — a cloud Claude
+Code session, see [`../routine/solve.md`](../routine/solve.md) — to solve the
+assignment currently on the paper and post it back as markdown.
+
+```
+ glasses ──▶ POST /solution/solve
+               mints run + one-time token, snapshots the assignment,
+               then POSTs /v1/code/triggers/<id>/run
+                                                    │
+ routine ◀──────────────────────────────────────────┘
+    ├──▶ GET  /solution/claim    the assignment text + that token
+    └──▶ POST /solution/submit   the finished markdown
+                    │
+                    └─▶ SQLite ─▶ tiles ─▶ BLE push ─▶ the AI page
+```
+
+**The token is the whole concurrency story.** It is minted per run, and creating a
+run supersedes every earlier one in the same transaction. So if you tap again —
+the first attempt is slow, or the camera has moved on — the older agent's token
+stops being accepted and its answer is refused on arrival. Exactly one answer can
+land, and it is always the answer to the request you made last. That is why the
+agent fetches the token at claim time rather than being handed one up front.
+
+The assignment is **snapshotted into the run row**, not refetched at claim time:
+the agent must solve the paper you were looking at when you tapped, even if the
+camera has since drifted onto something else.
+
+Nothing is ever deleted. A re-solve inserts a row and the newest wins, so a bad
+solve can't destroy the good one you had, and a solution stays readable after the
+paper (and so the assignment) has changed — the page labels it as answering an
+earlier scan and offers to solve the current one.
+
+### Triggering, and what happens when it can't
+
+The routine-run endpoint authenticates with a **claude.ai OAuth token** (what
+`claude /login` writes), not with an `ANTHROPIC_API_KEY` — so `CLAUDE_OAUTH_FILE`
+is a copy of those credentials, which this server refreshes and rewrites as they
+expire. It is not a documented public API; endpoint, `anthropic-beta` and client
+id can change under us.
+
+Every failure path therefore **leaves the run queued rather than losing it**:
+without a trigger id, without credentials, or on any API error, the run sits in
+`pending` and the routine's own hourly cron drains it. A broken trigger degrades
+from "seconds" to "within the hour", not to "the button does nothing" — and
+`status.run.trigger` says which one you got, so the glasses can tell you.
+
+### `/solution/status`
+
+```jsonc
+{
+  "state": "idle",             // no_assignment|idle|queued|solving|solved|failed
+  "assignment": { "available": true, "version": 3346044740,
+                  "problems": 3, "done": true },
+  "solution": { "created_at": 1785081935258, "age_ms": 41000,
+                "model": "claude-sonnet-5", "assignment_version": 3346044740,
+                "stale": false,        // true: it answers an EARLIER scan
+                "chars": 2480 },
+  "run": { "id": 5, "state": "pending", "age_ms": 1200, "claimed": false,
+           "trigger": "triggered",     // triggered|unconfigured|failed
+           "trigger_detail": "trig_…", "error": null },
+  "trigger": { "configured": true, "detail": "trig_…" },
+  "solutions": 4                       // how many are on disk
+}
+```
+
+`idle` is what puts the button on the glasses: there is something to solve and no
+solution for *this* version of it. `stale` is why a new sheet of paper brings the
+button back without you having to clear anything.
+
+## Controls
+
+The reader's endpoints are individually simple, but their preconditions are not,
+which is why both control routes live here rather than in the glasses app:
+
+- `/start` answers `409` while a job runs **and** once the assignment is
+  complete (that one wants `/reset` first).
+- After a `max_captures` stop, `/start` answers `202` and then does *nothing* —
+  the ceiling counts captures per version, so the job re-finishes on its first
+  loop check. `extend` is the fix: it restarts with `max_captures` raised to
+  `captures + 20`.
+- A rescan is `/reset` then `/start`, and `/reset` archives first, so scrapping
+  an attempt can't destroy a transcription you wanted.
+
+`/toggle` picks one of these from live job state — it's what a tap on the
+glasses sends. `/control` names the action instead, for the double-tap menu
+where the user has already chosen. `toggle` is just `control(defaultAction())`.
 
 ## Quick check
 
@@ -112,4 +224,28 @@ curl -N localhost:8787/events                     # then edit + save solution.md
 curl -s localhost:8787/assignment/status | jq
 curl -N localhost:8787/assignment/events &        # watch
 curl -s -X POST localhost:8787/assignment/toggle  # {"ok":true,"action":"started"}
+
+curl -s -X POST localhost:8787/assignment/control \
+  -H 'content-type: application/json' -d '{"action":"restart"}'   # rescan from scratch
 ```
+
+Playing the routine's part by hand — the fastest way to see the whole loop work
+without waiting on a cloud session:
+
+```bash
+T=your-solver-token
+curl -s localhost:8787/solution/status | jq '.state'      # "idle" → the button shows
+curl -s -X POST localhost:8787/solution/solve | jq        # {"action":"triggered"|"queued"}
+
+RUN=$(curl -s -H "x-solver-token: $T" localhost:8787/solution/claim)
+echo "$RUN" | jq -r '.assignment.markdown'                # what the agent is given
+TOKEN=$(echo "$RUN" | jq -r .run_token)
+
+curl -s -X POST localhost:8787/solution/submit -H "x-run-token: $TOKEN" \
+  -H 'content-type: application/json' -d '{"markdown":"# Solved\n\n**Answer: 42**"}'
+curl -s localhost:8787/markdown | jq -r .content          # the AI page now shows it
+```
+
+Claim a run, then `POST /solution/solve` again, then submit with the first token:
+`409 unknown_or_superseded_token`. That's the guard that keeps a slow agent from
+overwriting a fresh solve.

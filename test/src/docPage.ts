@@ -53,6 +53,15 @@ export interface DocPage {
     /** Serialize a bridge write into this page's write chain. */
     enqueue<T>(task: () => Promise<T>): Promise<T | void>;
     updatePager(): Promise<void>;
+    /**
+     * Replace the image tiles with something else — an overlay's backdrop.
+     * Text containers are transparent, so anything drawn over the document is
+     * unreadable until the tiles underneath stop showing the document.
+     * No-op when there are no tiles to put back afterwards.
+     */
+    overlayTiles(bytes: readonly Uint8Array[]): Promise<void>;
+    /** Put the document's own tiles back after an overlay. */
+    restoreTiles(): Promise<void>;
 }
 
 interface Snapshot {
@@ -76,6 +85,11 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // (blank/all-black regions), and re-pushing those over BLE is the dominant
     // cost — so skip any tile whose bytes already match what its container shows.
     let displayedTiles: (Uint8Array | null)[] = [null, null, null, null];
+
+    // True while an overlay (the action menu's backdrop) has taken the tiles
+    // over. Document updates keep flowing into `state`; they just don't reach
+    // the screen until the overlay comes down.
+    let masked = false;
 
     function sameBytes(a: Uint8Array | null, b: Uint8Array): boolean {
         if (!a || a.length !== b.length) return false;
@@ -108,6 +122,11 @@ export function createDocPage(config: DocPageConfig): DocPage {
     async function showPage(index: number): Promise<void> {
         const { pages } = state;
         if (!pages.length) return;
+        // An overlay owns the tiles. A document update landing now would draw
+        // the page straight over it — and on the assignment page one lands
+        // every few seconds while a scan runs. The new tiles are already in
+        // `state`, so restoreTiles() will show them.
+        if (masked) return;
 
         const clamped = Math.max(0, Math.min(index, pages.length - 1));
         if (clamped === displayedPage) return;
@@ -115,25 +134,48 @@ export function createDocPage(config: DocPageConfig): DocPage {
         state.currentPage = clamped;
         const page = pages[clamped];
 
-        for (const tile of page.tiles) {
-            if (sameBytes(displayedTiles[tile.index], tile.bytes)) continue;
-            const result = await bridge.updateImageRawData(
-                new ImageRawDataUpdate({
-                    containerID: DOC_TILE_IDS[tile.index],
-                    containerName: `tile${tile.index}`,
-                    imageData: tile.bytes,
-                }),
-            );
-            if (result !== "success") {
-                appLog(name, "tile push", tile.index, String(result));
-                displayedTiles[tile.index] = null;
-                continue;
-            }
-            displayedTiles[tile.index] = tile.bytes;
-        }
+        for (const tile of page.tiles) await pushTile(tile.index, tile.bytes);
         displayedPage = clamped;
         await updatePager();
         await config.afterShow?.();
+    }
+
+    /** Push one image into a tile container, keeping the dedup cache honest. */
+    async function pushTile(index: number, bytes: Uint8Array): Promise<void> {
+        if (sameBytes(displayedTiles[index], bytes)) return;
+        const result = await bridge.updateImageRawData(
+            new ImageRawDataUpdate({
+                containerID: DOC_TILE_IDS[index],
+                containerName: `tile${index}`,
+                imageData: bytes,
+            }),
+        );
+        if (result !== "success") {
+            appLog(name, "tile push", index, String(result));
+            displayedTiles[index] = null;
+            return;
+        }
+        displayedTiles[index] = bytes;
+    }
+
+    async function overlayTiles(bytes: readonly Uint8Array[]): Promise<void> {
+        // Nothing to restore afterwards means the containers were never filled;
+        // covering them would strand the overlay on screen.
+        if (!state.pages.length) return;
+        for (let i = 0; i < DOC_TILE_IDS.length; i++) {
+            const b = bytes[i];
+            if (b) await pushTile(i, b);
+        }
+        // The containers no longer show the page they claim to.
+        displayedPage = -1;
+        masked = true;
+    }
+
+    async function restoreTiles(): Promise<void> {
+        if (!masked) return;
+        masked = false;
+        displayedPage = -1;
+        await showPage(state.currentPage);
     }
 
     function applyTiles(pages: TilePage[], version: number): Promise<void> {
@@ -253,13 +295,19 @@ export function createDocPage(config: DocPageConfig): DocPage {
     return {
         enqueue,
         updatePager,
+        overlayTiles,
+        restoreTiles,
 
         /** Called by main.ts after the page containers are built. */
         async enter(): Promise<void> {
             active = true;
             displayedPage = -1;
+            // Leaving the page with a menu open skips the backdrop teardown —
+            // the containers are being destroyed anyway. Clearing this on the
+            // way back in is what stops the page returning permanently blank.
+            masked = false;
             resetDisplayedTiles();
-            state.status = "Loading…";
+            state.status = "Loading...";
             await updatePager();
             enqueue(loadInitial);
             subscribeLive();
