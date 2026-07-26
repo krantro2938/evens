@@ -32,11 +32,13 @@ export enum GESTURE_EVENTS {
 }
 
 // ── document pages: live markdown rendering ─────────────────────────────────
-// Document server (see /server). In dev, /markdown, /tiles, /events and
-// /assignment/* are proxied to it same-origin by Vite (see vite.config.ts) so
-// the webview can open an EventSource — hence the empty default. For a
-// packed/hardware build, set VITE_MD_SERVER to the server's absolute URL
-// (e.g. http://192.168.0.117:8787).
+// The document server (see /server) is the app's only backend: /markdown,
+// /tiles, /events and /assignment/* all come from it.
+//
+// Empty is the right default. In dev those routes are proxied same-origin by
+// Vite (VITE_MD_TARGET, see vite.config.ts) because the webview refuses a
+// cross-origin EventSource. Only a packed/hardware build needs an absolute URL
+// here — set VITE_MD_SERVER then. See .env.example.
 export const MARKDOWN_SERVER_URL = import.meta.env.VITE_MD_SERVER ?? "";
 export const POLL_INTERVAL_MS = 10_000;
 

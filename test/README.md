@@ -7,23 +7,43 @@ document pages that show server-rendered PNG tiles pushed over BLE.
 
 ```bash
 npm install
-npm run dev
-```
-
-The document pages need the [document server](../server) running:
-
-```bash
-cd ../server && bun run start
+npm run dev          # against the deployed server on the VPS
 ```
 
 Then either:
 - **Simulator:** `npm run simulate`
 - **Real glasses:** `npx evenhub qr --url http://<your-ip>:5173` and scan with the Even Hub companion app.
 
-In dev, Vite proxies `/markdown`, `/tiles`, `/events` and `/assignment/*` to the
-document server (`VITE_MD_TARGET`, default `http://192.168.0.117:8787`) so the
-webview can open an EventSource same-origin. For a packed build set
-`VITE_MD_SERVER` to the server's absolute URL instead.
+That's the whole setup — `npm run dev` needs nothing running locally, because it
+points at the deployed document server by default.
+
+## Configuration
+
+**There is one thing to configure: which document server to talk to.** Every
+route the app fetches — `/markdown`, `/tiles`, `/events`, `/assignment/*` — is
+served by that single origin. The [lookcam assignment reader](../../lookcam/assignment)
+is reached *by the document server*, so its URL and token are never set here.
+
+| Variable | Used by | Meaning |
+|---|---|---|
+| `VITE_MD_TARGET` | `npm run dev` | Where Vite proxies the document routes. Default `https://even.aansl.com`. |
+| `VITE_MD_SERVER` | packed build | Absolute URL compiled into the bundle. Leave unset in dev — unset means same-origin, which is what the proxy provides. |
+
+Set them in `.env.local` (see `.env.example`), or inline for a one-off.
+Whichever target is in effect is printed when Vite starts, so a blank document
+page is never a guessing game.
+
+Working against a server on your own machine:
+
+```bash
+cd ../server && bun run start     # terminal 1
+npm run dev:local                 # terminal 2 — proxies to localhost:8787
+```
+
+The proxy is not a convenience. The simulator's webview refuses to open a
+cross-origin `EventSource`, and going through Vite makes those requests
+same-origin. A packed build has no Vite, so it uses `VITE_MD_SERVER` and relies
+on the server's permissive CORS instead.
 
 ## Pages
 

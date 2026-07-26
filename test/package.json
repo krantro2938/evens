@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "VITE_MD_TARGET=http://localhost:8787 vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "pack": "evenhub pack",
