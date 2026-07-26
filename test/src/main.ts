@@ -36,6 +36,7 @@ import {
     Z_PAGER,
     Z_SOLVE,
     Z_TILE_BASE,
+    Z_ORDER_ENABLED,
     zOrder,
 } from "./constants";
 import { GlobalState } from "./state";
@@ -122,7 +123,9 @@ if (result !== 0) {
     // 1 = invalid params, 2 = oversize, 3 = out of memory
 }
 
-appLog("Dashboard created", result);
+// Which build is on the glasses, in the log the glasses can actually send. The
+// z-order mode is the first thing to know when tiles stop arriving.
+appLog("Dashboard created", result, "| z-order", Z_ORDER_ENABLED ? "on" : "OFF");
 
 // Single event subscription - all OS events arrive through onEvenHubEvent.
 // Tap and double-tap events typically arrive through sysEvent; textEvent is

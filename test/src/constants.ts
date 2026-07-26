@@ -110,7 +110,19 @@ export const Z_MENU = 8; // the action menu is the topmost thing on the page
  * the same as leaving it out, and "absent" is the only thing the all-or-nothing
  * rule accepts.
  */
-export const Z_ORDER_ENABLED = true;
+// TEMPORARILY FALSE — under test. Every image push started coming back
+// `sendFailed` (the host's "BLE transfer failed") on the same day z_order_index
+// was added to every container, while text upgrades kept working. The SDK notes
+// that omitting the field remains valid for older app pages, so if the Even Hub
+// build on the phone predates it, the page the GLASSES hold does not match the
+// one the host thinks it built, and image data addressed to those containers has
+// nowhere to land.
+//
+// If tiles come back with this false, that is the answer, and the panels that
+// need to draw over the tiles have to move to the footer (MENU_IN_FOOTER) until
+// the host supports the field. If tiles still fail, the field is innocent and the
+// problem is the phone-to-glasses link itself.
+export const Z_ORDER_ENABLED = false;
 export const zOrder = (value: number): { zOrderIndex?: number } =>
     Z_ORDER_ENABLED ? { zOrderIndex: value } : {};
 
