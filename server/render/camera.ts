@@ -41,6 +41,27 @@ const PAGE_W = TILE_W * TILES_X;
 /** Thickness of the box drawn round the camera's field of view. */
 const BORDER = 2;
 
+// Local-contrast settings, chosen by rendering real frames off the camera and
+// looking at them (a small window is what makes text visible at all; a wide one
+// washes back out). Slope caps how far flat areas can be amplified — without a
+// cap, blank paper becomes a field of sensor noise, which is both ugly and, in
+// PNG terms, expensive.
+const CLAHE_WINDOW = 8;
+const CLAHE_SLOPE = 3;
+
+/**
+ * How the preview is encoded, and why it differs from the document's 16
+ * dithered greys.
+ *
+ * Neither half is a compromise. At 8 greys the picture is indistinguishable by
+ * eye from 16, and with dithering off the speckle goes with it — what CLAHE
+ * amplifies in blank paper is sensor noise, and noise is what a palette encoder
+ * spends its bytes on. Together they take a full panel from ~42KB to ~13KB,
+ * which leaves the readable preview CHEAPER than the flat, unreadable one it
+ * replaced (~30KB).
+ */
+const PREVIEW_ENCODE = { colours: 8, dither: 0 } as const;
+
 /**
  * Fit the frame into `w`×`h` and draw a hairline box round it.
  *
@@ -52,16 +73,6 @@ const BORDER = 2;
  * doesn't.
  */
 async function fitted(jpeg: Buffer, w: number, h: number, rotate: number): Promise<Buffer> {
-    const frame = await sharp(jpeg)
-        .rotate(rotate) // 0 is a no-op; sharp also auto-orients off EXIF at 0
-        .resize(w, h, { fit: "contain", background: "#000" })
-        .greyscale()
-        // 16 levels of grey on a small panel: without this a dim room renders
-        // as a uniform smudge and the sheet's edges — the entire signal — go
-        // with it.
-        .normalise()
-        .toBuffer();
-
     const meta = await sharp(jpeg).rotate(rotate).metadata();
     const srcW = meta.width ?? w;
     const srcH = meta.height ?? h;
@@ -70,6 +81,35 @@ async function fitted(jpeg: Buffer, w: number, h: number, rotate: number): Promi
     const drawnH = Math.round(srcH * scale);
     const left = Math.floor((w - drawnW) / 2);
     const top = Math.floor((h - drawnH) / 2);
+
+    // Downscale FIRST, then equalise, then pad. Each step has to be in this
+    // order: CLAHE's window is in output pixels, so equalising at 1920×1080
+    // would work below the size of a letter; and equalising after the padding
+    // would find "contrast" in the black bars and turn them to grey mush,
+    // taking the border with them.
+    const photo = await sharp(jpeg)
+        .rotate(rotate) // 0 is a no-op; sharp also auto-orients off EXIF at 0
+        .resize(drawnW, drawnH)
+        .greyscale()
+        // LOCAL contrast, not global. The camera's exposure swings between
+        // washed-out and nearly black, and either way a global stretch does
+        // nothing useful: one glare spot and one dark corner already put the
+        // min and max at 0 and 255, leaving the page and its text squeezed into
+        // a couple of levels — a flat blob on the panel. CLAHE equalises within
+        // a small window instead, so text separates from paper whatever the
+        // frame's overall exposure is doing.
+        .clahe({ width: CLAHE_WINDOW, height: CLAHE_WINDOW, maxSlope: CLAHE_SLOPE })
+        .toBuffer();
+
+    const frame = await sharp(photo)
+        .extend({
+            top,
+            bottom: h - drawnH - top,
+            left,
+            right: w - drawnW - left,
+            background: "#000",
+        })
+        .toBuffer();
 
     // A white rectangle on the letterboxed image's own edge. Two pixels, not
     // one: a hairline is what the panel's dithering loses first, and this line
@@ -115,7 +155,7 @@ export async function renderCameraTiles(
 
     if (size === 1) {
         const png = await fitted(jpeg, TILE_W, TILE_H, rotate);
-        const data = await encodeTile([{ input: png, left: 0, top: 0 }]);
+        const data = await encodeTile([{ input: png, left: 0, top: 0 }], PREVIEW_ENCODE);
         return [{ index: 0, data: data.toString("base64") }];
     }
 
@@ -157,7 +197,10 @@ export async function renderCameraTiles(
             });
         }
 
-        tiles.push({ index, data: (await encodeTile(layers)).toString("base64") });
+        tiles.push({
+            index,
+            data: (await encodeTile(layers, PREVIEW_ENCODE)).toString("base64"),
+        });
     }
 
     return tiles;

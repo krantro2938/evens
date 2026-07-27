@@ -197,17 +197,33 @@ async function cutTiles(
 }
 
 /**
- * The one place a tile becomes bytes. Greyscale and a 16-colour palette because
+ * The one place a tile becomes bytes. Greyscale and a small palette because
  * that is what the panel can show, and because the payload crosses BLE — see
  * the client's push instrumentation for what that costs.
+ *
+ * Documents keep all 16 greys: they are antialiased text, and the shades are
+ * the edges of the letters. A photograph does not need them (see
+ * PREVIEW_COLOURS in camera.ts), which is worth knowing because it is the
+ * cheapest byte saving in this pipeline.
  */
-export async function encodeTile(layers: OverlayOptions[]): Promise<Buffer> {
+export async function encodeTile(
+    layers: OverlayOptions[],
+    opts: { colours?: number; dither?: number } = {},
+): Promise<Buffer> {
     return sharp({
         create: { width: TILE_W, height: TILE_H, channels: 3, background: "#000" },
     })
         .composite(layers)
         .grayscale()
-        .png({ compressionLevel: 9, palette: true, colours: 16 })
+        .png({
+            compressionLevel: 9,
+            palette: true,
+            colours: opts.colours ?? 16,
+            // Dithering trades a speckle for a smoother gradient. Text wants
+            // it; a photograph reduced to a handful of greys does not — there
+            // the speckle IS the noise, and it costs bytes to send.
+            ...(opts.dither === undefined ? {} : { dither: opts.dither }),
+        })
         .toBuffer();
 }
 
