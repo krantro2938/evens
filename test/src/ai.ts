@@ -15,9 +15,14 @@
 // reading is not what you are here for. It borrows the action menu's rectangle
 // and dark backdrop wholesale (see SOLVE_RECT) — a text container is
 // transparent, so without the backdrop this would be a button drawn over
-// somebody else's algebra. That the backdrop takes the previous solution off
-// the screen is the point: a solve in flight is the page's whole state, whether
-// you started it here or walked back onto the page while it ran.
+// somebody else's algebra. It takes that background from the variant render,
+// so the previous solution stays readable around it — including in the state
+// where the button is literally talking about it ("shown: earlier scan").
+//
+// The one exception is a solve IN FLIGHT, which blacks the document out
+// wholesale: that solution is being replaced, and a solve running is the page's
+// whole state whether you started it here or walked back onto the page while it
+// ran.
 //
 // The MENU is the opposite case. It is about the solution, so blacking the
 // solution out to show it reads as the page having lost the document. It opens
@@ -512,16 +517,35 @@ const solveBox = createPanel({
  */
 function syncOverlay(): void {
     void page.enqueue(async () => {
-        if (buttonUp()) {
+        if (!buttonUp() && !menu.isOpen()) {
+            if (page.isMasked()) await page.restoreTiles();
+            return;
+        }
+        if (replacingDocument()) {
             // Putting it up twice is free — the tiles dedup identical bytes —
             // so this needs no "already dark?" test of its own.
             await page.overlayTiles(backdrop());
-        } else if (menu.isOpen()) {
-            if (!(await page.overlayVariant())) await page.overlayTiles(backdrop());
-        } else if (page.isMasked()) {
-            await page.restoreTiles();
+            return;
         }
+        if (!(await page.overlayVariant())) await page.overlayTiles(backdrop());
     });
+}
+
+/**
+ * Whether what is on screen is about to be thrown away.
+ *
+ * Only a solve in flight is. It was tempting to say "the button is up, so black
+ * out the document" — the button is modal, after all — but `idle` and `failed`
+ * put the button up over a solution that is still perfectly good, and often the
+ * very thing the button is talking about: "(shown: earlier scan)" is a sentence
+ * about a document you were then prevented from seeing. Blacking those out also
+ * meant the MENU came up black whenever the button was up, which is how this
+ * was found.
+ */
+function replacingDocument(): boolean {
+    if (requesting) return true;
+    const s = status();
+    return s?.state === "queued" || s?.state === "solving";
 }
 
 /** The box's text, and whatever is under it. */
