@@ -51,6 +51,19 @@ export interface Feedback {
     confidence: number;
 }
 
+/** One scan attempt, live or filed away — see the reader's /archive. */
+export interface ArchiveEntry {
+    version: number;
+    created_at: string;
+    updated_at: string;
+    capture_count: number;
+    done: boolean;
+    problems: number;
+    title: string;
+    /** False for the attempt still in progress. */
+    archived: boolean;
+}
+
 export interface Status {
     /** Our connection to the reader, not the reader's own health. */
     upstream: "disabled" | "connecting" | "open" | "error";
@@ -64,6 +77,16 @@ export interface Status {
     feedback: Feedback | null;
     /** Last capture failure, or the upstream connection error. */
     error: string | null;
+    /** The reader's current attempt number; bumps on every reset. */
+    version: number;
+    /**
+     * Every attempt the reader still holds, newest first, live one at the head.
+     * The glasses' version picker is built from this — the same role
+     * `solution_history` plays on the AI page.
+     */
+    versions: ArchiveEntry[];
+    /** When the last capture landed, so the glasses can age it. */
+    last_capture_at: number | null;
 }
 
 const status: Status = {
@@ -76,10 +99,39 @@ const status: Status = {
     problems: 0,
     feedback: null,
     error: null,
+    version: 0,
+    versions: [],
+    last_capture_at: null,
 };
 
 export function getStatus(): Status {
     return { ...status };
+}
+
+// ── the archive ─────────────────────────────────────────────────────────────
+//
+// Refreshed on connect and on every `reset`, which are the only two moments the
+// filed-away list can change — a running job only moves the LIVE entry, and
+// everything about that is already in `status`. Polling it on each status build
+// would put an upstream round trip behind a payload the glasses ask for several
+// times a second.
+
+async function refreshArchive(): Promise<void> {
+    if (!isConfigured()) return;
+    try {
+        const res = await fetch(`${BASE_URL}/archive`, { headers: authHeaders() });
+        if (!res.ok) throw new Error(`archive HTTP ${res.status}`);
+        const body = (await res.json()) as { versions?: ArchiveEntry[] };
+        status.versions = Array.isArray(body.versions) ? body.versions : [];
+        if (status.versions[0] && !status.version) {
+            status.version = status.versions[0].version;
+        }
+        notifyStatus();
+    } catch (err) {
+        // A reader that predates /archive answers 404. The picker is then simply
+        // empty, which is the truthful thing for it to be.
+        console.error("[assignment] archive list failed:", err);
+    }
 }
 
 const statusListeners = new Set<() => void>();
@@ -154,6 +206,42 @@ export const assignmentSource: DocSource = {
     },
 };
 
+/**
+ * One filed-away attempt, as a document source.
+ *
+ * Frozen by definition — an archived scan is a file the reader will never write
+ * again — so `subscribe` has nothing to report and the tile cache built on top
+ * renders it exactly once, however many times the glasses page back to it.
+ *
+ * The LIVE version must not come through here: use `assignmentSource` for that,
+ * or the page stops following the scan it is watching happen.
+ */
+const archivedSources = new Map<number, DocSource>();
+
+export function archivedSource(version: number): DocSource {
+    let source = archivedSources.get(version);
+    if (source) return source;
+    source = {
+        name: `assignment v${version}`,
+        async read(): Promise<Snapshot> {
+            const res = await fetch(`${BASE_URL}/archive/${version}.md`, {
+                headers: authHeaders(),
+            });
+            if (!res.ok) throw new Error(`archive v${version} HTTP ${res.status}`);
+            const content = await res.text();
+            return { content, version: hashContent(content) };
+        },
+        subscribe: () => () => {},
+    };
+    archivedSources.set(version, source);
+    return source;
+}
+
+/** The reader's archive listing, for the route that exposes it directly. */
+export function getArchive(): ArchiveEntry[] {
+    return status.versions;
+}
+
 // ── upstream SSE ────────────────────────────────────────────────────────────
 
 interface UpstreamEvent {
@@ -172,6 +260,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.running = Boolean(d.job?.running);
             status.max_captures = Number(d.job?.max_captures ?? 0);
             status.reason = d.job?.reason ?? null;
+            status.version = Number(d.version ?? status.version);
             scheduleDocumentRefresh();
             break;
 
@@ -186,6 +275,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
         case "capture_started":
             status.running = true;
             status.captures = Number(d.n ?? status.captures);
+            status.last_capture_at = Date.now();
             break;
 
         case "model_response":
@@ -227,6 +317,10 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.feedback = null;
             status.error = null;
             status.reason = null;
+            status.last_capture_at = null;
+            status.version = Number(d.version ?? status.version + 1);
+            // The attempt that just ended is now a file; the picker gains an entry.
+            void refreshArchive();
             scheduleDocumentRefresh();
             break;
 
@@ -296,6 +390,8 @@ export function startUpstream(): void {
                 status.upstream = "open";
                 status.error = null;
                 notifyStatus();
+                // Also catches resets that happened while we were disconnected.
+                void refreshArchive();
                 backoff = RECONNECT_MIN_MS;
 
                 await readStream(res.body);

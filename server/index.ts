@@ -10,6 +10,12 @@
 //   GET /solution/status                 GET  /assignment/status
 //   POST /solution/solve                 POST /assignment/toggle
 //   POST /solution/cancel                POST /assignment/control
+//                                        GET  /assignment/archive
+//
+// Both documents take `?overlay=menu` (the same page with the action menu's
+// rectangle darkened, so the menu can open without hiding the document) and a
+// history selector: `?solution_id=` for the AI page, `?version=` for the
+// assignment's earlier scans.
 //   GET  /solution/claim   ─┐ the Claude routine's side of the solve loop
 //   POST /solution/submit   │ (see solver.ts) — token-gated, not for the glasses
 //   POST /solution/fail    ─┘
@@ -34,8 +40,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createTileCache, type DocSource, type Snapshot } from "./doc";
 import {
+  archivedSource,
   assignmentSource,
   control,
+  getArchive,
   getStatus,
   isConfigured as assignmentConfigured,
   startUpstream,
@@ -163,9 +171,35 @@ function aiTiles(key: string, source: DocSource, reserved: Rect[] = []) {
 // model's camera advice). A text container is transparent, so the background
 // has to come from the tile itself — the client has no spare image layer to put
 // underneath. The AI page has no such panel, so its tiles are untouched.
-const getAssignmentTiles = createTileCache(assignmentSource, {
-  reserved: [HUD_FEEDBACK],
-});
+//
+// `?version=` picks an archived scan (the reader's /archive) and `?overlay=menu`
+// adds the action menu's box on top of the advice box, exactly as on the AI
+// page. Both are cache keys, so a page rendered five ways is five entries.
+const assignmentTileCaches = new Map<string, ReturnType<typeof createTileCache>>();
+
+function selectedAssignment(c: Context): { key: string; source: DocSource } {
+  const raw = c.req.query("version");
+  const version = raw === undefined || raw === "" ? NaN : Number(raw);
+  // The live attempt is served by the live source whether or not it was asked
+  // for by number — the archive's copy of it would stop updating mid-scan.
+  if (
+    !Number.isInteger(version) ||
+    version <= 0 ||
+    version === getStatus().version
+  ) {
+    return { key: "live", source: assignmentSource };
+  }
+  return { key: `v${version}`, source: archivedSource(version) };
+}
+
+function assignmentTiles(key: string, source: DocSource, reserved: Rect[]) {
+  let get = assignmentTileCaches.get(key);
+  if (!get) {
+    get = createTileCache(source, { reserved });
+    assignmentTileCaches.set(key, get);
+  }
+  return get;
+}
 
 // ── routes ──────────────────────────────────────────────────────────────────
 
@@ -427,7 +461,7 @@ app.use("/assignment/*", async (c, next) => {
 
 app.get("/assignment/markdown", async (c) => {
   try {
-    return c.json(await assignmentSource.read());
+    return c.json(await selectedAssignment(c).source.read());
   } catch (err) {
     console.error("read assignment failed:", err);
     return c.json({ error: "assignment_unavailable" }, 502);
@@ -436,7 +470,19 @@ app.get("/assignment/markdown", async (c) => {
 
 app.get("/assignment/tiles", async (c) => {
   try {
-    return c.json(await getAssignmentTiles());
+    const { key, source } = selectedAssignment(c);
+    const menu = c.req.query("overlay") === "menu";
+    // The advice box is reserved on every render; the menu's box only on the
+    // overlay variant, which is what the glasses swap to while it is open.
+    const reserved = menu ? [HUD_FEEDBACK, HUD_MENU] : [HUD_FEEDBACK];
+    const tiles = await assignmentTiles(
+      menu ? `${key}:menu` : key,
+      source,
+      reserved,
+    )();
+    // Echoed for the same reason the AI page echoes it: a client must be able
+    // to tell a masked render from a server that ignored the query.
+    return c.json({ ...tiles, overlay: menu ? "menu" : null });
   } catch (err) {
     console.error("render assignment tiles failed:", err);
     return c.json({ error: "tiles_unavailable" }, 502);
@@ -445,9 +491,14 @@ app.get("/assignment/tiles", async (c) => {
 
 app.get("/assignment/status", (c) => c.json(getStatus()));
 
-app.get(
-  "/assignment/events",
-  documentStream(assignmentSource, { get: getStatus, subscribe: subscribeStatus }),
+/** The reader's scan history, as the glasses' version picker sees it. */
+app.get("/assignment/archive", (c) => c.json({ versions: getArchive() }));
+
+app.get("/assignment/events", (c) =>
+  documentStream(selectedAssignment(c).source, {
+    get: getStatus,
+    subscribe: subscribeStatus,
+  })(c),
 );
 
 // The tap gesture: let the server pick start / stop / restart.

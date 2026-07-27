@@ -40,6 +40,24 @@ export type AssignmentStatus = {
         confidence: number;
     } | null;
     error: string | null;
+    /** The reader's current attempt number; bumps on every reset. */
+    version: number;
+    /** Every scan the reader still holds, newest first, live one at the head.
+     *  What the version picker is built from — the assignment page's answer to
+     *  the AI page's `solution_history`. */
+    versions: Array<{
+        version: number;
+        created_at: string;
+        updated_at: string;
+        capture_count: number;
+        done: boolean;
+        problems: number;
+        title: string;
+        /** False for the attempt still in progress. */
+        archived: boolean;
+    }>;
+    /** When the last capture landed, so the page can say how long ago. */
+    last_capture_at: number | null;
 };
 
 /** Mirror of the server's AI-page `status` payload (see server/solver.ts). */
