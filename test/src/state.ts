@@ -32,6 +32,11 @@ export type AssignmentStatus = {
     max_captures: number;
     reason: string | null;
     problems: number;
+    /** Of those, how many the model says it has in full. */
+    problems_complete: number;
+    /** Whether any frame this attempt has shown the whole sheet — the gate the
+     *  reader puts on `done`, and the honest answer to "is this all of it". */
+    full_page_seen: boolean;
     feedback: {
         camera_advice: string;
         advice_detail: string;

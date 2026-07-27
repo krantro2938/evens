@@ -94,6 +94,60 @@ function onLive(): boolean {
     return selectedVersion === null;
 }
 
+/**
+ * How much text a line of each strip holds.
+ *
+ * Measured against what is known to fit rather than from font metrics, which
+ * this app does not have: the menu's footer line ("> Cancel this solve   2/3
+ * tap=ok", 34 characters) fills a 576px strip comfortably, so ~14px a
+ * character. The advice box is 288px wide with 6px of padding on each side.
+ *
+ * Overflow is not a cosmetic problem here. A text container that does not fit
+ * its content gets a scroll bar from the host and spills PAST its background —
+ * and that background is baked into the tiles, so the overspill lands on bare
+ * document text with nothing behind it. That is the overlapping text and the
+ * scroll bar that does nothing: there is no gesture routed to it to scroll.
+ */
+const ADVICE_COLS = 20;
+const FOOTER_COLS = 40;
+
+/** Hard-clip one line to what its strip can draw. */
+function clip(text: string, cols: number): string {
+    const line = text.replace(/\s+/g, " ").trim();
+    return line.length <= cols ? line : `${line.slice(0, cols - 1)}…`;
+}
+
+/** Clip every line of a panel, and never hand it more lines than it has. */
+function fitBox(lines: string[], rows = 2, cols = ADVICE_COLS): string {
+    return lines
+        .filter((l) => l !== "")
+        .slice(0, rows)
+        .map((l) => clip(l, cols))
+        .join("\n");
+}
+
+/**
+ * The camera instruction, from the model's ENUM rather than its prose.
+ *
+ * `advice_detail` is a whole sentence — "The top of the page is cut off and the
+ * image is blurry. Please move the camera up and refocus." is 94 characters
+ * into a box that holds about 40 — and it arrives in English regardless of the
+ * paper's language. The enum carries the same decision in a form that fits and
+ * that this app can word itself.
+ */
+const ADVICE: Record<string, string> = {
+    ok: "Framing OK",
+    move_up: "Move camera UP",
+    move_down: "Move camera DOWN",
+    move_left: "Move camera LEFT",
+    move_right: "Move camera RIGHT",
+    move_closer: "Move CLOSER",
+    move_farther: "Move BACK",
+    refocus: "Refocus - blurry",
+    reduce_glare: "Glare - shade it",
+    reposition_paper: "Straighten paper",
+};
+
 /** "12s" / "3m 04s" — how long since something last happened. */
 function elapsed(ms: number): string {
     const total = Math.max(0, Math.round(ms / 1000));
@@ -146,13 +200,13 @@ function pagerLabel(state: DocState): string {
     const s = status();
     // Ahead of the reader's state: a control that was refused is about the
     // thing you just did, and no status event will ever mention it.
-    if (controlError) return controlError;
+    if (controlError) return clip(controlError, FOOTER_COLS);
     if (working) return `${working}...`;
     if (s && s.upstream !== "open") return `Reader ${s.upstream}`;
     if (!state.pages.length) return s?.running ? "Reading the page..." : state.status;
 
     const pages = `${state.currentPage + 1} / ${state.pages.length}`;
-    return `${pages}${progressLabel()}`;
+    return clip(`${pages}${progressLabel()}`, FOOTER_COLS);
 }
 
 /**
@@ -179,12 +233,12 @@ function progressLabel(): string {
             s.last_capture_at === null
                 ? "starting"
                 : `${elapsed(Date.now() - s.last_capture_at)} ago`;
-        return `  -  capture ${s.captures}, ${since}`;
+        return `  -  c${s.captures} ${since}, ${readLabel()}`;
     }
 
     if (s.done) return `  -  done, ${s.problems} problems`;
-    if (s.reason === "max_captures") return `  -  stopped at the ${s.captures} limit`;
-    if (s.captures > 0) return `  -  stopped at capture ${s.captures}`;
+    if (s.reason === "max_captures") return `  -  hit the ${s.captures} limit, ${readLabel()}`;
+    if (s.captures > 0) return `  -  stopped c${s.captures}, ${readLabel()}`;
     return "  -  nothing read yet";
 }
 
@@ -197,45 +251,48 @@ function progressLabel(): string {
  */
 function feedbackText(): string {
     // What you just asked for, before anything upstream has reacted to it.
-    if (controlError) return `${controlError}\nTap to retry`;
-    if (working) return `${working}...`;
+    if (controlError) return fitBox([controlError, "Tap to retry"]);
+    if (working) return fitBox([`${working}...`]);
 
     const s = status();
     if (!s) return "Connecting...";
     if (s.upstream === "disabled") return "No reader configured";
-    if (s.upstream !== "open") return `Reader ${s.upstream}\n${s.error ?? ""}`.trim();
+    if (s.upstream !== "open") return fitBox([`Reader ${s.upstream}`, s.error ?? ""]);
 
     // Reading history: the camera is irrelevant, and the box would otherwise
     // give live advice about a document from yesterday.
     if (!onLive()) {
         const entry = versions().find((v) => v.version === selectedVersion);
-        return `Archived scan v${selectedVersion}\n${
-            entry ? `${entry.capture_count} captures, ${entry.problems} problems` : "2x = menu"
-        }`;
+        return fitBox([
+            `Archived v${selectedVersion}`,
+            entry ? `${entry.problems} problems` : "2x = menu",
+        ]);
     }
 
     if (s.running) {
         const f = s.feedback;
-        if (!f) return `Capture ${s.captures}...\nTap to stop`;
-        // advice_detail is a full sentence; camera_advice is the enum. Lead with
-        // the enum so the useful word survives even if the box clips.
-        const head =
-            f.camera_advice && f.camera_advice !== "ok"
-                ? `! ${f.camera_advice}`
-                : "OK framing";
-        // The edges the model says are cut off are the single most actionable
-        // thing it produces, and they were only ever in `advice_detail` prose.
-        const cut = f.cut_off_edges.length ? ` (${f.cut_off_edges.join(",")} cut)` : "";
-        return `${head}${cut}\n${f.advice_detail}`;
+        if (!f) return fitBox([`Capture ${s.captures}...`, "Tap to stop"]);
+        // Line 1 is the instruction, because that is what you act on. Line 2 is
+        // why, in the fewest words that carry it — the edges that are cut off
+        // are the most useful thing the model produces and were previously
+        // buried in the prose that didn't fit.
+        const why = f.cut_off_edges.length
+            ? `Cut off: ${f.cut_off_edges.join(", ")}`
+            : f.frame_quality && f.frame_quality !== "good"
+              ? `Frame: ${f.frame_quality}`
+              : "Hold still";
+        return fitBox([ADVICE[f.camera_advice] ?? "Adjust the camera", why]);
     }
 
     // Neither of these offers a tap: the only thing left to do to a page that
     // is already read is throw it away and start again, and that is not
     // something a temple tap should be able to do. See defaultAction.
-    if (s.done) return `Done - ${s.problems} problems\n2x = menu to rescan`;
-    if (s.error) return `Failed: ${s.error}\nTap to retry`;
-    if (s.reason === "max_captures") return "Hit capture limit\n2x = menu to rescan";
-    if (s.reason === "stopped") return `Stopped at ${s.captures}\nTap to resume - 2x = menu`;
+    if (s.done) return fitBox([`Done - ${s.problems} problems`, "2x = menu"]);
+    if (s.error) return fitBox([`Failed: ${s.error}`, "Tap to retry"]);
+    if (s.reason === "max_captures") return fitBox(["Hit capture limit", "2x = menu"]);
+    if (s.reason === "stopped") {
+        return fitBox([`Stopped at ${s.captures}`, "Tap to resume"]);
+    }
     return "Tap to start reading";
 }
 
@@ -336,6 +393,26 @@ function buildVersionMenu(): MenuEntry[] {
         });
     }
     return items;
+}
+
+/**
+ * How much of the sheet is actually in hand.
+ *
+ * A bare problem count says nothing about whether the scan is finished: six
+ * problems of which two are half-read is not six problems, and neither is six
+ * problems on a sheet whose bottom third has never been in frame. The reader
+ * gates `done` on exactly these two facts, so the footer shows them.
+ */
+function readLabel(): string {
+    const s = status();
+    if (!s) return "";
+    const whole = s.problems
+        ? `${s.problems_complete}/${s.problems} read`
+        : "nothing read yet";
+    // The gate that is easiest to be surprised by: every problem complete and
+    // the job still going, because the page has never been seen end to end.
+    // Kept to one word: the footer is one line and this is the tail of it.
+    return s.full_page_seen ? whole : `${whole}, partial`;
 }
 
 /** Open the menu, or move it between its two levels. */

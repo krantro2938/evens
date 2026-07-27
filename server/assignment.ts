@@ -74,6 +74,11 @@ export interface Status {
     /** Why the last job ended: done | stopped | max_captures | failed. */
     reason: string | null;
     problems: number;
+    /** Of those, how many the model says it has in full. */
+    problems_complete: number;
+    /** Whether any frame this attempt has shown the whole sheet — the gate the
+     *  reader puts on `done`, and the honest answer to "is this all of it". */
+    full_page_seen: boolean;
     feedback: Feedback | null;
     /** Last capture failure, or the upstream connection error. */
     error: string | null;
@@ -97,6 +102,8 @@ const status: Status = {
     max_captures: 0,
     reason: null,
     problems: 0,
+    problems_complete: 0,
+    full_page_seen: false,
     feedback: null,
     error: null,
     version: 0,
@@ -261,6 +268,8 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.max_captures = Number(d.job?.max_captures ?? 0);
             status.reason = d.job?.reason ?? null;
             status.version = Number(d.version ?? status.version);
+            status.problems_complete = Number(d.problems_complete ?? 0);
+            status.full_page_seen = Boolean(d.full_page_seen);
             scheduleDocumentRefresh();
             break;
 
@@ -291,12 +300,20 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
 
         case "assignment_updated":
             status.captures = Number(d.capture_count ?? status.captures);
+            status.problems = Number(d.problems ?? status.problems);
+            status.problems_complete = Number(
+                d.problems_complete ?? status.problems_complete,
+            );
+            status.full_page_seen = Boolean(d.full_page_seen ?? status.full_page_seen);
             scheduleDocumentRefresh();
             break;
 
         case "done":
             status.done = true;
             status.problems = Number(d.problems ?? status.problems);
+            status.problems_complete = Number(
+                d.problems_complete ?? status.problems,
+            );
             scheduleDocumentRefresh();
             break;
 
@@ -318,6 +335,8 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.error = null;
             status.reason = null;
             status.last_capture_at = null;
+            status.problems_complete = 0;
+            status.full_page_seen = false;
             status.version = Number(d.version ?? status.version + 1);
             // The attempt that just ended is now a file; the picker gains an entry.
             void refreshArchive();
