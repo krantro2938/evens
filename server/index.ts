@@ -42,7 +42,9 @@ import { createTileCache, type DocSource, type Snapshot } from "./doc";
 import {
   archivedSource,
   assignmentSource,
+  cameraConfigured,
   control,
+  fetchFrame,
   getArchive,
   getStatus,
   isConfigured as assignmentConfigured,
@@ -51,6 +53,12 @@ import {
   toggle,
   type ControlAction,
 } from "./assignment";
+import {
+  renderCameraTiles,
+  ROTATIONS,
+  type PreviewSize,
+} from "./render/camera";
+import type { TileData } from "./render/tiles";
 import {
   authorizeSolver,
   cancelRun,
@@ -486,6 +494,83 @@ app.get("/assignment/tiles", async (c) => {
   } catch (err) {
     console.error("render assignment tiles failed:", err);
     return c.json({ error: "tiles_unavailable" }, 502);
+  }
+});
+
+// ── the camera preview ──────────────────────────────────────────────────────
+//
+// What the camera sees now, as tiles. The Camera page polls this while you aim
+// the paper — so unlike every other tile route there is nothing to cache off a
+// version: the whole point is that the picture changed.
+//
+// Renders are coalesced instead. Two glasses (or a poll that overlaps the
+// previous one) share one frame grab and one sharp run; the TTL is short enough
+// that nobody is shown a frame they'd call stale, and long enough that the
+// camera stack isn't asked for a frame per viewer.
+const PREVIEW_TTL_MS = Number(process.env.CAMERA_PREVIEW_TTL_MS ?? 700);
+
+interface PreviewEntry {
+  at: number;
+  tiles: TileData[];
+}
+const previewCache = new Map<string, PreviewEntry>();
+const previewInFlight = new Map<string, Promise<TileData[]>>();
+
+async function cameraPreview(
+  size: PreviewSize,
+  rotate: number,
+  menu: boolean,
+): Promise<TileData[]> {
+  const key = `${size}:${rotate}:${menu ? "menu" : "plain"}`;
+  const hit = previewCache.get(key);
+  if (hit && Date.now() - hit.at <= PREVIEW_TTL_MS) return hit.tiles;
+
+  let pending = previewInFlight.get(key);
+  if (!pending) {
+    pending = (async () => {
+      // Ask for a frame no older than the cache we're about to write, so the
+      // two staleness budgets don't stack.
+      const jpeg = await fetchFrame(PREVIEW_TTL_MS);
+      const tiles = await renderCameraTiles(jpeg, {
+        size,
+        rotate,
+        // The advice panel sits over the bottom-right tile here exactly as it
+        // does on the assignment page, so it needs the same baked background.
+        // With the action menu open its box is reserved too — that is what lets
+        // the camera stay live and visible around a menu you are reading.
+        reserved: size === 4 ? (menu ? [HUD_FEEDBACK, HUD_MENU] : [HUD_FEEDBACK]) : [],
+      });
+      previewCache.set(key, { at: Date.now(), tiles });
+      return tiles;
+    })().finally(() => previewInFlight.delete(key));
+    previewInFlight.set(key, pending);
+  }
+  return pending;
+}
+
+app.get("/assignment/camera", async (c) => {
+  if (!cameraConfigured()) {
+    return c.json(
+      { error: "camera_not_configured", detail: "set ASSIGNMENT_URL or CAMERA_SNAPSHOT_URL" },
+      503,
+    );
+  }
+
+  const size = c.req.query("size") === "1" ? 1 : 4;
+  const rotate = Number(c.req.query("rotate") ?? 0);
+  if (!ROTATIONS.includes(rotate as (typeof ROTATIONS)[number])) {
+    return c.json({ error: "bad_rotation", detail: `use one of ${ROTATIONS.join(", ")}` }, 400);
+  }
+
+  try {
+    const tiles = await cameraPreview(size, rotate, c.req.query("overlay") === "menu");
+    return c.json({ tiles, size, rotate, at: Date.now() });
+  } catch (err) {
+    // Expected whenever the stream isn't publishing, so it is a message to put
+    // on the glasses rather than a stack trace to hunt for.
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("camera preview failed:", detail);
+    return c.json({ error: "camera_unavailable", detail }, 502);
   }
 });
 

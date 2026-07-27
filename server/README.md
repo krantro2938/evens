@@ -50,6 +50,7 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 | `GET /assignment/tiles` | same shape as `/tiles` |
 | `GET /assignment/events` | SSE. `event: markdown` when the transcription changes, `event: status` on job/camera-advice changes, `event: ping` heartbeats |
 | `GET /assignment/status` | the `status` payload on demand (poll fallback) |
+| `GET /assignment/camera[?size=4\|1&rotate=0\|90\|180\|270&overlay=menu]` | **the live camera as tiles** — `{ tiles, size, rotate, at }`, same tile shape as `/tiles`. Costs a frame grab, never a Gemini call. Renders are coalesced for `CAMERA_PREVIEW_TTL_MS`, so several viewers (and a poll that overlaps the last one) share one grab. |
 | `POST /assignment/toggle` | start / stop / reset+start, chosen from live job state → `{ ok, action, detail? }` |
 | `POST /assignment/control` | `{"action":"start\|stop\|reset\|restart\|extend\|toggle"}` — the same, named outright → `{ ok, action, detail? }` |
 
@@ -93,6 +94,9 @@ displayed.
 | `ASSIGNMENT_URL` | — | e.g. `http://<vps-ip>:8091`. Empty disables the assignment routes. |
 | `ASSIGNMENT_TOKEN` | — | the reader's `API_TOKEN` |
 | `ASSIGNMENT_DEBOUNCE_MS` | `2000` | how long to coalesce reader events before re-rendering |
+| `CAMERA_SNAPSHOT_URL` | `$ASSIGNMENT_URL/snapshot.jpg` | where preview frames come from. The reader owns the gateway URL, its token and the RTSP fallback, so by default this needs nothing — point it elsewhere only if this server can reach the camera stack but the reader can't be used |
+| `CAMERA_SNAPSHOT_TOKEN` | — | only for a `CAMERA_SNAPSHOT_URL` aimed at the web gateway, which gates on its own `SNAPSHOT_TOKEN` rather than the reader's |
+| `CAMERA_PREVIEW_TTL_MS` | `700` | how long a rendered preview frame is reused |
 | `DATA_DIR` | `../data` | `solver.sqlite` (runs + every solution), and the OAuth copy |
 | `SOLVER_TOKEN` | — | the routine's shared secret. **Empty leaves `/solution/claim` open** — fine locally, not on a public vhost. |
 | `ROUTINE_ID` | — | the routine a tap fires. Empty: runs are queued for the runner instead. |

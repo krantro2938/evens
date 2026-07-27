@@ -249,6 +249,61 @@ export function getArchive(): ArchiveEntry[] {
     return status.versions;
 }
 
+// ── the camera itself ───────────────────────────────────────────────────────
+//
+// The Camera page watches the stream while you aim the paper, so it needs a
+// frame rather than a transcription. By default that comes from the reader's
+// /snapshot.jpg: it already owns the gateway URL, the snapshot token and the
+// RTSP fallback, and putting a second copy of those here would mean two places
+// to change when the camera moves. CAMERA_SNAPSHOT_URL points somewhere else
+// (the web gateway direct, say) for the case where this server can reach the
+// camera stack but the reader is elsewhere.
+
+const SNAPSHOT_URL =
+    process.env.CAMERA_SNAPSHOT_URL || (BASE_URL ? `${BASE_URL}/snapshot.jpg` : "");
+/** Only for a CAMERA_SNAPSHOT_URL that points at the gateway, which gates on its
+ *  own token rather than the reader's. */
+const SNAPSHOT_TOKEN = process.env.CAMERA_SNAPSHOT_TOKEN ?? "";
+const SNAPSHOT_TIMEOUT_MS = Number(process.env.CAMERA_SNAPSHOT_TIMEOUT_MS ?? 15_000);
+
+export function cameraConfigured(): boolean {
+    return SNAPSHOT_URL !== "";
+}
+
+/**
+ * One JPEG of what the camera sees now.
+ *
+ * `maxAgeMs` is passed upstream rather than cached here: the reader's cache is
+ * the one that stops several viewers spawning several ffmpegs, and duplicating
+ * it would only add staleness of our own.
+ */
+export async function fetchFrame(maxAgeMs: number): Promise<Buffer> {
+    if (!cameraConfigured()) throw new Error("no camera snapshot URL configured");
+    const url = new URL(SNAPSHOT_URL);
+    url.searchParams.set("max_age_ms", String(Math.max(0, Math.round(maxAgeMs))));
+
+    const headers: Record<string, string> = SNAPSHOT_TOKEN
+        ? { "x-snapshot-token": SNAPSHOT_TOKEN }
+        : authHeaders();
+
+    const res = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(SNAPSHOT_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+        // Collapsed and short: this ends up in a two-line box on the glasses,
+        // where a pretty-printed JSON error body is worse than no detail at all.
+        const detail = (await res.text().catch(() => ""))
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 120);
+        throw new Error(`snapshot HTTP ${res.status}${detail ? `: ${detail}` : ""}`);
+    }
+    const jpeg = Buffer.from(await res.arrayBuffer());
+    if (!jpeg.length) throw new Error("snapshot was empty");
+    return jpeg;
+}
+
 // ── upstream SSE ────────────────────────────────────────────────────────────
 
 interface UpstreamEvent {

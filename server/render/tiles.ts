@@ -85,7 +85,7 @@ async function screenshot(bodyHtml: string): Promise<Buffer> {
  * straddles a tile boundary needs no special handling — each tile just takes
  * its own crop of this.
  */
-function reservedLayer(rects: readonly Rect[]): Buffer {
+export function reservedLayer(rects: readonly Rect[]): Buffer {
     const width = TILE_W * TILES_X;
     const layer = Buffer.alloc(width * PAGE_H * 4, 0); // transparent
 
@@ -125,64 +125,90 @@ async function slice(png: Buffer, reserved: readonly Rect[] = []): Promise<TileP
     const pages: TilePage[] = [];
 
     // Same on every page and every tile position, so build it once and crop.
-    const pageW = TILE_W * TILES_X;
     const layer = reserved.length ? reservedLayer(reserved) : null;
 
     for (let p = 0; p < pageCount; p++) {
-        const pageTop = p * stride;
-        const tiles: TileData[] = [];
-        for (let ty = 0; ty < TILES_Y; ty++) {
-            for (let tx = 0; tx < TILES_X; tx++) {
-                const index = ty * TILES_X + tx;
-                const sx = tx * TILE_W;
-                const sy = pageTop + ty * TILE_H;
-                const availW = Math.min(TILE_W, imgW - sx);
-                const availH = Math.min(TILE_H, imgH - sy);
-
-                const layers: OverlayOptions[] = [];
-
-                // Past the end of the document this stays empty and the tile is
-                // just the black background.
-                if (availW > 0 && availH > 0) {
-                    layers.push({
-                        input: await sharp(png)
-                            .extract({ left: sx, top: sy, width: availW, height: availH })
-                            .toBuffer(),
-                        left: 0,
-                        top: 0,
-                    });
-                }
-
-                // The reserved panel backgrounds go on last, over the document —
-                // covering it is the entire point.
-                if (layer) {
-                    const crop = Buffer.alloc(TILE_W * TILE_H * 4);
-                    for (let y = 0; y < TILE_H; y++) {
-                        const from = ((ty * TILE_H + y) * pageW + tx * TILE_W) * 4;
-                        layer.copy(crop, y * TILE_W * 4, from, from + TILE_W * 4);
-                    }
-                    layers.push({
-                        input: crop,
-                        raw: { width: TILE_W, height: TILE_H, channels: 4 },
-                        left: 0,
-                        top: 0,
-                    });
-                }
-
-                const tileBuf = await sharp({
-                    create: { width: TILE_W, height: TILE_H, channels: 3, background: "#000" },
-                })
-                    .composite(layers)
-                    .grayscale()
-                    .png({ compressionLevel: 9, palette: true, colours: 16 })
-                    .toBuffer();
-                tiles.push({ index, data: tileBuf.toString("base64") });
-            }
-        }
-        pages.push({ tiles });
+        pages.push({ tiles: await cutTiles(png, p * stride, imgW, imgH, layer) });
     }
 
     return pages;
+}
+
+/**
+ * One page's worth of tiles, cut from `png` starting at row `top`.
+ *
+ * Split out of slice() so a source that isn't a paginated document — the camera
+ * preview (see camera.ts) — lands on the glasses through exactly the same
+ * geometry and the same encoder. Anything past the edge of the image is padded
+ * with black, so a short or narrow source still yields four full tiles.
+ */
+async function cutTiles(
+    png: Buffer,
+    top: number,
+    imgW: number,
+    imgH: number,
+    layer: Buffer | null,
+): Promise<TileData[]> {
+    const pageW = TILE_W * TILES_X;
+    const tiles: TileData[] = [];
+
+    for (let ty = 0; ty < TILES_Y; ty++) {
+        for (let tx = 0; tx < TILES_X; tx++) {
+            const index = ty * TILES_X + tx;
+            const sx = tx * TILE_W;
+            const sy = top + ty * TILE_H;
+            const availW = Math.min(TILE_W, imgW - sx);
+            const availH = Math.min(TILE_H, imgH - sy);
+
+            const layers: OverlayOptions[] = [];
+
+            // Past the end of the document this stays empty and the tile is
+            // just the black background.
+            if (availW > 0 && availH > 0) {
+                layers.push({
+                    input: await sharp(png)
+                        .extract({ left: sx, top: sy, width: availW, height: availH })
+                        .toBuffer(),
+                    left: 0,
+                    top: 0,
+                });
+            }
+
+            // The reserved panel backgrounds go on last, over the document —
+            // covering it is the entire point.
+            if (layer) {
+                const crop = Buffer.alloc(TILE_W * TILE_H * 4);
+                for (let y = 0; y < TILE_H; y++) {
+                    const from = ((ty * TILE_H + y) * pageW + tx * TILE_W) * 4;
+                    layer.copy(crop, y * TILE_W * 4, from, from + TILE_W * 4);
+                }
+                layers.push({
+                    input: crop,
+                    raw: { width: TILE_W, height: TILE_H, channels: 4 },
+                    left: 0,
+                    top: 0,
+                });
+            }
+
+            tiles.push({ index, data: (await encodeTile(layers)).toString("base64") });
+        }
+    }
+    return tiles;
+}
+
+/**
+ * The one place a tile becomes bytes. Greyscale and a 16-colour palette because
+ * that is what the panel can show, and because the payload crosses BLE — see
+ * the client's push instrumentation for what that costs.
+ */
+export async function encodeTile(layers: OverlayOptions[]): Promise<Buffer> {
+    return sharp({
+        create: { width: TILE_W, height: TILE_H, channels: 3, background: "#000" },
+    })
+        .composite(layers)
+        .grayscale()
+        .png({ compressionLevel: 9, palette: true, colours: 16 })
+        .toBuffer();
 }
 
 export interface RenderOptions {

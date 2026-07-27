@@ -10,10 +10,10 @@ import {
 } from "@evenrealities/even_hub_sdk";
 import {
     BODY_H,
-    BODY_PAD,
     BODY_RADIUS,
     BODY_W,
     CONTAINER_PAD,
+    dashboardRects,
     DEFAULT_COLOR,
     DOC_EVENT_LAYER_ID,
     DOC_FEEDBACK_ID,
@@ -49,6 +49,11 @@ import {
     handleAssignmentPageEvent,
     leaveAssignmentPage,
 } from "./assignment";
+import {
+    enterCameraPage,
+    handleCameraPageEvent,
+    leaveCameraPage,
+} from "./camera";
 import { tileLayout } from "./render/tiles";
 import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
@@ -77,16 +82,16 @@ const main = new TextContainerProperty({
 });
 
 function createDashboardTiles() {
+    const rects = dashboardRects();
     return MENU_ITEMS.map((item, index) => {
-        const rest = index % 2;
-        const whole = Math.floor(index / 2);
+        const rect = rects[index];
         const isItemFocused = GlobalState.dashboardState.focusedItem === item;
 
         return new TextContainerProperty({
-            xPosition: rest * (BODY_W / 2) + rest * (BODY_PAD / 2),
-            yPosition: whole * (BODY_H / 2) + whole * (BODY_PAD / 2),
-            width: BODY_W / 2 - BODY_PAD / 2,
-            height: BODY_H / 2 - BODY_PAD / 2,
+            xPosition: rect.x,
+            yPosition: rect.y,
+            width: rect.w,
+            height: rect.h,
             borderWidth: 2,
             borderColor: isItemFocused ? FOCUSED_COLOR : DEFAULT_COLOR,
             borderRadius: BODY_RADIUS,
@@ -209,6 +214,9 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.ASSIGNMENT:
             handleAssignmentPageEvent(gesture);
             break;
+        case PAGES.CAMERA:
+            handleCameraPageEvent(gesture);
+            break;
         // Adri and Yula are placeholders, and the placeholder's own text says
         // "Double click to go back" — but with no case here the gesture reached
         // nothing at all and the page was a dead end you had to restart out of.
@@ -229,6 +237,9 @@ function leaveCurrentPage() {
             break;
         case PAGES.ASSIGNMENT:
             leaveAssignmentPage();
+            break;
+        case PAGES.CAMERA:
+            leaveCameraPage();
             break;
     }
 }
@@ -386,6 +397,15 @@ export async function buildPage(page: PAGES) {
         case PAGES.ASSIGNMENT:
             await buildDocumentPage({ feedback: true, menu: true });
             await enterAssignmentPage();
+            break;
+
+        // Same containers as a document page: the preview lands in the four
+        // image tiles, the advice box keeps its reserved corner (the server
+        // bakes that rect into the camera tiles too) and the menu carries the
+        // controls that used to be on the assignment page.
+        case PAGES.CAMERA:
+            await buildDocumentPage({ feedback: true, menu: true });
+            await enterCameraPage();
             break;
 
         default:

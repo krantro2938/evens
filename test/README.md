@@ -56,13 +56,59 @@ wildcards) to `app.json` as well.
 
 | Page | Shows | Gestures |
 |---|---|---|
-| Dashboard | the four menu tiles | swipe to move focus, tap to open |
+| Dashboard | five tiles, two on the top row and three below | swipe to move focus, tap to open |
 | **AI** | the solution to the assignment on the paper, live — or a **trigger button** when there isn't one yet | swipe to page, **tap to page or to solve**, **double-tap for the action menu** |
-| **Assign** | what the [lookcam reader](../../lookcam/assignment) has transcribed off the paper, live | swipe to page, **tap to start/stop**, **double-tap for the action menu** |
+| **Assign** | what the [lookcam reader](../../lookcam/assignment) has transcribed off the paper, live | swipe or tap to page, **double-tap for the version menu** |
+| **Camera** | **what the camera sees, refreshed while you aim it** — plus every scan control | **tap to start/stop**, **swipe to rotate the view**, **double-tap for the action menu** |
 
-Both document pages are instances of `src/docPage.ts` — same tile fetching,
+The two document pages are instances of `src/docPage.ts` — same tile fetching,
 paging, SSE-with-poll-fallback, per-tile dedup and text fallback. They differ
-only in which endpoint they read and what a tap does.
+only in which endpoint they read and what a tap does. The Camera page is not one
+of them: it has no document, only a picture it repaints on its own schedule, but
+it pushes tiles through the same `render/tilePush.ts` the document pages use.
+
+### The Camera page
+
+The reader's advice is the model's read on framing, and it is in the **camera's**
+frame of reference — so it cannot describe a camera that is simply rotated. With
+the lens rolled 90°, "Move camera UP" moves you sideways, and no prompt fixes
+that, because the model cannot know how the camera sits relative to your hands.
+A picture answers it in one glance, and costs a frame grab rather than a Gemini
+call.
+
+```
+        ┌───────────────────────────────────────┐
+        │ ┌───────────────────────────────────┐ │
+        │ │                                   │ │
+        │ │      what the camera sees         │ │
+        │ │                     ┌─────────────┤ │
+        │ │                     │ Move camera │ │
+        │ └─────────────────────┤ DOWN        │ │
+        │                       │ Cut off: bot│ │
+        │ Live 2s ago - c3 4s ago, 2/5 read   │ │
+        └───────────────────────────────────────┘
+```
+
+The advice is kept, not replaced: the picture says where the paper is, the box
+says what the reader still needs (blur, glare, which edge is missing), and the
+footer says whether either of them is still moving — a still picture gives no
+clue on its own that it has stopped being about now.
+
+**Start, stop, resume, rescan and clear live here**, next to the picture of what
+they are about. They used to be on the Assignment page, where a tap meant to
+turn a page could start a job, and where you had to act on camera advice from
+the one screen that couldn't show you the camera.
+
+**Pacing is measured, not guessed.** A camera frame does not palette-compress
+the way black-background text does: a full panel of it is ~30KB against ~7KB for
+a page of transcription. So each frame is scheduled off what the last one
+actually cost over BLE — half of it, clamped to 0.75–3s — and the link is left
+partly idle for the text containers, which must stay responsive. `Small preview`
+in the menu drops to a single ~8KB tile when the link can't feed the big one.
+
+Swipe up or down to rotate the view by 90° (the menu has the same, spelled out).
+Nothing on this page pages, so the swipes were free, and rotation is what you
+came here to fix.
 
 ### The solve button
 
@@ -101,13 +147,15 @@ nothing to clear and nothing to remember. The old solution stays readable behind
 it, and the box says `(shown: earlier scan)` so the button doesn't look like it
 has forgotten what it already did.
 
-The Assignment page adds a bordered box in the bottom-right corner. It is
-always on screen (border width is part of the page definition, so a box that
-came and went would force a full page rebuild and a re-push of all four tiles),
-and shows the most useful thing available: the model's camera advice while a
-capture job runs — `▲ move_down`, "The lower third of the sheet is out of
-frame" — and otherwise what a tap will do (`Tap to start reading`, `Done · 4
-problems`).
+Both the Assignment and Camera pages add a bordered box in the bottom-right
+corner. It is always on screen (border width is part of the page definition, so
+a box that came and went would force a full page rebuild and a re-push of all
+four tiles). On the Camera page it carries the model's advice while a job runs —
+`Move camera DOWN`, `Cut off: bottom` — and otherwise what a tap will do
+(`Tap to start reading`). On the Assignment page it says what you are *reading*
+instead: `Done - 4 problems`, `3/5 read, partial`, or which archived scan is
+pinned. Repeating the advice there would invite you to act on it from the one
+screen that can't show you the result.
 
 ### The action menu
 
@@ -125,7 +173,7 @@ slides the marker, tap confirms, double-tap or 12s of silence dismisses:
           Close
 ```
 
-On the Assignment page:
+On the Camera page, plus `Rotate view` and `Small preview` in every state:
 
 | State | Offers |
 |---|---|
@@ -134,6 +182,10 @@ On the Assignment page:
 | hit the capture ceiling | Raise limit & go on · Rescan from scratch · Clear |
 | done | Rescan from scratch · Clear |
 | nothing read yet | Start reading |
+
+The Assignment page's menu is navigation only — `Back`, `Back to live scan` when
+you are reading history, and the version picker. Nothing there can spend a
+capture or throw a transcription away.
 
 The AI page has the same menu with its own entries — it is where you go to
 re-solve a page that already has an answer, or to abandon a solve that is taking
@@ -150,9 +202,12 @@ Plus **Back to menu**, which is where double-tap used to go on its own — tap a
 both swipes were already spoken for, and the SDK has no long-press, so leaving
 the page became an entry in the menu that took its gesture.
 
-The corner box keeps showing camera advice throughout, so choosing "Stop"
-doesn't cost you sight of the reason you're stopping. The footer mirrors the
-current selection as one line — `> Rescan from scratch   2/5   tap=ok`.
+The corner box keeps its text throughout, so choosing "Stop" doesn't cost you
+sight of the reason you're stopping. The footer mirrors the current selection as
+one line — `> Rescan from scratch   2/5   tap=ok`. On the Camera page the menu
+opens over the live view rather than a black backdrop: the preview simply
+re-renders with the menu's rectangle reserved (`?overlay=menu`), which is the
+same trick the document pages use for their variant render.
 
 ### Stacking: `zOrderIndex`
 
@@ -314,7 +369,9 @@ Its origin must also be in the `network` whitelist in `app.json`.
 | `src/docPage.ts` | Everything a document page does: tiles, paging, SSE, fallbacks. |
 | `src/menu.ts` | Reusable centred action menu — turns one gesture into a list of actions. |
 | `src/ai.ts` · `src/assignment.ts` | The two document pages — configuration over `docPage`. |
+| `src/camera.ts` | The Camera page: the live preview loop, and every scan control. |
 | `src/render/tiles.ts` | Fetch + decode the server's tiles; tile geometry. |
+| `src/render/tilePush.ts` | Getting an image into a tile container: dedup cache, `sendFailed` retry, legacy payload shape, and the BLE cost log. |
 | `src/state.ts` · `src/constants.ts` | Global state; layout, container IDs, endpoints. |
 | `src/debug.ts` | On-screen log panel (`appLog`). |
 | `app.json` | Even Hub manifest. Declares the `network` permission; its `whitelist` must contain the exact `VITE_MD_SERVER` origin. |

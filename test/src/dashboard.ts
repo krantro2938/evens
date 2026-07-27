@@ -3,6 +3,19 @@ import { buildPage, navigate } from "./main";
 import { GlobalState } from "./state";
 import { appLog } from "./debug";
 
+/**
+ * Where each tile goes. A map rather than a switch so adding a tile to
+ * MENU_ITEMS without a destination is a type error here, instead of a tile that
+ * silently does nothing when you tap it.
+ */
+const DESTINATIONS: Record<MenuItem, PAGES> = {
+    AI: PAGES.AI,
+    Assign: PAGES.ASSIGNMENT,
+    Adri: PAGES.ADRI,
+    Yula: PAGES.YULA,
+    Camera: PAGES.CAMERA,
+};
+
 export function handleDashboardEvent(gesture: GESTURE_EVENTS) {
     const prevIndex = MENU_ITEMS.indexOf(
         GlobalState.dashboardState.focusedItem,
@@ -11,20 +24,7 @@ export function handleDashboardEvent(gesture: GESTURE_EVENTS) {
     switch (gesture) {
         case GESTURE_EVENTS.TAP:
             appLog("Dashboard tap", GlobalState.dashboardState.focusedItem);
-            switch (GlobalState.dashboardState.focusedItem) {
-                case "AI":
-                    navigate(PAGES.AI);
-                    break;
-                case "Adri":
-                    navigate(PAGES.ADRI);
-                    break;
-                case "Yula":
-                    navigate(PAGES.YULA);
-                    break;
-                case "Assign":
-                    navigate(PAGES.ASSIGNMENT);
-                    break;
-            }
+            navigate(DESTINATIONS[GlobalState.dashboardState.focusedItem]);
             break;
 
         case GESTURE_EVENTS.SWIPE_UP:

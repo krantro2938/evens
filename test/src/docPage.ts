@@ -7,15 +7,11 @@
 // Everything that used to be module-level in ai.ts is per-instance state here,
 // so two pages can't tread on each other's displayed-tile bookkeeping.
 
-import {
-    ImageRawDataUpdate,
-    TextContainerUpgrade,
-} from "@evenrealities/even_hub_sdk";
+import { TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 import {
     DOC_EVENT_LAYER_ID,
     DOC_PAGER_ID,
     DOC_TILE_IDS,
-    IMAGE_PAYLOAD,
     GESTURE_EVENTS,
     MARKDOWN_SERVER_URL,
     POLL_INTERVAL_MS,
@@ -24,6 +20,7 @@ import type { DocState } from "./state";
 import { bridge, navigateBack } from "./main";
 import { appLog } from "./debug";
 import { fetchTiles, type TilePage } from "./render/tiles";
+import { createTilePusher } from "./render/tilePush";
 
 export interface DocPageConfig {
     /** Shown in log lines. */
@@ -113,14 +110,10 @@ interface Snapshot {
     version: number;
 }
 
-/** A tile the host failed to *send* is worth trying again, briefly. */
-const PUSH_ATTEMPTS = 3;
-const PUSH_RETRY_MS = 400;
-/** Then, one level up: the whole page, a few times per visit to the page. */
+/** The whole page, a few times per visit to it — the per-tile retry lives in
+ *  tilePush.ts. */
 const RETRY_DELAY_MS = 4_000;
 const RETRIES_PER_VISIT = 3;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function createDocPage(config: DocPageConfig): DocPage {
     const { state, base, name } = config;
@@ -133,11 +126,9 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // slow BLE link when a gesture lands on the same page.
     let displayedPage = -1;
 
-    // Bytes currently shown in each of the four image containers. Turning a page
-    // still pushes all four tiles, but adjacent pages often share identical tiles
-    // (blank/all-black regions), and re-pushing those over BLE is the dominant
-    // cost — so skip any tile whose bytes already match what its container shows.
-    let displayedTiles: (Uint8Array | null)[] = [null, null, null, null];
+    // Every write to an image container goes through here: dedup cache, retry,
+    // and the BLE timing log. Shared with the Camera page (see tilePush.ts).
+    const tiles = createTilePusher(name);
 
     // True while an overlay (the action menu's backdrop) has taken the tiles
     // over. Document updates keep flowing into `state`; they just don't reach
@@ -156,19 +147,9 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // document change is a wasted render per solve.
     let variantUnsupported = false;
 
-    // Retry bookkeeping for tiles the host couldn't send (see pushTile).
+    // Retry bookkeeping for tiles the host couldn't send (see tilePush.ts).
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let retriesLeft = RETRIES_PER_VISIT;
-
-    function sameBytes(a: Uint8Array | null, b: Uint8Array): boolean {
-        if (!a || a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-        return true;
-    }
-
-    function resetDisplayedTiles(): void {
-        displayedTiles = [null, null, null, null];
-    }
 
     // All bridge writes (tile pushes, pager updates, overlays) run through this
     // chain so nothing overlaps — updateImageRawData must be strictly serial.
@@ -214,9 +195,11 @@ export function createDocPage(config: DocPageConfig): DocPage {
         const page = pages[clamped];
 
         let landed = true;
+        tiles.beginBatch(`page ${clamped}`);
         for (const tile of page.tiles) {
-            landed = (await pushTile(tile.index, tile.bytes)) && landed;
+            landed = (await tiles.push(tile.index, tile.bytes)) && landed;
         }
+        tiles.endBatch(page.tiles.length);
 
         if (landed) {
             displayedPage = clamped;
@@ -251,55 +234,6 @@ export function createDocPage(config: DocPageConfig): DocPage {
         }, RETRY_DELAY_MS);
     }
 
-    /**
-     * Push one image into a tile container, keeping the dedup cache honest.
-     * Returns false if the tile is not on the panel afterwards.
-     *
-     * `sendFailed` is the host telling us the BLE transfer to the glasses failed
-     * — the image itself was fine (that would be imageException or
-     * imageSizeInvalid). A tile is ~18KB of gray4 where a text upgrade is a few
-     * bytes, so a weak link drops these and nothing else, and the page goes blank
-     * while the pager keeps updating perfectly. It is also usually transient,
-     * which is the whole reason to try again.
-     */
-    async function pushTile(index: number, bytes: Uint8Array): Promise<boolean> {
-        if (sameBytes(displayedTiles[index], bytes)) return true;
-
-        const update = new ImageRawDataUpdate({
-            containerID: DOC_TILE_IDS[index],
-            containerName: `tile${index}`,
-            imageData: bytes,
-        });
-
-        if (IMAGE_PAYLOAD === "legacy") {
-            // Send what 0.0.10 sent. The SDK's own toJson() adds
-            // `compressMode: 2` unconditionally, and a host that predates LZ4
-            // support answers every such send with sendFailed — see the note at
-            // IMAGE_PAYLOAD. Overriding toJson is the whole of the fix: the
-            // bridge serializes through it.
-            (update as unknown as { toJson(): unknown }).toJson = () => ({
-                containerID: DOC_TILE_IDS[index],
-                containerName: `tile${index}`,
-                imageData: Array.from(bytes),
-            });
-        }
-
-        for (let attempt = 1; attempt <= PUSH_ATTEMPTS; attempt++) {
-            const result = await bridge.updateImageRawData(update);
-            if (result === "success") {
-                displayedTiles[index] = bytes;
-                return true;
-            }
-
-            appLog(name, "tile push", index, String(result), `attempt ${attempt}`);
-            displayedTiles[index] = null;
-            // A rejected image will be rejected again; only the transport is
-            // worth a second go.
-            if (String(result) !== "sendFailed") return false;
-            if (attempt < PUSH_ATTEMPTS) await sleep(PUSH_RETRY_MS);
-        }
-        return false;
-    }
 
     /**
      * Fetch the variant render in the background. Not awaited by anything that
@@ -352,7 +286,9 @@ export function createDocPage(config: DocPageConfig): DocPage {
         }
         const page = variantPages[Math.min(state.currentPage, variantPages.length - 1)];
         if (!page) return false;
-        for (const tile of page.tiles) await pushTile(tile.index, tile.bytes);
+        tiles.beginBatch("overlay variant");
+        for (const tile of page.tiles) await tiles.push(tile.index, tile.bytes);
+        tiles.endBatch(page.tiles.length);
         // Same bookkeeping as overlayTiles: the containers no longer show the
         // page they claim to, so restoreTiles has to push it again.
         displayedPage = -1;
@@ -364,10 +300,12 @@ export function createDocPage(config: DocPageConfig): DocPage {
         // Nothing to restore afterwards means the containers were never filled;
         // covering them would strand the overlay on screen.
         if (!state.pages.length) return;
+        tiles.beginBatch("overlay tiles");
         for (let i = 0; i < DOC_TILE_IDS.length; i++) {
             const b = bytes[i];
-            if (b) await pushTile(i, b);
+            if (b) await tiles.push(i, b);
         }
+        tiles.endBatch(DOC_TILE_IDS.length);
         // The containers no longer show the page they claim to.
         displayedPage = -1;
         masked = true;
@@ -410,7 +348,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             state.version = version;
             state.status = "Text mode (tiles unavailable)";
             displayedPage = -1;
-            resetDisplayedTiles();
+            tiles.reset();
             await bridge.textContainerUpgrade(
                 new TextContainerUpgrade({
                     containerID: DOC_EVENT_LAYER_ID,
@@ -547,7 +485,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             // full four-tile push over BLE showing the version you just left.
             // loadInitial draws what actually replaces it.
             masked = false;
-            resetDisplayedTiles();
+            tiles.reset();
             await enqueue(loadInitial);
             subscribeLive();
         },
@@ -562,7 +500,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             // the containers are being destroyed anyway. Clearing this on the
             // way back in is what stops the page returning permanently blank.
             masked = false;
-            resetDisplayedTiles();
+            tiles.reset();
             dropVariant();
             // Re-probed once per visit, so a server deployed while the app was
             // running is picked up by walking off the page and back on rather

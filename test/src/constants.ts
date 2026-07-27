@@ -13,8 +13,58 @@ export const DEFAULT_COLOR = 1;
 // const INNER_W = BODY_W - 2 * (BODY_PAD + BODY_BORDER)
 // const INNER_H = BODY_H - 2 * (BODY_PAD + BODY_BORDER)
 
-export const MENU_ITEMS = ["AI", "Adri", "Yula", "Assign"] as const;
+// ── the dashboard ───────────────────────────────────────────────────────────
+// Five tiles on two rows: the two pages you read from on top, where the tiles
+// are half the panel wide, and the rest below. Reading order is also the order
+// a swipe walks them.
+//
+// Camera is last and it is the newest: it owns the live view and every scan
+// control, which used to live on the Assignment page. That page is now purely
+// for reading what has been transcribed — aiming the camera and reading the
+// result are different jobs, and doing both from one screen meant a tap could
+// start a job while you were trying to turn a page.
+export const MENU_ITEMS = ["AI", "Assign", "Adri", "Yula", "Camera"] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
+
+/** How many tiles on each row, top to bottom. Must sum to MENU_ITEMS.length. */
+export const DASHBOARD_ROWS = [2, 3] as const;
+/** Space between tiles, and between the tiles and the panel edge. */
+export const DASHBOARD_GAP = 6;
+
+export interface TileRect {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
+/**
+ * Where each dashboard tile sits, in MENU_ITEMS order.
+ *
+ * Computed rather than written out so the row spec above is the only thing to
+ * change when a page is added — the previous version hard-coded a 2×2 grid in
+ * index arithmetic, which is exactly the kind of thing that silently draws the
+ * fifth tile on top of the first.
+ */
+export function dashboardRects(): TileRect[] {
+    const rows = DASHBOARD_ROWS.length;
+    const h = Math.floor((BODY_H - DASHBOARD_GAP * (rows - 1)) / rows);
+    const rects: TileRect[] = [];
+
+    DASHBOARD_ROWS.forEach((count, row) => {
+        const w = Math.floor((BODY_W - DASHBOARD_GAP * (count - 1)) / count);
+        for (let col = 0; col < count; col++) {
+            rects.push({
+                x: col * (w + DASHBOARD_GAP),
+                y: row * (h + DASHBOARD_GAP),
+                w,
+                h,
+            });
+        }
+    });
+
+    return rects;
+}
 
 export enum PAGES {
     DASHBOARD,
@@ -22,6 +72,7 @@ export enum PAGES {
     ADRI,
     YULA,
     ASSIGNMENT,
+    CAMERA,
 }
 
 export enum GESTURE_EVENTS {
