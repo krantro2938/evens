@@ -49,6 +49,19 @@ export interface Panel {
     set(text: string): void;
     /** Clear it without disturbing the baked background. */
     clear(): void;
+    /**
+     * Forget what is on screen, without writing anything.
+     *
+     * Call this whenever the page has been rebuilt. A panel outlives the
+     * containers it writes to — it is created once at module scope, while
+     * `rebuildPageContainer` makes a brand-new container holding " " every time
+     * you enter the page. The dedup below would then compare against the *last
+     * visit's* text and skip the write, leaving the panel blank: leave the AI
+     * page while it says CLAUDE IS SOLVING, come back, and the box is empty
+     * behind its backdrop with nothing but a status event that says nothing
+     * changed.
+     */
+    reset(): void;
 }
 
 const DEFAULT_PADDING = 6;
@@ -106,5 +119,8 @@ export function createPanel(config: PanelConfig): Panel {
     return {
         set: (text) => write(text || " "),
         clear: () => write(" "),
+        reset: () => {
+            shown = null;
+        },
     };
 }

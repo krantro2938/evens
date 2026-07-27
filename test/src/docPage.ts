@@ -44,6 +44,16 @@ export interface DocPageConfig {
     /** Extra SSE events to listen for, beyond `markdown`. */
     events?: Record<string, (data: unknown) => void>;
     query?(): string;
+    /**
+     * Query for an alternate render of the same document, with a rectangle
+     * reserved for an overlay panel (`?overlay=menu`). Same markdown and the
+     * same pagination, so page N of one is page N of the other — which is what
+     * lets `overlayVariant()` swap the tiles of the page you are already on.
+     *
+     * Fetched lazily in the background after the document lands. Omit it and
+     * the page simply has no variant.
+     */
+    variantQuery?(): string;
     /** Run after tiles land, e.g. to refresh an overlay container. */
     afterShow?(): Promise<void>;
 }
@@ -62,6 +72,17 @@ export interface DocPage {
      * No-op when there are no tiles to put back afterwards.
      */
     overlayTiles(bytes: readonly Uint8Array[]): Promise<void>;
+    /**
+     * Mask with the variant render instead: the document as it is, with the
+     * overlay's rectangle already dark and framed in the tiles. Costs four real
+     * tiles (~8KB) rather than the backdrop's ~1KB, and buys a menu you can
+     * read the solution around.
+     *
+     * False when the variant isn't loaded yet — the caller should fall back to
+     * `overlayTiles`, because a menu over an unmasked document is unreadable.
+     * The fetch it kicks off means the next open gets the real thing.
+     */
+    overlayVariant(): Promise<boolean>;
     /** Put the document's own tiles back after an overlay. */
     restoreTiles(): Promise<void>;
     /**
@@ -112,6 +133,14 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // over. Document updates keep flowing into `state`; they just don't reach
     // the screen until the overlay comes down.
     let masked = false;
+
+    // The variant render — the same pages with the overlay's box baked in. Held
+    // with the version it was rendered for, because it is fetched a moment
+    // after the document and a solve landing in between would otherwise leave
+    // the menu masking the *previous* solution.
+    let variantPages: TilePage[] | null = null;
+    let variantVersion = -1;
+    let variantInFlight: Promise<void> | null = null;
 
     // Retry bookkeeping for tiles the host couldn't send (see pushTile).
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -248,6 +277,52 @@ export function createDocPage(config: DocPageConfig): DocPage {
         return false;
     }
 
+    /**
+     * Fetch the variant render in the background. Not awaited by anything that
+     * draws: the document is already on screen and the variant only matters
+     * once a menu opens, so a slow render must not hold up the page.
+     */
+    function loadVariant(): void {
+        if (!config.variantQuery || variantInFlight || !active) return;
+        // Nothing to be a variant OF yet; applyTiles calls back in when there is.
+        if (!state.pages.length) return;
+        variantInFlight = (async () => {
+            try {
+                const { pages, version } = await fetchTiles(base, config.variantQuery!());
+                variantPages = pages;
+                variantVersion = version;
+            } catch (err) {
+                // The menu still works, on the plain backdrop. Not worth a retry
+                // loop: the next document change asks again.
+                appLog(name, "overlay variant fetch failed", err);
+            } finally {
+                variantInFlight = null;
+            }
+        })();
+    }
+
+    function dropVariant(): void {
+        variantPages = null;
+        variantVersion = -1;
+    }
+
+    async function overlayVariant(): Promise<boolean> {
+        // A variant rendered from different markdown would mask the document
+        // with someone else's text. Only an exact version match will do.
+        if (!variantPages || variantVersion !== state.version || !state.pages.length) {
+            loadVariant();
+            return false;
+        }
+        const page = variantPages[Math.min(state.currentPage, variantPages.length - 1)];
+        if (!page) return false;
+        for (const tile of page.tiles) await pushTile(tile.index, tile.bytes);
+        // Same bookkeeping as overlayTiles: the containers no longer show the
+        // page they claim to, so restoreTiles has to push it again.
+        displayedPage = -1;
+        masked = true;
+        return true;
+    }
+
     async function overlayTiles(bytes: readonly Uint8Array[]): Promise<void> {
         // Nothing to restore afterwards means the containers were never filled;
         // covering them would strand the overlay on screen.
@@ -271,6 +346,9 @@ export function createDocPage(config: DocPageConfig): DocPage {
     function applyTiles(pages: TilePage[], version: number): Promise<void> {
         state.pages = pages;
         state.version = version;
+        // The variant is a render of the document that just went stale.
+        dropVariant();
+        loadVariant();
         state.currentPage = Math.min(
             state.currentPage,
             Math.max(0, pages.length - 1),
@@ -386,6 +464,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
         enqueue,
         updatePager,
         overlayTiles,
+        overlayVariant,
         restoreTiles,
         isMasked: () => masked,
         async reload(): Promise<void> {
@@ -395,6 +474,14 @@ export function createDocPage(config: DocPageConfig): DocPage {
             if (pollTimer) clearInterval(pollTimer);
             pollTimer = null;
             displayedPage = -1;
+            // A reload is a different document (the AI page pinning an older
+            // solution), so the variant is not the one we want either.
+            dropVariant();
+            // And nothing queued should put the OUTGOING document back on the
+            // way past: a menu closing enqueues a restore, and it would spend a
+            // full four-tile push over BLE showing the version you just left.
+            // loadInitial draws what actually replaces it.
+            masked = false;
             resetDisplayedTiles();
             await enqueue(loadInitial);
             subscribeLive();
@@ -411,6 +498,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             // way back in is what stops the page returning permanently blank.
             masked = false;
             resetDisplayedTiles();
+            dropVariant();
             state.status = "Loading...";
             await updatePager();
             enqueue(loadInitial);

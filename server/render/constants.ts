@@ -36,5 +36,23 @@ export interface Rect {
 // agree.
 export const HUD_FEEDBACK: Rect = { x: 288, y: 176, w: 288, h: 76 };
 
+/**
+ * The AI page's action menu — reserved only in the `?overlay=menu` render, not
+ * in the normal one.
+ *
+ * Unlike HUD_FEEDBACK this panel is transient, so baking it into every tile
+ * would put a dark box through the middle of a document nobody has opened a
+ * menu on. Instead the same document is rendered a second time with this rect
+ * reserved, and the client swaps to those tiles while the menu is up (see
+ * overlayVariant in test/src/docPage.ts). The alternative — the generated
+ * all-black backdrop in test/src/render/menuBackdrop.ts — costs 4×230 bytes
+ * instead of 4×~2KB, but takes the solution off the screen to show you a menu
+ * about it.
+ *
+ * MUST MATCH MENU_X / MENU_Y / MENU_W / MENU_H in test/src/constants.ts.
+ * Nothing checks it: if they drift, the panel's text lands beside its own box.
+ */
+export const HUD_MENU: Rect = { x: 108, y: 20, w: 360, h: 212 };
+
 /** Border drawn around a reserved region, matching the menu's frame. */
 export const HUD_BORDER = 2;

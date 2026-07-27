@@ -3,7 +3,7 @@
 //
 //   tap         turn the page, or press the button when it's up
 //   swipe       page through the solution
-//   double tap  open the action menu (solve again, cancel, back)
+//   double tap  open the action menu (solve again, cancel, open a version, back)
 //
 // The document is whatever a Claude routine last solved (server/solver.ts). When
 // no solution answers the *current* scan — nothing solved yet, or the camera has
@@ -15,7 +15,20 @@
 // reading is not what you are here for. It borrows the action menu's rectangle
 // and dark backdrop wholesale (see SOLVE_RECT) — a text container is
 // transparent, so without the backdrop this would be a button drawn over
-// somebody else's algebra.
+// somebody else's algebra. That the backdrop takes the previous solution off
+// the screen is the point: a solve in flight is the page's whole state, whether
+// you started it here or walked back onto the page while it ran.
+//
+// The MENU is the opposite case. It is about the solution, so blacking the
+// solution out to show it reads as the page having lost the document. It opens
+// on the variant render instead — the same tiles with a dark box exactly where
+// the panel sits (see HUD_MENU in server/render/constants.ts) — so you can read
+// the answer around the menu that talks about it.
+//
+// Which answer that is, is a choice: the menu's version picker pins the reader
+// to any solution the server still has, and the footer says which one you are
+// on. Nothing pinned means the latest, which is also what a new solve returns
+// you to.
 
 import {
     DOC_BASE_SOLUTION,
@@ -41,6 +54,36 @@ const SOLVE_BASE = "/solution";
 let requestInFlight = false;
 /** null follows the live/latest solution; a number pins the reader to history. */
 let selectedSolutionId: number | null = null;
+/** Where the menu is: its top level, or the version picker it opens. */
+let menuMode: "root" | "versions" = "root";
+
+/**
+ * A solve has been asked for and no status event has agreed yet.
+ *
+ * Without this, pressing "Solve again" does nothing visible for the length of a
+ * round trip that ends in a cloud session being started. The server is still
+ * reporting `solved`, so the page is still a reader, still showing the solution
+ * you just asked to replace — with the word "Solving..." written into a
+ * transparent container over the top of it. You cannot tell a slow request from
+ * an ignored tap, which is exactly when you tap again.
+ *
+ * So the button goes up on the tap, locally, and the first real status event
+ * takes over. It is a guess about the server, and it is allowed to be wrong for
+ * REQUEST_GRACE_MS and no longer.
+ */
+let requesting = false;
+let requestTimer: ReturnType<typeof setTimeout> | null = null;
+const REQUEST_GRACE_MS = 30_000;
+
+/**
+ * A request the server refused, or couldn't be made at all.
+ *
+ * It gets the button too, for the same reason `requesting` does: no status
+ * event will ever mention it — as far as the server is concerned nothing
+ * happened — so it would otherwise be written into a transparent box over the
+ * document and be unreadable. It stays until you do something about it.
+ */
+let requestError: string | null = null;
 
 // Progress is the one thing the server can't push often enough — a queued run
 // sends no events at all while it waits for the agent to pick it up. So the
@@ -51,6 +94,35 @@ const TICK_MS = 5_000;
 
 function status(): SolverStatus | null {
     return GlobalState.solverStatus;
+}
+
+/** The saved solutions, newest first, as the server sends them. */
+function history(): SolverStatus["solution_history"] {
+    return status()?.solution_history ?? [];
+}
+
+function setRequesting(on: boolean): void {
+    requesting = on;
+    if (requestTimer) {
+        clearTimeout(requestTimer);
+        requestTimer = null;
+    }
+    if (!on) return;
+    // Never leave the page claiming a solve that never started. If no status
+    // event ever agrees with us — the request was lost, the stream is down —
+    // fall back to whatever the server last said rather than sitting on a
+    // backdrop forever.
+    requestTimer = setTimeout(() => {
+        requestTimer = null;
+        requesting = false;
+        repaint();
+    }, REQUEST_GRACE_MS);
+}
+
+/** The box, whatever is under it, and the footer that mirrors both. */
+function repaint(): void {
+    paintButton();
+    void page.enqueue(() => page.updatePager());
 }
 
 /** How long the current run has been going, status age plus local drift. */
@@ -76,6 +148,8 @@ function elapsed(ms: number): string {
  * page — nothing to clear, nothing to remember.
  */
 function buttonUp(): boolean {
+    if (requesting) return true; // we asked; the server just hasn't said so yet
+    if (requestError) return true; // and it has to be readable to be an error
     const s = status();
     if (!s) return false; // pre-connection: don't flash a button we can't press
     return s.state !== "solved";
@@ -83,6 +157,8 @@ function buttonUp(): boolean {
 
 /** Whether a tap on the button would actually start something. */
 function tappable(): boolean {
+    if (requesting) return false; // one is already on its way
+    if (requestError) return true; // "TAP TO RETRY" means it
     const s = status();
     return s?.state === "idle" || s?.state === "failed";
 }
@@ -99,6 +175,17 @@ function tappable(): boolean {
  * length.
  */
 function buttonText(): string {
+    // Ahead of the server's own account of things: this is the gap between the
+    // tap and the first status event, and during it the server still says
+    // "solved". Same headline as the wait that follows, because it is the same
+    // wait — only the second line knows the difference.
+    if (requestError) {
+        return ["REQUEST FAILED", "", requestError.slice(0, 80), "", "TAP TO RETRY"].join("\n");
+    }
+    if (requesting) {
+        return ["CLAUDE IS SOLVING", "", "starting...", "", "please wait"].join("\n");
+    }
+
     const s = status();
     if (!s) return "Connecting...";
 
@@ -186,6 +273,9 @@ function pagerLabel(state: DocState): string {
     // looks like a bug in the document: the tiles never reached the glasses.
     if (state.linkError) return "Glasses link error - tiles not sent";
 
+    if (requestError) return "Request failed - tap to retry";
+    if (requesting) return "Starting a solve...";
+
     const s = status();
     if (!s) return state.status;
 
@@ -203,17 +293,33 @@ function pagerLabel(state: DocState): string {
                 : `Solving - ${elapsed(runElapsedMs())}`;
         case "failed":
             return "Solve failed - tap to retry";
-        case "solved": {
+        case "solved":
             if (!state.pages.length) return state.status;
-            const pages = `${state.currentPage + 1} / ${state.pages.length}`;
-            const opened = selectedSolutionId === null
-                ? s.solution
-                : s.solution_history.find((item) => item.id === selectedSolutionId);
-            return opened
-                ? `${pages}  - opened ${formatDate(opened.created_at)}`
-                : pages;
-        }
+            return `${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`;
     }
+}
+
+/**
+ * Which solution you are reading. A suffix rather than a line of its own — the
+ * footer is one strip and paging is what you look at it for — and empty when
+ * there is nothing to say, which is a deployment still showing solution.md.
+ */
+function openedLabel(): string {
+    const items = history();
+    if (!items.length) return "";
+
+    const opened =
+        selectedSolutionId === null
+            ? items[0]
+            : items.find((item) => item.id === selectedSolutionId);
+    // Pinned to something older than the handful the server sends back. Say so:
+    // "v?" beats a footer that quietly claims you are on the latest.
+    if (!opened) return "   - older version";
+
+    return (
+        `   - v${opened.version} ${formatDate(opened.created_at)}` +
+        (selectedSolutionId === null ? " (latest)" : "")
+    );
 }
 
 function formatDate(timestamp: number): string {
@@ -223,7 +329,15 @@ function formatDate(timestamp: number): string {
     })} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+/**
+ * Point the reader at one solution, or back at whatever is latest.
+ *
+ * This reloads rather than just refetching: the document stream is subscribed
+ * per solution (`?solution_id=`), so a pinned page would go on receiving events
+ * about the solution it is pinned to and never learn that a newer one landed.
+ */
 function openSolution(id: number | null): void {
+    if (selectedSolutionId === id) return;
     selectedSolutionId = id;
     void page.reload();
 }
@@ -236,33 +350,78 @@ function openSolution(id: number | null): void {
  * something you travel to rather than something you land on.
  */
 function buildMenu(): MenuEntry[] {
+    return menuMode === "versions" ? buildVersionMenu() : buildRootMenu();
+}
+
+function buildRootMenu(): MenuEntry[] {
     const s = status();
     const items: MenuEntry[] = [{ label: "Back", run: leavePage }];
 
-    if (s?.state === "queued" || s?.state === "solving") {
-        items.push({ label: "Cancel this solve", run: () => post("/cancel", "Cancelling") });
+    if (requesting || s?.state === "queued" || s?.state === "solving") {
+        items.push({ label: "Cancel this solve", run: cancelSolve });
     } else if (s?.state === "idle" || s?.state === "failed" || s?.state === "solved") {
         // Same as a tap, offered anyway: the menu is where you look when you
         // don't trust what a tap will do.
-        items.push({ label: s.state === "solved" ? "Solve again" : "Solve now", run: () => {
-            selectedSolutionId = null;
-            void post("/solve", "Solving");
-        } });
+        items.push({ label: s.state === "solved" ? "Solve again" : "Solve now", run: solveNow });
     }
 
-    // Keep the picker in the same compact menu: newest first, timestamped so a
-    // re-solve is distinguishable even when it produced identical markdown.
-    for (const solution of (s?.solution_history ?? []).slice(0, 3)) {
+    // Only while it is not where you already are, so the top level stays short
+    // for the case that is normal — nothing pinned, latest on screen.
+    if (selectedSolutionId !== null) {
+        items.push({ label: "Back to latest", run: () => openSolution(null) });
+    }
+    // One version is the one you are reading; there is nothing to pick between.
+    if (history().length > 1) {
+        items.push({ label: "Open a version...", run: () => openMenu("versions") });
+    }
+    return items;
+}
+
+/**
+ * The picker. Every solution the server still holds, newest first, named by
+ * when it was made — a re-solve of the same paper is distinguishable from the
+ * one before it only by its timestamp, and often only by its minute.
+ *
+ * Longer than the panel is fine; the menu scrolls a window over it.
+ */
+function buildVersionMenu(): MenuEntry[] {
+    const items: MenuEntry[] = [{ label: "Back", run: () => openMenu("root") }];
+    const saved = history();
+
+    for (const [index, item] of saved.entries()) {
+        const newest = index === 0;
+        // Newest counts as "where you are" when nothing is pinned, because that
+        // is what an unpinned page is showing.
+        const current = selectedSolutionId === null ? newest : selectedSolutionId === item.id;
         items.push({
-            label: `${selectedSolutionId === solution.id ? "* " : "Open "}${formatDate(solution.created_at)}`,
-            run: () => openSolution(solution.id),
+            // No "(latest)" tag on the first one: `line()` mirrors this label
+            // into the footer with its own "n/total  tap=ok" and the strip is
+            // one line. The heading says which end of the list you start at.
+            label: `${current ? "*" : " "}v${item.version} ${formatDate(item.created_at)}`,
+            run: () => {
+                menuMode = "root";
+                // Picking the newest un-pins rather than pinning to its id, so
+                // the page keeps following new solves instead of freezing on
+                // what happened to be latest when you opened the menu.
+                openSolution(newest ? null : item.id);
+            },
         });
     }
     return items;
 }
 
+/** Open the menu, or move it between its two levels. */
+function openMenu(mode: "root" | "versions"): void {
+    menuMode = mode;
+    menu.open();
+}
+
 /** Why the entries are what they are — see the note in menu.ts. */
 function menuHeading(): string {
+    if (menuMode === "versions") return "VERSIONS - NEWEST FIRST";
+    if (requestError) return "REQUEST FAILED";
+    if (requesting) return "SOLVING - starting";
+
     const s = status();
     if (!s) return "CONNECTING";
     switch (s.state) {
@@ -294,12 +453,19 @@ const menu = createMenu({
         await page.updatePager();
     },
     backdrop: {
-        // Putting it up twice is free — the tiles dedup identical bytes — so this
-        // needs no "already dark?" test of its own.
-        show: (tiles) => page.overlayTiles(tiles),
-        // Taking it down while the button still needs it would restore the
-        // document under a button that is still on screen.
-        hide: () => (buttonUp() ? Promise.resolve() : page.restoreTiles()),
+        // Both directions are the same question — what should be covering the
+        // document now? — and syncOverlay is the one place that answers it. The
+        // menu opening does not mean the screen goes dark (it may want the
+        // variant), and the menu closing does not mean the document comes back
+        // (the button may still need the screen).
+        show: () => {
+            syncOverlay();
+            return Promise.resolve();
+        },
+        hide: () => {
+            syncOverlay();
+            return Promise.resolve();
+        },
     },
 });
 
@@ -314,8 +480,18 @@ const solveBox = createPanel({
 });
 
 /**
- * Put the backdrop where it belongs — the only writer, and it decides *inside*
- * the page's write chain.
+ * Put whatever should be covering the document where it belongs — the only
+ * writer, and it decides *inside* the page's write chain.
+ *
+ * Three cases, in priority order:
+ *
+ *   the button   black. It is modal, and not being able to read the solution
+ *                you just asked to replace is the whole of what it says.
+ *   the menu     the variant render: the document with a dark box where the
+ *                panel goes, so the answer stays readable around the menu that
+ *                is about it. Black only until that render arrives — a menu
+ *                over an unmasked document is text on text.
+ *   neither      the document comes back.
  *
  * That matters more than it looks. Deciding outside the chain means deciding from
  * a snapshot: two status events landing together (a finished solve sends the
@@ -329,22 +505,26 @@ const solveBox = createPanel({
  * `page.isMasked()` read here is the truth, and overlay/restore are cheap when
  * they have nothing to do.
  */
-function syncBackdrop(): void {
+function syncOverlay(): void {
     void page.enqueue(async () => {
-        const wanted = buttonUp();
-        if (wanted && !page.isMasked()) await page.overlayTiles(backdrop());
-        else if (!wanted && page.isMasked() && !menu.isOpen()) {
+        if (buttonUp()) {
+            // Putting it up twice is free — the tiles dedup identical bytes —
+            // so this needs no "already dark?" test of its own.
+            await page.overlayTiles(backdrop());
+        } else if (menu.isOpen()) {
+            if (!(await page.overlayVariant())) await page.overlayTiles(backdrop());
+        } else if (page.isMasked()) {
             await page.restoreTiles();
         }
     });
 }
 
-/** The box's text, and the backdrop under it. */
+/** The box's text, and whatever is under it. */
 function paintButton(): void {
     // The menu owns the rectangle while it is open; the button gets it back when
     // the menu closes (onPaint runs then too).
     solveBox.set(menu.isOpen() || !buttonUp() ? " " : buttonText());
-    syncBackdrop();
+    syncOverlay();
 }
 
 /** Repaint on a timer while a run is in flight, so the elapsed time moves. */
@@ -352,10 +532,7 @@ function syncTicker(): void {
     const s = status();
     const running = s?.state === "queued" || s?.state === "solving";
     if (running && !ticker) {
-        ticker = setInterval(() => {
-            paintButton();
-            void page.enqueue(() => page.updatePager());
-        }, TICK_MS);
+        ticker = setInterval(repaint, TICK_MS);
     } else if (!running && ticker) {
         clearInterval(ticker);
         ticker = null;
@@ -368,7 +545,10 @@ const page = createDocPage({
     name: "AI",
     base: DOC_BASE_SOLUTION,
     state: GlobalState.aiState,
-    query: () => selectedSolutionId === null ? "" : `?solution_id=${selectedSolutionId}`,
+    query: () => docQuery(),
+    // The same document with the menu's rectangle reserved, so the menu can
+    // open without taking the solution off the screen. See HUD_MENU.
+    variantQuery: () => docQuery("overlay=menu"),
     // Tap presses the button when it's up; otherwise it turns the page. That
     // decision needs live state, so it is made in handleAiPageEvent rather than
     // fixed here.
@@ -376,20 +556,62 @@ const page = createDocPage({
     pagerLabel,
     events: {
         status: (data) => {
-            GlobalState.solverStatus = data as SolverStatus;
-            if (GlobalState.solverStatus.state === "queued" || GlobalState.solverStatus.state === "solving") {
-                selectedSolutionId = null;
+            const next = data as SolverStatus;
+            GlobalState.solverStatus = next;
+            // The local guess has done its job the moment the server accounts
+            // for the request — or reports something that says it never will.
+            // `solved` and `idle` are the two it can't distinguish from "your
+            // tap hasn't been processed yet", so they don't clear it.
+            if (requesting && next.state !== "solved" && next.state !== "idle") {
+                setRequesting(false);
             }
+            // A solve is about the paper in front of you, not the history you
+            // were browsing: go back to following the live document, or the
+            // answer will land on a page still pinned to an older one.
+            if (next.state === "queued" || next.state === "solving") openSolution(null);
             statusReceivedAt = Date.now();
             syncTicker();
-            paintButton();
-            page.enqueue(() => page.updatePager());
+            repaint();
         },
     },
     // Tiles land on their own schedule — and a solve landing is exactly when the
     // button has to get out of the way.
     afterShow: async () => paintButton(),
 });
+
+/** The query for the document the reader is on: pinned, or whatever is latest. */
+function docQuery(extra?: string): string {
+    const parts: string[] = [];
+    if (selectedSolutionId !== null) parts.push(`solution_id=${selectedSolutionId}`);
+    if (extra) parts.push(extra);
+    return parts.length ? `?${parts.join("&")}` : "";
+}
+
+/**
+ * Start a solve. Puts the button up before the request leaves, because the
+ * round trip is long enough to read as nothing having happened — see
+ * `requesting`.
+ */
+function solveNow(): void {
+    // Whatever it produces will be the latest, so stop reading history now
+    // rather than when it lands: this reloads the page onto the live document,
+    // which is the stream the answer will arrive on.
+    openSolution(null);
+    requestError = null;
+    setRequesting(true);
+    repaint();
+    void post("/solve", "Solving");
+}
+
+function cancelSolve(): void {
+    requestError = null;
+    setRequesting(false);
+    repaint();
+    // Said outright rather than left to the status event: cancelling a claimed
+    // run is a round trip too, and the box would otherwise go on counting.
+    solveBox.set("CANCELLING...");
+    void post("/cancel", "Cancelling");
+}
 
 /**
  * Ask the server to start or abandon a solve. The reply only says whether the
@@ -399,7 +621,8 @@ const page = createDocPage({
 async function post(path: string, working: string): Promise<void> {
     if (requestInFlight) return;
     requestInFlight = true;
-    solveBox.set(`${working}...`);
+    // No "Solving..." placeholder here: the callers have already put the right
+    // thing on screen, and this used to overwrite it with a worse one.
     try {
         const res = await fetch(`${MARKDOWN_SERVER_URL}${SOLVE_BASE}${path}`, {
             method: "POST",
@@ -412,15 +635,11 @@ async function post(path: string, working: string): Promise<void> {
         };
         appLog("AI", path, result.action ?? "", result.detail ?? "");
         if (!result.ok) {
-            solveBox.set(
-                [
-                    `Couldn't ${working.toLowerCase()}`,
-                    "",
-                    (result.detail ?? "").slice(0, 80),
-                    "",
-                    "TAP TO RETRY",
-                ].join("\n"),
-            );
+            // Answered, and the answer is no: drop the local guess that a solve
+            // is starting, and keep the button up to say why.
+            setRequesting(false);
+            requestError = `Couldn't ${working.toLowerCase()}: ${result.detail ?? "refused"}`;
+            repaint();
         } else if (result.action === "queued") {
             // Worth saying outright: the run is real, but nothing is working on
             // it yet, and the status event alone doesn't distinguish "starting"
@@ -429,7 +648,9 @@ async function post(path: string, working: string): Promise<void> {
         }
     } catch (err) {
         appLog("AI", path, "failed", err);
-        solveBox.set("Server unreachable\n\nTAP TO RETRY");
+        setRequesting(false);
+        requestError = "The document server is unreachable";
+        repaint();
     } finally {
         requestInFlight = false;
         // The next `status` event repaints the box with the truth.
@@ -444,10 +665,29 @@ function leavePage(): void {
 
 /** Called by main.ts after the AI page containers are built. */
 export async function enterAiPage(): Promise<void> {
+    // Guesses about a request made on a previous visit; the status stream is
+    // about to say what is actually happening.
+    menuMode = "root";
+    setRequesting(false);
+    requestError = null;
+    // The containers are new and blank, so the box has to forget what it was
+    // showing: the dedup would otherwise skip a repaint that says the same
+    // thing the last visit ended on, and leave it empty. See Panel.reset().
+    solveBox.reset();
+
+    // Painted BEFORE the document loads, not after.
+    //
+    // Both writes go on the page's chain, and the order there is the order they
+    // reach the glasses. Walk back onto this page while a solve is running and
+    // the tiles from your last visit are still in `state`, so loading the
+    // document first spends a four-tile BLE push drawing the solution you are
+    // in the middle of replacing — and only then covers it with the backdrop
+    // that says so. Queued ahead, the backdrop masks the page and showPage
+    // skips the push entirely.
+    paintButton();
     // page.enter() clears the overlay state itself — the containers are new, so
     // nothing can be covering anything.
     await page.enter();
-    paintButton();
 }
 
 /** Tear down live connections when leaving the page. */
@@ -465,9 +705,11 @@ export function handleAiPageEvent(gesture: GESTURE_EVENTS): void {
     if (menu.handleGesture(gesture)) return;
 
     // Double tap is the menu here, so it never reaches docPage's back gesture —
-    // "Back" inside the menu is the way out of the page.
+    // "Back" inside the menu is the way out of the page. Always at the top
+    // level: a version picker left open from last time is not what a double tap
+    // is asking for.
     if (gesture === GESTURE_EVENTS.DOUBLE_TAP) {
-        menu.open();
+        openMenu("root");
         return;
     }
 
@@ -475,7 +717,7 @@ export function handleAiPageEvent(gesture: GESTURE_EVENTS): void {
     // (already solving, nothing to solve) is swallowed rather than turning a page
     // nobody can see behind the backdrop.
     if (gesture === GESTURE_EVENTS.TAP && buttonUp()) {
-        if (tappable()) void post("/solve", "Solving");
+        if (tappable()) solveNow();
         return;
     }
 

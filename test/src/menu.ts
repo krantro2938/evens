@@ -63,8 +63,8 @@ export interface MenuConfig {
     /** The panel container, declared with the page via `menuContainer()`. */
     containerID: number;
     /** Build the entries from whatever the page knows right now. Called on
-     *  every open, so the menu always matches current state. At most
-     *  MENU_MAX_ENTRIES of them — the panel clips rather than scrolls. */
+     *  every open, so the menu always matches current state. More than
+     *  MENU_MAX_ENTRIES is fine — the panel scrolls a window over them. */
     build(): MenuEntry[];
     /** The page's write chain, so menu paints can't interleave with tile
      *  pushes (`updateImageRawData` must be strictly serial). */
@@ -178,11 +178,29 @@ export function createMenu(config: MenuConfig): Menu {
     // retrying on every swipe, and the footer mirror carries the menu alone.
     let panel = !MENU_IN_FOOTER;
 
-    /** Every action at once, marker on the current one — so you can see where
-     *  you are and what else is there without cycling through it. */
+    /**
+     * Every action at once, marker on the current one — so you can see where
+     * you are and what else is there without cycling through it.
+     *
+     * A list longer than the panel scrolls instead of being clipped: the
+     * container's height is fixed when the page is built, and a version picker
+     * has as many entries as there have been solves. The window keeps the
+     * selection in the middle where possible, and pins to an end otherwise, so
+     * the first and last entries are reachable without the marker vanishing.
+     * `line()` carries the "n/total" that says there is more.
+     */
     function body(): string {
         const menu = entries!;
-        const lines = menu.map((e, i) => `${i === selected ? ">" : " "} ${e.label}`);
+        const start =
+            menu.length <= MENU_MAX_ENTRIES
+                ? 0
+                : Math.min(
+                      Math.max(0, selected - Math.floor((MENU_MAX_ENTRIES - 1) / 2)),
+                      menu.length - MENU_MAX_ENTRIES,
+                  );
+        const lines = menu
+            .slice(start, start + MENU_MAX_ENTRIES)
+            .map((e, i) => `${start + i === selected ? ">" : " "} ${e.label}`);
         return [heading(), ...lines].join("\n");
     }
 
@@ -257,11 +275,7 @@ export function createMenu(config: MenuConfig): Menu {
                 : null,
 
         open(): void {
-            const built = config.build();
-            if (built.length > MENU_MAX_ENTRIES) {
-                appLog(config.name, "menu overflows panel", built.length);
-            }
-            entries = built;
+            entries = config.build();
             selected = 0;
             arm();
             // Backdrop first: it masks the document, so the panel's text lands

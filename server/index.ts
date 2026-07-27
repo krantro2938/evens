@@ -55,7 +55,7 @@ import {
   submitSolution,
   subscribeSolver,
 } from "./solver";
-import { HUD_FEEDBACK } from "./render/constants";
+import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
 import { DB_PATH } from "./db";
 import { triggerDescription } from "./trigger";
 
@@ -114,10 +114,23 @@ function selectedAiSource(c: Context): { key: string; source: DocSource } {
   }
   return { key, source };
 }
-function aiTiles(key: string, source: DocSource) {
+/**
+ * `?overlay=menu` renders the same document with the action menu's rectangle
+ * dark and framed, so the glasses can open the menu without blacking out the
+ * solution behind it. Same pages, same pagination — only the reserved box
+ * differs, which is what lets the client swap tiles for the page it is already
+ * on. See HUD_MENU.
+ */
+function aiOverlay(c: Context): { suffix: string; reserved: Rect[] } {
+  return c.req.query("overlay") === "menu"
+    ? { suffix: ":menu", reserved: [HUD_MENU] }
+    : { suffix: "", reserved: [] };
+}
+
+function aiTiles(key: string, source: DocSource, reserved: Rect[] = []) {
   let get = aiTileCaches.get(key);
   if (!get) {
-    get = createTileCache(source);
+    get = createTileCache(source, { reserved });
     aiTileCaches.set(key, get);
   }
   return get;
@@ -263,7 +276,8 @@ app.get("/markdown", async (c) => {
 app.get("/tiles", async (c) => {
   try {
     const { key, source } = selectedAiSource(c);
-    return c.json(await aiTiles(key, source)());
+    const { suffix, reserved } = aiOverlay(c);
+    return c.json(await aiTiles(key + suffix, source, reserved)());
   } catch (err) {
     console.error("render tiles failed:", err);
     return c.json({ error: "tiles_unavailable" }, 500);

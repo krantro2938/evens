@@ -103,8 +103,14 @@ export interface SolverStatus {
   trigger: { configured: boolean; detail: string };
   /** How many solutions are on disk, so the count survives a restart visibly. */
   solutions: number;
+  /**
+   * The version picker's list, newest first. `version` counts from the first
+   * solution ever submitted, so the number a footer shows is the same number
+   * tomorrow — an index into this array would shift under every new solve.
+   */
   solution_history: Array<{
     id: number;
+    version: number;
     created_at: number;
     model: string | null;
     assignment_version: number | null;
@@ -192,6 +198,8 @@ export async function getSolverStatus(): Promise<SolverStatus> {
     version !== null && latestSolutionFor(version) !== null;
 
   const now = Date.now();
+  const total = solutionCount();
+  const history = recentSolutions();
   const active = run && (run.state === "pending" || run.state === "claimed");
 
   let state: SolverStatus["state"];
@@ -230,9 +238,11 @@ export async function getSolverStatus(): Promise<SolverStatus> {
         }
       : null,
     trigger: { configured: triggerConfigured(), detail: triggerDescription() },
-    solutions: solutionCount(),
-    solution_history: recentSolutions().map((item) => ({
+    solutions: total,
+    // Newest first, so the newest carries the highest ordinal.
+    solution_history: history.map((item, i) => ({
       id: item.id,
+      version: total - i,
       created_at: item.created_at,
       model: item.model,
       assignment_version: item.assignment_version,

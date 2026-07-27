@@ -258,6 +258,9 @@ function leavePage(): void {
 /** Called by main.ts after the assignment page containers are built. */
 export async function enterAssignmentPage(): Promise<void> {
     await page.enter();
+    // The container is new and blank; the panel still remembers the last
+    // visit's text and would dedup the repaint away. See Panel.reset().
+    advice.reset();
     updateFeedback();
 }
 

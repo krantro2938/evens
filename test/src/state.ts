@@ -76,8 +76,11 @@ export type SolverStatus = {
     } | null;
     trigger: { configured: boolean; detail: string };
     solutions: number;
+    /** The version picker's list, newest first. `version` counts from the
+     *  first solution ever submitted, so it doesn't shift as new ones land. */
     solution_history: Array<{
         id: number;
+        version: number;
         created_at: number;
         model: string | null;
         assignment_version: number | null;
