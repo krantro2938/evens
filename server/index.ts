@@ -63,7 +63,27 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // solution.md lives in the repo root, one level up from server/.
 const MARKDOWN_PATH = resolve(__dirname, "..", "solution.md");
 const PORT = Number(process.env.PORT ?? 8787);
-const HEARTBEAT_MS = 15_000;
+
+// ── keeping the SSE streams alive ───────────────────────────────────────────
+//
+// Bun.serve closes a connection after `idleTimeout` seconds without activity,
+// and the DEFAULT IS 10. Every /events stream in this app was therefore being
+// killed by its own server before its first heartbeat — the client reconnected,
+// got killed again, and the glasses lived on a stream that was never up for
+// more than ten seconds at a time. The visible symptom was the AI page still
+// saying CLAUDE IS SOLVING long after the routine had submitted: the status
+// event that says otherwise is pushed once, and there was frequently no stream
+// attached to push it down.
+//
+// The log line is the only evidence, and it is easy to read as a slow client:
+//
+//   [Bun.serve]: request timed out after 10 seconds. Pass `idleTimeout` to configure.
+//
+// So: a heartbeat well inside the timeout, and a timeout long enough that the
+// heartbeat is what keeps the connection up rather than what races it.
+const HEARTBEAT_MS = 10_000;
+/** Seconds. Bun caps this at 255; 0 would disable the timeout entirely. */
+const IDLE_TIMEOUT_S = 120;
 
 // ── solution.md: the file-backed source ─────────────────────────────────────
 
@@ -477,5 +497,8 @@ console.log(
 
 export default {
   port: PORT,
+  // Not optional: at Bun's default of 10s this server disconnects its own
+  // event streams. See the note at HEARTBEAT_MS.
+  idleTimeout: IDLE_TIMEOUT_S,
   fetch: app.fetch,
 };

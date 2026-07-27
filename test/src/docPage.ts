@@ -43,6 +43,16 @@ export interface DocPageConfig {
     onPrimaryAction?(): void;
     /** Extra SSE events to listen for, beyond `markdown`. */
     events?: Record<string, (data: unknown) => void>;
+    /**
+     * The page's status endpoint ("/solution/status"), polled through the same
+     * `events.status` handler whenever the live stream is down.
+     *
+     * The document already had a poll fallback and its status did not, which is
+     * not a symmetry anyone would choose: a dropped stream left the AI page
+     * saying CLAUDE IS SOLVING with no way to ever learn otherwise, because the
+     * event that says a run finished is pushed exactly once.
+     */
+    statusPath?: string;
     query?(): string;
     /**
      * Query for an alternate render of the same document, with a rectangle
@@ -168,12 +178,22 @@ export function createDocPage(config: DocPageConfig): DocPage {
         return chain as Promise<T | void>;
     }
 
+    // What the footer is showing. The pager is repainted on every status event,
+    // every tick and every menu swipe, and most of those say the same thing —
+    // and the elapsed-time tick runs once a second while a solve is in flight.
+    // Reset on enter(): the container is rebuilt blank, so a dedup against the
+    // last visit's text would leave the footer empty (see Panel.reset()).
+    let shownPager: string | null = null;
+
     async function updatePager(): Promise<void> {
+        const content = config.pagerLabel(state);
+        if (content === shownPager) return;
+        shownPager = content;
         await bridge.textContainerUpgrade(
             new TextContainerUpgrade({
                 containerID: DOC_PAGER_ID,
                 containerName: "pager",
-                content: config.pagerLabel(state),
+                content,
             }),
         );
     }
@@ -433,16 +453,40 @@ export function createDocPage(config: DocPageConfig): DocPage {
         }
     }
 
+    /** The status the stream would have pushed, fetched the slow way. */
+    async function pollStatus(): Promise<void> {
+        const handler = config.events?.status;
+        if (!config.statusPath || !handler || !active) return;
+        try {
+            const res = await fetch(`${MARKDOWN_SERVER_URL}${config.statusPath}`);
+            if (res.ok) handler(await res.json());
+        } catch (err) {
+            appLog(name, "status poll failed", err);
+        }
+    }
+
     function startPolling(): void {
         if (pollTimer) return;
         appLog(name, "polling every", POLL_INTERVAL_MS, "ms");
+        // Immediately, not in POLL_INTERVAL_MS: the stream just dropped, and
+        // whatever it failed to deliver is already stale.
+        void pollStatus();
         pollTimer = setInterval(() => {
             if (!active) return;
             enqueue(async () => {
                 const { version } = await fetchSnapshot();
                 await refresh(version);
             });
+            void pollStatus();
         }, POLL_INTERVAL_MS);
+    }
+
+    /** The stream is back, so stop paying for the fallback. */
+    function stopPolling(): void {
+        if (!pollTimer) return;
+        clearInterval(pollTimer);
+        pollTimer = null;
+        appLog(name, "SSE recovered - polling off");
     }
 
     function subscribeLive(): void {
@@ -465,6 +509,10 @@ export function createDocPage(config: DocPageConfig): DocPage {
                     }
                 });
             }
+            // A reconnect re-sends status and document immediately, so the
+            // fallback has nothing left to do. Without this the poll started on
+            // the first blip ran for the rest of the visit.
+            eventSource.onopen = stopPolling;
             eventSource.onerror = () => {
                 // EventSource auto-reconnects; bring up the poll fallback so
                 // updates still flow while it's down. refresh dedupes by version.
@@ -520,6 +568,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             // running is picked up by walking off the page and back on rather
             // than by reinstalling the app.
             variantUnsupported = false;
+            shownPager = null;
             state.status = "Loading...";
             await updatePager();
             enqueue(loadInitial);

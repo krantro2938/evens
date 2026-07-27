@@ -90,7 +90,12 @@ let requestError: string | null = null;
 // elapsed time is counted locally from the last status we saw.
 let statusReceivedAt = 0;
 let ticker: ReturnType<typeof setInterval> | null = null;
-const TICK_MS = 5_000;
+// Once a second, because the number is seconds and a clock that moves in jumps
+// of five reads as a stalled page rather than a running one — which is the one
+// thing this display exists to rule out. Both writes it causes are text
+// container upgrades of a few bytes (the tiles are the expensive thing), and
+// both dedup, so a label that hasn't changed costs nothing on the wire.
+const TICK_MS = 1_000;
 
 function status(): SolverStatus | null {
     return GlobalState.solverStatus;
@@ -554,6 +559,9 @@ const page = createDocPage({
     // fixed here.
     tapAction: "page",
     pagerLabel,
+    // Polled when the stream drops. A finished solve is announced once, and
+    // missing it is what leaves the page saying CLAUDE IS SOLVING forever.
+    statusPath: `${SOLVE_BASE}/status`,
     events: {
         status: (data) => {
             const next = data as SolverStatus;

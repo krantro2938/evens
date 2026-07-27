@@ -196,6 +196,9 @@ const page = createDocPage({
     tapAction: "action",
     onPrimaryAction: () => void send("/toggle", undefined, "Working"),
     pagerLabel,
+    // Same fallback as the AI page: a dropped stream would otherwise freeze the
+    // camera advice and the running/stopped state on whatever they last said.
+    statusPath: `${DOC_BASE_ASSIGNMENT}/status`,
     events: {
         status: (data) => {
             GlobalState.assignmentStatus = data as AssignmentStatus;
