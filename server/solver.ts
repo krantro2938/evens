@@ -150,7 +150,14 @@ async function readAssignment(): Promise<{
     const snapshot = await assignmentSource.read();
     // A reader with nothing transcribed still answers with a title-only stub;
     // treat "no problems yet" as nothing to solve.
-    return { snapshot, problems: s.problems, done: s.done };
+    //
+    // `done` alone is not "we have the whole paper": every problem the reader
+    // holds can be complete while the bottom of the sheet was never in frame.
+    // The reader gates its own `done` on that now, so this only differs for a
+    // scan finished under the old rule — and there, telling the solver the
+    // transcription may be partial is exactly right. It solves what is there
+    // and notes the gap.
+    return { snapshot, problems: s.problems, done: s.done && s.full_page_seen };
   } catch (err) {
     console.error("[solver] assignment read failed:", err);
     return { snapshot: null, problems: s.problems, done: s.done };

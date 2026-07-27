@@ -236,7 +236,11 @@ function progressLabel(): string {
         return `  -  c${s.captures} ${since}, ${readLabel()}`;
     }
 
-    if (s.done) return `  -  done, ${s.problems} problems`;
+    // "done" is not self-evidently the whole sheet: a scan finished under the
+    // old rule, or restored from a state file that predates the check, can be
+    // complete in every problem it holds and still have missed the bottom of
+    // the page. readLabel says so.
+    if (s.done) return `  -  done, ${readLabel()}`;
     if (s.reason === "max_captures") return `  -  hit the ${s.captures} limit, ${readLabel()}`;
     if (s.captures > 0) return `  -  stopped c${s.captures}, ${readLabel()}`;
     return "  -  nothing read yet";
