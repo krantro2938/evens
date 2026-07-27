@@ -18,6 +18,20 @@ export interface TilePage {
 interface TilesResponse {
     version: number;
     pages: { tiles: { index: number; data: string }[] }[];
+    /** Which overlay rect the server actually reserved, if any. */
+    overlay?: string | null;
+}
+
+export interface TilesResult {
+    version: number;
+    pages: TilePage[];
+    /**
+     * What the server says it reserved. Absent from a server that predates
+     * `?overlay=` and therefore ignored it — which is the case worth catching,
+     * because those tiles are the plain document and masking a menu with them
+     * leaves the menu unreadable over the text it failed to cover.
+     */
+    overlay: string | null;
 }
 
 /** Also used for the menu's backdrop tiles, which ship base64 in the bundle. */
@@ -32,17 +46,14 @@ export function base64ToBytes(b64: string): Uint8Array {
  * Fetch the server-rendered tiles for a document. `base` is the server's path
  * prefix — "" for solution.md, "/assignment" for the assignment reader.
  */
-export async function fetchTiles(
-    base = "",
-    query = "",
-): Promise<{ version: number; pages: TilePage[] }> {
+export async function fetchTiles(base = "", query = ""): Promise<TilesResult> {
     const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/tiles${query}`);
     if (!res.ok) throw new Error(`tiles HTTP ${res.status}`);
     const json = (await res.json()) as TilesResponse;
     const pages: TilePage[] = json.pages.map((p) => ({
         tiles: p.tiles.map((t) => ({ index: t.index, bytes: base64ToBytes(t.data) })),
     }));
-    return { version: json.version, pages };
+    return { version: json.version, pages, overlay: json.overlay ?? null };
 }
 
 /** Static geometry for the four image containers on a page. */

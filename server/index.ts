@@ -121,10 +121,14 @@ function selectedAiSource(c: Context): { key: string; source: DocSource } {
  * differs, which is what lets the client swap tiles for the page it is already
  * on. See HUD_MENU.
  */
-function aiOverlay(c: Context): { suffix: string; reserved: Rect[] } {
+function aiOverlay(c: Context): {
+  overlay: string | null;
+  suffix: string;
+  reserved: Rect[];
+} {
   return c.req.query("overlay") === "menu"
-    ? { suffix: ":menu", reserved: [HUD_MENU] }
-    : { suffix: "", reserved: [] };
+    ? { overlay: "menu", suffix: ":menu", reserved: [HUD_MENU] }
+    : { overlay: null, suffix: "", reserved: [] };
 }
 
 function aiTiles(key: string, source: DocSource, reserved: Rect[] = []) {
@@ -276,8 +280,15 @@ app.get("/markdown", async (c) => {
 app.get("/tiles", async (c) => {
   try {
     const { key, source } = selectedAiSource(c);
-    const { suffix, reserved } = aiOverlay(c);
-    return c.json(await aiTiles(key + suffix, source, reserved)());
+    const { overlay, suffix, reserved } = aiOverlay(c);
+    const tiles = await aiTiles(key + suffix, source, reserved)();
+    // Echoed, so the client can tell "here are your masked tiles" from "I have
+    // never heard of ?overlay and ignored it". The glasses app ships to a
+    // device and updates on its own schedule, so it WILL at some point ask a
+    // server older than itself — and a variant that is silently the plain
+    // document is worse than no variant at all: the menu draws transparent over
+    // a document it was supposed to have covered.
+    return c.json({ ...tiles, overlay });
   } catch (err) {
     console.error("render tiles failed:", err);
     return c.json({ error: "tiles_unavailable" }, 500);

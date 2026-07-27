@@ -141,6 +141,10 @@ export function createDocPage(config: DocPageConfig): DocPage {
     let variantPages: TilePage[] | null = null;
     let variantVersion = -1;
     let variantInFlight: Promise<void> | null = null;
+    // Set once a server has answered `?overlay=` without reserving anything.
+    // Then there is no variant to be had from it, and asking again on every
+    // document change is a wasted render per solve.
+    let variantUnsupported = false;
 
     // Retry bookkeeping for tiles the host couldn't send (see pushTile).
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -284,11 +288,24 @@ export function createDocPage(config: DocPageConfig): DocPage {
      */
     function loadVariant(): void {
         if (!config.variantQuery || variantInFlight || !active) return;
+        if (variantUnsupported) return;
         // Nothing to be a variant OF yet; applyTiles calls back in when there is.
         if (!state.pages.length) return;
         variantInFlight = (async () => {
             try {
-                const { pages, version } = await fetchTiles(base, config.variantQuery!());
+                const { pages, version, overlay } = await fetchTiles(
+                    base,
+                    config.variantQuery!(),
+                );
+                // A server that ignored the query hands back the plain document
+                // and looks, from here, exactly like a successful variant fetch
+                // — until the menu opens over it and is transparent. Take the
+                // plain backdrop instead; it is ugly and it is legible.
+                if (!overlay) {
+                    variantUnsupported = true;
+                    appLog(name, "server has no overlay render - menu stays on the backdrop");
+                    return;
+                }
                 variantPages = pages;
                 variantVersion = version;
             } catch (err) {
@@ -499,6 +516,10 @@ export function createDocPage(config: DocPageConfig): DocPage {
             masked = false;
             resetDisplayedTiles();
             dropVariant();
+            // Re-probed once per visit, so a server deployed while the app was
+            // running is picked up by walking off the page and back on rather
+            // than by reinstalling the app.
+            variantUnsupported = false;
             state.status = "Loading...";
             await updatePager();
             enqueue(loadInitial);
