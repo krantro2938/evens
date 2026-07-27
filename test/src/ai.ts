@@ -160,6 +160,12 @@ function elapsed(ms: number): string {
 function buttonUp(): boolean {
     if (requesting) return true; // we asked; the server just hasn't said so yet
     if (requestError) return true; // and it has to be readable to be an error
+    // Reading history is reading. You went into the menu and asked for this
+    // document by name, so nothing modal goes over it — and the button's states
+    // are all about the LIVE solve, which is not what you are looking at. It is
+    // the same call the assignment page makes for an archived scan. Solving is
+    // still one menu entry away, next to "Back to latest".
+    if (selectedSolutionId !== null) return false;
     const s = status();
     if (!s) return false; // pre-connection: don't flash a button we can't press
     return s.state !== "solved";
@@ -285,6 +291,14 @@ function pagerLabel(state: DocState): string {
 
     if (requestError) return "Request failed - tap to retry";
     if (requesting) return "Starting a solve...";
+
+    // Pinned to history: the live solve state is not what this strip is for.
+    // Without this it went on saying "Tap to solve" over a document you had
+    // opened deliberately — and there is no longer a button to tap.
+    if (selectedSolutionId !== null) {
+        if (!state.pages.length) return state.status;
+        return `${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`;
+    }
 
     const s = status();
     if (!s) return state.status;
@@ -431,6 +445,11 @@ function menuHeading(): string {
     if (menuMode === "versions") return "VERSIONS - NEWEST FIRST";
     if (requestError) return "REQUEST FAILED";
     if (requesting) return "SOLVING - starting";
+    // Which explains why the entries below lead with "Back to latest".
+    if (selectedSolutionId !== null) {
+        const opened = history().find((item) => item.id === selectedSolutionId);
+        return opened ? `READING v${opened.version}` : "READING AN EARLIER ONE";
+    }
 
     const s = status();
     if (!s) return "CONNECTING";
