@@ -209,6 +209,14 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.ASSIGNMENT:
             handleAssignmentPageEvent(gesture);
             break;
+        // Adri and Yula are placeholders, and the placeholder's own text says
+        // "Double click to go back" — but with no case here the gesture reached
+        // nothing at all and the page was a dead end you had to restart out of.
+        // A default rather than two named cases: whatever page gets added next
+        // should be escapable before it is finished, not after.
+        default:
+            if (gesture === GESTURE_EVENTS.DOUBLE_TAP) navigateBack();
+            break;
     }
 }
 
