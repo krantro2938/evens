@@ -1,4 +1,4 @@
-# Even Hub G2 app
+# Scry — Even Hub G2 app
 
 Vite + TypeScript + SDK + CLI + simulator. A dashboard of tiles, plus two
 document pages that show server-rendered PNG tiles pushed over BLE.
@@ -44,6 +44,13 @@ The proxy is not a convenience. The simulator's webview refuses to open a
 cross-origin `EventSource`, and going through Vite makes those requests
 same-origin. A packed build has no Vite, so it uses `VITE_MD_SERVER` and relies
 on the server's permissive CORS instead.
+
+That cross-origin build also passes the Even-side gate, which only allows
+origins listed in the `network` permission's `whitelist` in `app.json`. The two
+are checked independently — whitelisting an origin does not relax CORS, and
+permissive CORS does not get you past the whitelist. If you point
+`VITE_MD_SERVER` somewhere new, add that exact origin (scheme + host + port, no
+wildcards) to `app.json` as well.
 
 ## Pages
 
@@ -281,10 +288,21 @@ rescan is `/reset` followed by `/start`.
 ## Pack for distribution
 
 ```bash
-npm run pack
+npm run build && npm run pack
 ```
 
-Produces an `.ehpk` file.
+Produces `scry.ehpk`.
+
+`VITE_MD_SERVER` must be set (see `.env.local`) — the build fails without it.
+An unset value bakes relative URLs into the bundle, and a packed app has no
+proxy to resolve them, so the WebView answers every fetch with its own
+`index.html`. That shows up on the glasses as:
+
+```
+Assignment task failed SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
+```
+
+Its origin must also be in the `network` whitelist in `app.json`.
 
 ## What's in here
 
@@ -299,5 +317,5 @@ Produces an `.ehpk` file.
 | `src/render/tiles.ts` | Fetch + decode the server's tiles; tile geometry. |
 | `src/state.ts` · `src/constants.ts` | Global state; layout, container IDs, endpoints. |
 | `src/debug.ts` | On-screen log panel (`appLog`). |
-| `app.json` | Even Hub manifest. No permissions by default. |
+| `app.json` | Even Hub manifest. Declares the `network` permission; its `whitelist` must contain the exact `VITE_MD_SERVER` origin. |
 | `vite.config.ts` | Dev server on 5173, LAN host binding, document-server proxy. |

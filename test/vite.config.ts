@@ -28,10 +28,24 @@ const DOC_ROUTES = [
     "/log",
 ];
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
     // "" prefix: these are build-time config, not VITE_-exposed client vars.
     const env = loadEnv(mode, process.cwd(), "");
     const target = env.VITE_MD_TARGET || DEFAULT_TARGET;
+
+    // A build with no VITE_MD_SERVER produces a bundle whose fetches are all
+    // relative. There is no proxy in a packed app, so they resolve against the
+    // bundle itself and the WebView hands back index.html — which surfaces on
+    // the glasses as `Unexpected token '<', "<!doctype "... is not valid JSON`,
+    // long after the build that caused it. Fail here instead.
+    if (command === "build" && !env.VITE_MD_SERVER) {
+        throw new Error(
+            "VITE_MD_SERVER is not set — a packed build needs the document " +
+                `server's absolute URL (e.g. ${DEFAULT_TARGET}). Set it in ` +
+                ".env.local, and make sure the same origin is in app.json's " +
+                "network whitelist.",
+        );
+    }
 
     // Printed because "which server am I actually pointed at" is the first
     // question whenever a document page comes up blank.
