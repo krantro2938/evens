@@ -5,7 +5,9 @@
 // Same document machinery as the AI page (docPage.ts); the differences are the
 // endpoint, a `status` SSE listener, and the gestures:
 //
-//   tap         do the obvious thing — start, stop, or rescan (server decides)
+//   tap         the obvious NON-DESTRUCTIVE thing — start, resume, or stop
+//               (the server decides). Never a rescan: that throws the
+//               transcription away, which no temple tap should be able to do.
 //   swipe       page through the document
 //   double tap  open the action menu (swipe to choose, tap to confirm)
 //
@@ -227,9 +229,12 @@ function feedbackText(): string {
         return `${head}${cut}\n${f.advice_detail}`;
     }
 
-    if (s.done) return `Done - ${s.problems} problems\nTap to rescan`;
+    // Neither of these offers a tap: the only thing left to do to a page that
+    // is already read is throw it away and start again, and that is not
+    // something a temple tap should be able to do. See defaultAction.
+    if (s.done) return `Done - ${s.problems} problems\n2x = menu to rescan`;
     if (s.error) return `Failed: ${s.error}\nTap to retry`;
-    if (s.reason === "max_captures") return "Hit capture limit\nTap to rescan - 2x = menu";
+    if (s.reason === "max_captures") return "Hit capture limit\n2x = menu to rescan";
     if (s.reason === "stopped") return `Stopped at ${s.captures}\nTap to resume - 2x = menu`;
     return "Tap to start reading";
 }
@@ -476,6 +481,12 @@ function primaryAction(): void {
         openVersion(null);
         return;
     }
+    // Rescanning archives the transcription and starts from nothing. The server
+    // refuses to reach it from a tap too (defaultAction returns "none"), but
+    // swallowing it here means no round trip and no flicker for a gesture that
+    // was never going to do anything.
+    const s = status();
+    if (s?.done || s?.reason === "max_captures") return;
     void send("/toggle", undefined, toggleLabel());
 }
 
@@ -488,7 +499,6 @@ function primaryAction(): void {
 function toggleLabel(): string {
     const s = status();
     if (s?.running) return "Stopping";
-    if (s?.done || s?.reason === "max_captures") return "Rescanning";
     if ((s?.captures ?? 0) > 0) return "Resuming";
     return "Starting";
 }

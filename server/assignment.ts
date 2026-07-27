@@ -430,6 +430,8 @@ const EXTEND_BY = 20;
  *   reset    archive the attempt and clear, without spending a capture
  *   restart  reset, then start — a rescan from scratch
  *   extend   raise the capture ceiling and carry on (the `max_captures` exit)
+ *   none     deliberately nothing; what a tap resolves to when the only thing
+ *            left to do would destroy the transcription (see defaultAction)
  *   toggle   whichever of the above fits the current state (the tap gesture)
  */
 export type ControlAction =
@@ -438,12 +440,20 @@ export type ControlAction =
     | "reset"
     | "restart"
     | "extend"
+    | "none"
     | "toggle";
 
 export interface ControlResult {
     ok: boolean;
     /** What we actually did, so the caller can label its button. */
-    action: "started" | "stopped" | "reset" | "restarted" | "extended" | "failed";
+    action:
+        | "started"
+        | "stopped"
+        | "reset"
+        | "restarted"
+        | "extended"
+        | "nothing"
+        | "failed";
     detail?: string;
 }
 
@@ -480,6 +490,17 @@ export async function control(action: ControlAction): Promise<ControlResult> {
         switch (action) {
             case "toggle":
                 return control(defaultAction());
+
+            // Not a failure: there was simply nothing safe to do. `ok` stays
+            // true so the glasses don't paint an error over a finished page.
+            case "none":
+                return {
+                    ok: true,
+                    action: "nothing",
+                    detail: status.done
+                        ? "already read - rescan from the menu"
+                        : "capture limit reached - use the menu",
+                };
 
             case "stop": {
                 const err = await call("/stop");
@@ -535,12 +556,20 @@ function afterStart(err: string | null, action: ControlResult["action"]): Contro
     return { ok: true, action };
 }
 
-/** What a plain tap should do, given where the job is. */
+/**
+ * What a plain tap should do, given where the job is.
+ *
+ * Never anything destructive. A tap used to mean "rescan" once the page was
+ * read or the budget spent — and rescanning archives the transcription and
+ * starts from nothing, which is a great deal to lose to a temple tap you didn't
+ * mean to make, on the one page whose whole purpose is to be finished. Both of
+ * those states now do nothing at all, and the menu is where rescanning lives.
+ *
+ * The remaining tap actions all preserve work: start, resume, stop.
+ */
 export function defaultAction(): Exclude<ControlAction, "toggle"> {
     if (status.running) return "stop";
-    // Both of these leave /start unable to make progress: a complete assignment
-    // is 409, and a spent budget re-finishes on the first loop check.
-    if (status.done || status.reason === "max_captures") return "restart";
+    if (status.done || status.reason === "max_captures") return "none";
     return "start";
 }
 

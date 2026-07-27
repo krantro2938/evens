@@ -514,6 +514,7 @@ const CONTROL_ACTIONS: ControlAction[] = [
   "reset",
   "restart",
   "extend",
+  "none",
   "toggle",
 ];
 
