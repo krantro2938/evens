@@ -6,17 +6,19 @@
 // rotated. `move_up` with the camera rolled 90° points you sideways. A picture
 // says it in one glance, costs no API call, and is the whole reason this exists.
 //
-// Two sizes, because the payload is the constraint. These come out of the same
-// encoder as the document tiles (greyscale, 16-colour palette PNG), and a
-// photograph does not palette-compress the way black-background text does:
+// Two sizes, because the payload is the constraint:
 //
-//   4 tiles, 576×252   ~32KB   the Camera page's default — the frame, big
-//   1 tile,  288×126   ~8KB    when the link can't feed the big one
+//   4 tiles, 576×252   ~13KB   the Camera page's default — the frame, big
+//   1 tile,  288×126   ~4KB    when the link can't feed the big one
 //
-// For comparison a whole page of transcription is ~7KB, so the full-size
-// preview is roughly 4.5 document page turns per refresh. The client paces
-// itself off what a push actually took rather than a fixed interval; see
-// camera.ts there.
+// A whole page of transcription is ~7KB, so a full-size preview is about two
+// document page turns. The client paces itself off what a push actually took
+// rather than a fixed interval; see camera.ts there.
+//
+// Everything below the letterbox — local contrast, the brightness target, the
+// palette — was chosen by rendering real frames off THIS camera and looking at
+// them on a green background, because that is what the panel is. Photographic
+// judgement on a white screen gets it wrong in both directions.
 
 import sharp, { type OverlayOptions } from "sharp";
 import { encodeTile, reservedLayer, type TileData } from "./tiles";
@@ -39,7 +41,26 @@ export const ROTATIONS = [0, 90, 180, 270] as const;
 const PAGE_W = TILE_W * TILES_X;
 
 /** Thickness of the box drawn round the camera's field of view. */
-const BORDER = 2;
+const BORDER = 3;
+
+/**
+ * Where the preview's average brightness is pinned, out of 255.
+ *
+ * The panel is emissive green, so it does not behave like a photo on a screen:
+ * everything above roughly mid-grey reads as "on", and a picture whose average
+ * sits high is a wall of green with the detail buried in it. CLAHE alone landed
+ * at 121-133 depending on the scene, which is exactly that.
+ *
+ * Pinning the OUTPUT mean rather than darkening by a fixed amount is the point.
+ * This camera's exposure swings between blown-out and nearly black from one
+ * capture to the next, so a fixed offset that suits a bright room crushes a dim
+ * one. Normalising afterwards makes the panel look the same either way, which
+ * is what lets you learn to read it.
+ */
+const TARGET_MEAN = 80;
+/** Bounds on the correction, so a nearly-black frame is not amplified to noise. */
+const MIN_GAIN = 0.35;
+const MAX_GAIN = 2;
 
 // Local-contrast settings, chosen by rendering real frames off the camera and
 // looking at them (a small window is what makes text visible at all; a wide one
@@ -101,7 +122,15 @@ async function fitted(jpeg: Buffer, w: number, h: number, rotate: number): Promi
         .clahe({ width: CLAHE_WINDOW, height: CLAHE_WINDOW, maxSlope: CLAHE_SLOPE })
         .toBuffer();
 
+    // Pin the average brightness. Measured on the PHOTO, before the letterbox
+    // goes on: the black bars are a third of this panel, and including them
+    // would drag the mean down and have every frame brightened to compensate.
+    const { channels } = await sharp(photo).stats();
+    const mean = channels[0]?.mean ?? TARGET_MEAN;
+    const gain = Math.min(MAX_GAIN, Math.max(MIN_GAIN, TARGET_MEAN / (mean || TARGET_MEAN)));
+
     const frame = await sharp(photo)
+        .linear(gain, 0)
         .extend({
             top,
             bottom: h - drawnH - top,
@@ -111,10 +140,12 @@ async function fitted(jpeg: Buffer, w: number, h: number, rotate: number): Promi
         })
         .toBuffer();
 
-    // A white rectangle on the letterboxed image's own edge. Two pixels, not
-    // one: a hairline is what the panel's dithering loses first, and this line
-    // is the difference between "the sheet runs off the side" and "the sheet
-    // ends there".
+    // A white rectangle on the letterboxed image's own edge. Three pixels: a
+    // hairline is what the panel loses first, and now that the picture itself
+    // is deliberately dark, this line is the only thing separating the camera's
+    // field of view from black bars and a dark room beyond them. It is the
+    // difference between "the sheet runs off the side" and "the sheet ends
+    // there".
     const border = Buffer.alloc(drawnW * drawnH * 4, 0);
     const put = (x: number, y: number) => {
         if (x < 0 || y < 0 || x >= drawnW || y >= drawnH) return;
