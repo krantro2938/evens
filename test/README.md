@@ -196,7 +196,7 @@ camera at it, but to shoot it and look up:
         └───────────────────────────────────────┘
 ```
 
-The photo comes from the [gallery bridge](../phone) on the phone — the same
+The photo comes from the [gallery bridge](../../lookcam/phone/gallery) on the phone — the same
 setting the companion app configures, because they are one web app on one phone.
 
 **A tap does not publish.** Publishing archives the current assignment and reads

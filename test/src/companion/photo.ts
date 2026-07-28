@@ -181,7 +181,7 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
             refreshBridge();
         });
 
-        const command = "python3 ~/evens/phone/gallery.py";
+        const command = "bash ~/lookcam/phone/gallery/run.sh";
         const copy = el("button", { class: "btn", type: "button", text: "Copy command" }) as HTMLButtonElement;
         copy.addEventListener("click", () => {
             void copyText(command).then((done) => {
@@ -209,7 +209,7 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
             el("summary", { text: "Phone gallery bridge" }),
             el("p", {
                 class: "muted",
-                text: "A web page cannot read your camera roll, so a small script in Termux serves the newest photos on localhost. Run it, then paste the URL it prints.",
+                text: "A web page cannot read your camera roll, so a small script in Termux serves the newest photos on localhost. It lives with the other phone tooling in the lookcam repo. Run it, then paste the URL it prints.",
             }),
             el("div", { class: "row" }, el("code", { class: "code", text: command }), copy),
             el("div", { class: "row" }, input, save),

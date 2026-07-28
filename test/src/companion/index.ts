@@ -4,7 +4,7 @@
 // keyboard, a file picker or more than two lines of text needs a screen, and
 // until now this one said "Companion app is running. Check the glasses display."
 //
-// Five tabs. The first three are the camera workflow, in the order it happens:
+// Three tabs, in the order the work actually happens:
 //
 //   Photo       give the reader a sheet to read — from the picker, or from the
 //               phone's own camera roll via the gallery bridge
@@ -12,11 +12,9 @@
 //               the box you write your own answer in
 //   Solution    read back what you saved
 //
-// The last two are Adri, which is the same idea with the machines taken out:
-//
-//   Adri task   an assignment you state yourself, not one a camera read
-//   Adri answer the solution to it — ONE of them, replaced when you edit, and
-//               shown on the glasses' Adri page
+// The Adri documents are edited in the CAMERA web app (cam.aansl.com), not
+// here — see lookcam/web. They are typed on a keyboard rather than a phone, and
+// that app is the one already sitting open on a desktop.
 //
 // IT SHARES THE GLASSES' BACKEND, NOT ITS CODE. Every tab talks to the same
 // document server the glasses do, so a photo published here and a photo
@@ -29,7 +27,6 @@
 import { mountPhotoTab } from "./photo";
 import { mountAssignmentTab } from "./assignment";
 import { mountSolutionTab } from "./solution";
-import { mountDocTab } from "./doc";
 import { el } from "./dom";
 
 export interface Tab {
@@ -45,26 +42,6 @@ const TABS: Tab[] = [
     { id: "photo", label: "Photo", ...mountPhotoTab() },
     { id: "assignment", label: "Assignment", ...mountAssignmentTab() },
     { id: "solution", label: "Solution", ...mountSolutionTab() },
-    {
-        id: "adri-assignment",
-        label: "Adri task",
-        ...mountDocTab({
-            slug: "adri-assignment",
-            heading: "Adri — the assignment",
-            blurb: "State it yourself. Nothing reads this off a camera; it is whatever you type here.",
-            placeholder: "# Adri\n\n1. …\n\nMarkdown and $LaTeX$ both render on the glasses.",
-        }),
-    },
-    {
-        id: "adri-solution",
-        label: "Adri answer",
-        ...mountDocTab({
-            slug: "adri-solution",
-            heading: "Adri — the solution",
-            blurb: "There is one of these. Saving replaces it, changes its version, and the glasses' Adri page redraws.",
-            placeholder: "# Adri\n\n1. …",
-        }),
-    },
 ];
 
 const ACTIVE_KEY = "evens.companion.tab";

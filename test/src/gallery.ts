@@ -6,7 +6,7 @@
 // app, where you are already holding the phone, and useless on the glasses,
 // where the entire point is not to.
 //
-// So the phone runs a tiny HTTP server (evens/phone/gallery.py, under Termux)
+// So the phone runs a tiny HTTP server (lookcam/phone/gallery, under Termux)
 // that serves its newest photos on localhost. This app runs ON that phone, so
 // it can simply fetch it: browsers treat http://127.0.0.1 as a secure origin,
 // which is what lets an https page talk to it without a mixed-content block.

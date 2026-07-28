@@ -60,7 +60,11 @@
       .tab.on { color: var(--text); border-bottom-color: var(--accent); }
 
       .panels { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-      .panel { padding: 16px 16px 40px; }
+      /* The tall bottom padding is deliberate. The debug log is pinned over the
+         bottom of the screen (see src/debug.ts), so without room to scroll past
+         it the last control on a tab — usually the Save button — sits under the
+         log and cannot be reached. This lets every panel scroll clear of it. */
+      .panel { padding: 16px 16px 40vh; }
       .panel[hidden] { display: none; }
 
       h2 { margin: 0 0 4px; font-size: 17px; }
