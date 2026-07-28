@@ -427,8 +427,12 @@ export async function buildPage(page: PAGES) {
             await enterAiPage();
             break;
 
+        // No feedback box: the Assignment page is purely a reader now, and its
+        // corner box was a permanent hole in the transcription repeating what
+        // the footer already says. The CAMERA page keeps its box — that one
+        // carries live camera advice, which is the thing you act on.
         case PAGES.ASSIGNMENT:
-            await buildDocumentPage({ feedback: true, menu: true });
+            await buildDocumentPage({ menu: true });
             await enterAssignmentPage();
             break;
 

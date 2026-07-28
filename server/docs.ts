@@ -49,6 +49,15 @@ export interface SaveResult {
     reason?: string;
     version?: number;
     updated_at?: number;
+    /**
+     * Whether the text actually differs from what was stored.
+     *
+     * The caller uses it to decide whether to act on the save — publishing the
+     * Adri task upstream archives a version, and doing that for a save that
+     * changed nothing would fill the archive with identical copies every time
+     * you pressed the button twice.
+     */
+    changed?: boolean;
 }
 
 /**
@@ -67,10 +76,16 @@ export function saveDoc(slug: DocSlug, markdown: string): SaveResult {
     // An empty save is allowed and means "clear it" — the placeholder comes
     // back, which is a state you can get out of. Refusing would leave the only
     // way to undo a paste being to select it all and type something.
+    const before = getDoc(slug)?.markdown?.trim() ?? "";
     const row = putDoc(slug, text);
     notify(slug);
     console.log(`[docs] ${slug} saved: ${text.length} chars`);
-    return { ok: true, version: hashContent(text || PLACEHOLDER[slug]), updated_at: row.updated_at };
+    return {
+        ok: true,
+        version: hashContent(text || PLACEHOLDER[slug]),
+        updated_at: row.updated_at,
+        changed: before !== text,
+    };
 }
 
 export interface StoredDoc {

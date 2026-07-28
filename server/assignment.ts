@@ -595,6 +595,48 @@ export async function publishPhoto(
 /** A phone photo is megabytes and a Gemini read of one is not quick. */
 const PHOTO_TIMEOUT_MS = Number(process.env.PHOTO_TIMEOUT_MS ?? 120_000);
 
+/**
+ * An assignment you typed, published as a new version.
+ *
+ * The Adri task (see docs.ts) is not a note beside the assignment — it IS one,
+ * just written out rather than photographed. So it goes upstream through the
+ * reader like everything else: the previous attempt is archived, the version
+ * bumps, and the glasses, the archive and the solve button all treat it exactly
+ * as they treat a scan, because there is nothing different about it.
+ *
+ * No model call and no camera, so this is fast and free — unlike publishPhoto,
+ * which is neither.
+ */
+export async function publishText(markdown: string): Promise<PublishResult> {
+    if (!isConfigured()) return { ok: false, detail: "no reader configured" };
+
+    let res: Response;
+    try {
+        res = await fetch(`${BASE_URL}/assignment`, {
+            method: "POST",
+            headers: { ...authHeaders(), "content-type": "application/json" },
+            body: JSON.stringify({ markdown }),
+            signal: AbortSignal.timeout(20_000),
+        });
+    } catch (err) {
+        return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+    }
+
+    const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        version?: number;
+        problems?: number;
+    };
+    if (!res.ok || body.ok === false) {
+        return { ok: false, detail: body.error ?? `reader HTTP ${res.status}` };
+    }
+
+    void refreshDocument();
+    void refreshArchive();
+    return { ok: true, version: body.version, problems: body.problems ?? 0, done: true };
+}
+
 // ── control ─────────────────────────────────────────────────────────────────
 
 async function post(path: string, body?: unknown): Promise<Response> {

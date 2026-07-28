@@ -55,6 +55,7 @@ import {
   isConfigured as assignmentConfigured,
   PHOTO_TYPES,
   publishPhoto,
+  publishText,
   startUpstream,
   subscribeStatus,
   toggle,
@@ -491,9 +492,17 @@ app.get("/assignment/tiles", async (c) => {
   try {
     const { key, source } = selectedAssignment(c);
     const menu = c.req.query("overlay") === "menu";
-    // The advice box is reserved on every render; the menu's box only on the
-    // overlay variant, which is what the glasses swap to while it is open.
-    const reserved = menu ? [HUD_FEEDBACK, HUD_MENU] : [HUD_FEEDBACK];
+    // Only the menu's box, and only on the overlay variant.
+    //
+    // The advice box used to be reserved on EVERY render, which meant a dark
+    // 288×76 rectangle baked into the bottom right of every page of every
+    // transcription. The Assignment page no longer draws text there (its corner
+    // box is gone — the footer said the same things a whole line wider), and a
+    // reserved rect with nothing in it is just a hole punched in the document.
+    //
+    // The camera preview still reserves it: that page kept its box, because
+    // camera advice is the thing you act on while aiming.
+    const reserved = menu ? [HUD_MENU] : [];
     const tiles = await assignmentTiles(
       menu ? `${key}:menu` : key,
       source,
@@ -669,7 +678,24 @@ app.put("/doc/:slug", async (c) => {
     return c.json({ ok: false, reason: "markdown must be a string" }, 400);
   }
   const result = saveDoc(slug, body.markdown);
-  return c.json(result, result.ok ? 200 : 400);
+  if (!result.ok) return c.json(result, 400);
+
+  // The Adri TASK is an assignment, so it becomes one: published upstream as a
+  // new version, archiving the previous attempt exactly as a photo or a scan
+  // does. Everything downstream then treats it as the assignment — the glasses'
+  // Assignment page, the archive, and the solve button — because it is one.
+  //
+  // Only when the text actually changed. Pressing Save twice would otherwise
+  // file a second identical version, and the archive is the one thing here you
+  // cannot tidy up from the glasses.
+  //
+  // The answer is not published: a solution is not an assignment, and the
+  // glasses read that one off /adri.
+  if (slug === "adri-assignment" && result.changed && body.markdown.trim()) {
+    const published = await publishText(body.markdown);
+    return c.json({ ...result, assignment: published });
+  }
+  return c.json(result);
 });
 
 app.get("/adri/markdown", async (c) => c.json(await adriSource.read()));

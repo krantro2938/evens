@@ -23,28 +23,17 @@
 // opens on the variant render rather than a black backdrop so the transcription
 // stays readable around it.
 //
-// Two displays, deliberately split:
-//
-//   the corner box   WHAT YOU ARE READING — how much of the sheet is in hand,
-//                    or which archived scan is pinned. Two lines, and it keeps
-//                    its background even while the menu is up.
-//   the footer       whether anything is HAPPENING — page number, capture
-//                    count, how long since the last one landed, which version
-//                    you are reading. It is a whole line wide and nothing can
-//                    cover it.
+// THERE IS NO CORNER BOX. It used to say what you were reading and how complete
+// it was — "Done - 7 problems", "Stopped at 11". Everything it carried is
+// either in the footer already or on the Camera page, where the scan controls
+// are, so it was a permanent 288x76 hole in the transcription paying for a
+// second copy of what the line underneath was saying. The footer is a whole
+// line wide, nothing can cover it, and it survives the tiles being on top.
 
-import {
-    DOC_BASE_ASSIGNMENT,
-    DOC_FEEDBACK_ID,
-    DOC_MENU_ID,
-    GESTURE_EVENTS,
-    HUD_FEEDBACK_RECT,
-    Z_FEEDBACK,
-} from "./constants";
+import { DOC_BASE_ASSIGNMENT, DOC_MENU_ID, GESTURE_EVENTS } from "./constants";
 import { GlobalState, type AssignmentStatus, type DocState } from "./state";
 import { createDocPage } from "./docPage";
 import { backdrop, createMenu, type MenuEntry } from "./menu";
-import { createPanel } from "./panel";
 import { navigateBack } from "./main";
 import { ago } from "./utils";
 
@@ -74,35 +63,23 @@ function onLive(): boolean {
 }
 
 /**
- * How much text a line of each strip holds.
+ * How much text the footer holds.
  *
  * Measured against what is known to fit rather than from font metrics, which
  * this app does not have: the menu's footer line ("> Cancel this solve   2/3
  * tap=ok", 34 characters) fills a 576px strip comfortably, so ~14px a
- * character. The advice box is 288px wide with 6px of padding on each side.
+ * character.
  *
- * Overflow is not a cosmetic problem here. A text container that does not fit
- * its content gets a scroll bar from the host and spills PAST its background —
- * and that background is baked into the tiles, so the overspill lands on bare
- * document text with nothing behind it. That is the overlapping text and the
- * scroll bar that does nothing: there is no gesture routed to it to scroll.
+ * Overflow is not cosmetic. A text container that does not fit its content gets
+ * a scroll bar from the host and spills PAST its background, and there is no
+ * gesture routed to it to scroll.
  */
-const ADVICE_COLS = 20;
 const FOOTER_COLS = 40;
 
 /** Hard-clip one line to what its strip can draw. */
 function clip(text: string, cols: number): string {
     const line = text.replace(/\s+/g, " ").trim();
     return line.length <= cols ? line : `${line.slice(0, cols - 1)}…`;
-}
-
-/** Clip every line of a panel, and never hand it more lines than it has. */
-function fitBox(lines: string[], rows = 2, cols = ADVICE_COLS): string {
-    return lines
-        .filter((l) => l !== "")
-        .slice(0, rows)
-        .map((l) => clip(l, cols))
-        .join("\n");
 }
 
 /** "12s" / "3m 04s" — how long since something last happened. */
@@ -123,7 +100,6 @@ function formatDate(iso: string): string {
 
 /** Repaint the box, whatever is under it, and the footer. */
 function repaint(): void {
-    updateFeedback();
     syncOverlay();
     void page.enqueue(() => page.updatePager());
 }
@@ -204,42 +180,6 @@ function progressLabel(): string {
     return "  -  nothing read yet";
 }
 
-/**
- * The corner box: WHAT YOU ARE READING, and how complete it is.
- *
- * It is always on screen — border width is part of the page definition and
- * can't be upgraded, so a box that appeared and disappeared would need a full
- * page rebuild (and a re-push of all four tiles) every time the state changed.
- *
- * It used to carry live camera advice and the start/stop label. Both belong to
- * the Camera page now, and repeating the advice here would be worse than
- * useless: "Move camera DOWN" in front of a transcription invites you to act on
- * it from the one screen that can't show you the result.
- */
-function feedbackText(): string {
-    const s = status();
-    if (!s) return "Connecting...";
-    if (s.upstream === "disabled") return "No reader configured";
-    if (s.upstream !== "open") return fitBox([`Reader ${s.upstream}`, s.error ?? ""]);
-
-    // Pinned to history: which scan this is matters, and nothing about the live
-    // job does.
-    if (!onLive()) {
-        const entry = versions().find((v) => v.version === selectedVersion);
-        return fitBox([
-            `Archived v${selectedVersion}`,
-            entry ? `${entry.problems} problems` : "2x = menu",
-        ]);
-    }
-
-    if (s.running) return fitBox([`Reading - c${s.captures}`, readLabel()]);
-    if (s.done) return fitBox([`Done - ${s.problems} problems`, readLabel()]);
-    if (s.reason === "max_captures") return fitBox(["Hit capture limit", readLabel()]);
-    // Every remaining state is one you fix on the other page, so say so rather
-    // than offering a gesture this page no longer has.
-    if (s.captures > 0) return fitBox([`Stopped at ${s.captures}`, readLabel()]);
-    return fitBox(["Nothing read yet", "Scan on Camera page"]);
-}
 
 // ── the action menu ─────────────────────────────────────────────────────────
 
@@ -406,16 +346,6 @@ function syncOverlay(): void {
     });
 }
 
-// The corner box. Its dark background and frame come baked into the
-// assignment's tiles (the server reserves this rect) — see panel.ts.
-const advice = createPanel({
-    containerID: DOC_FEEDBACK_ID,
-    name: "feedback",
-    rect: HUD_FEEDBACK_RECT,
-    zOrderIndex: Z_FEEDBACK,
-    enqueue: (task) => page.enqueue(task),
-});
-
 // ── page ────────────────────────────────────────────────────────────────────
 
 const page = createDocPage({
@@ -442,7 +372,6 @@ const page = createDocPage({
         },
     },
     // Tiles land on their own schedule; keep the box in step with them.
-    afterShow: async () => updateFeedback(),
 });
 
 /** The query for the scan the page is on: pinned, or whatever is live. */
@@ -451,15 +380,6 @@ function docQuery(extra?: string): string {
     if (selectedVersion !== null) parts.push(`version=${selectedVersion}`);
     if (extra) parts.push(extra);
     return parts.length ? `?${parts.join("&")}` : "";
-}
-
-/**
- * Repaint the corner box. It stays up while the menu is open — the menu is
- * mirrored in the footer, so what you are choosing between and what you are
- * reading are both on screen.
- */
-function updateFeedback(): void {
-    advice.set(feedbackText());
 }
 
 /** The menu's "Back" entry — what a double tap used to do on its own. */
@@ -471,12 +391,8 @@ function leavePage(): void {
 /** Called by main.ts after the assignment page containers are built. */
 export async function enterAssignmentPage(): Promise<void> {
     menuMode = "root";
-    // The container is new and blank; the panel still remembers the last
-    // visit's text and would dedup the repaint away. See Panel.reset().
-    advice.reset();
     await page.enter();
     syncTicker();
-    updateFeedback();
 }
 
 /** Tear down live connections when leaving the page. */
