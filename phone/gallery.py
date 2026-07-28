@@ -27,19 +27,34 @@ against the listing rather than being a path, so it cannot be walked out of.
     python3 gallery.py --allow-any     # no token (see the warning at AUTH)
 
 Zero dependencies: Termux has python, and that is the whole install.
+
+STAYING UP is not this script's job — see gallery-run.sh, which holds the wake
+lock, restarts this on any exit, and is what Termux:Boot runs. What IS this
+script's job is to fail in ways a supervisor can act on: a clean exit code for
+"someone is already on that port" (retrying that forever is a hot loop, not a
+recovery), a non-zero one for anything unexpected, and SIGTERM handled so a
+restart is a restart rather than a kill.
 """
 
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import mimetypes
 import os
 import secrets
+import signal
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+# Exit codes the supervisor reads. 78 is EX_CONFIG, and gallery-run.sh backs
+# right off on it rather than restarting every few seconds — the same contract
+# lookcam/phone/termux-run.sh already uses for a config that needs a human.
+EX_CONFIG = 78
 
 # Where Android actually puts photos. /sdcard is readable only after you have
 # run `termux-setup-storage` once and granted the permission.
@@ -162,6 +177,22 @@ class Handler(BaseHTTPRequestHandler):
     # One line per request, on stderr, without the default's noisy address.
     def log_message(self, fmt: str, *args) -> None:
         sys.stderr.write("[gallery] %s\n" % (fmt % args))
+        sys.stderr.flush()
+
+    def handle_one_request(self) -> None:
+        """One bad request must not be able to end the process.
+
+        BaseHTTPRequestHandler already isolates most of this, but a handler that
+        raises after the client has gone (a photo fetch abandoned mid-download
+        is the common one) surfaces as a broken pipe here. That is a normal
+        event on a phone, not a reason for the supervisor to see an exit."""
+        try:
+            super().handle_one_request()
+        except (BrokenPipeError, ConnectionResetError):
+            self.close_connection = True
+        except Exception as err:  # noqa: BLE001 - the point is to survive it
+            self.log_message("handler failed: %s", err)
+            self.close_connection = True
 
     # ── plumbing ────────────────────────────────────────────────────────────
 
@@ -295,18 +326,46 @@ def main() -> int:
     Handler.allow_any = args.allow_any
     Handler.token = "" if args.allow_any else load_or_create_token()
 
-    print(f"gallery-bridge on http://{args.host}:{args.port}")
+    print(f"gallery-bridge on http://{args.host}:{args.port}", flush=True)
     for root in roots:
-        print(f"  {'✓' if root.is_dir() else '✗'} {root}")
+        print(f"  {'✓' if root.is_dir() else '✗'} {root}", flush=True)
     if not live:
-        print("  [!] none of those directories exist — run `termux-setup-storage` and grant it")
+        # Not fatal, and deliberately not EX_CONFIG: storage permission can be
+        # granted while this is running, and the directories appear underneath
+        # it. /health reports how many exist, so the companion app can say so.
+        print("  [!] none of those directories exist — run `termux-setup-storage` and grant it", flush=True)
     if args.allow_any:
-        print("  [!] --allow-any: any app or web page on this phone can read your camera roll")
+        print("  [!] --allow-any: any app or web page on this phone can read your camera roll", flush=True)
     else:
-        print(f"\n  paste this into the companion app's Settings tab:\n")
-        print(f"    http://{args.host}:{args.port}?t={Handler.token}\n")
+        print("\n  paste this into the companion app's Photo tab:\n", flush=True)
+        print(f"    http://{args.host}:{args.port}?t={Handler.token}\n", flush=True)
 
-    ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
+    try:
+        server = ThreadingHTTPServer((args.host, args.port), Handler)
+    except OSError as err:
+        if err.errno == errno.EADDRINUSE:
+            # Almost always a second copy of this script, which the supervisor
+            # must not fight with: restarting into the same collision every few
+            # seconds is a hot loop that fills the log and fixes nothing.
+            print(f"[!] port {args.port} is already in use — is a bridge already running?", file=sys.stderr)
+            return EX_CONFIG
+        raise
+
+    # A restart has to be a restart. Without this, SIGTERM kills the process
+    # mid-response and the next start finds the socket in TIME_WAIT.
+    def stop(signum, _frame):
+        print(f"gallery-bridge stopping on signal {signum}", flush=True)
+        # From a signal handler, so it must not block: shutdown() waits for the
+        # serve_forever loop, which is the thread we are interrupting.
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
     return 0
 
 

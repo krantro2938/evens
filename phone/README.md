@@ -17,13 +17,20 @@ configured.
 
 ## Install
 
-Termux, no dependencies beyond Python:
+```bash
+bash ~/evens/phone/setup-termux.sh
+```
+
+That installs Python, asks Android for storage access, registers the boot hook
+and prints the URL to paste. Then start it:
 
 ```bash
-pkg install -y python
-termux-setup-storage          # once, and grant the permission Android asks for
-python3 ~/evens/phone/gallery.py
+bash ~/evens/phone/gallery-run.sh      # the supervisor; Ctrl-C to stop
+tail -f ~/gallery-bridge.log
 ```
+
+Running `gallery.py` directly still works and is the right thing when you are
+debugging it — you just get no supervision.
 
 It prints the line you paste into the companion app:
 
@@ -32,7 +39,7 @@ gallery-bridge on http://127.0.0.1:8790
   ✓ /sdcard/DCIM/Camera
   ✗ /sdcard/Pictures
 
-  paste this into the companion app's Settings tab:
+  paste this into the companion app's Photo tab:
 
     http://127.0.0.1:8790?t=Xf3k…
 ```
@@ -41,8 +48,35 @@ Open the companion app → **Photo** tab → *Phone gallery bridge* → paste �
 The glasses' Settings page reads the same setting; it is one web app on one
 phone, so configuring it once configures both.
 
-To keep it running across reboots, add it to Termux:Boot the same way
-`lookcam/phone/termux-run.sh` does.
+## Staying up
+
+`gallery.py` is a plain HTTP server and does not try to be robust. It is robust
+because of `gallery-run.sh`, which is what you actually run:
+
+| Failure | What happens |
+|---|---|
+| a request handler raises | isolated per request — the server keeps serving |
+| the process exits or is killed (OOM, crash) | supervisor restarts it after 5s |
+| **alive but wedged** — not answering | a health probe every 30s; two consecutive misses and it is SIGKILLed and restarted |
+| the port is already taken | exits 78, and the supervisor backs off to once a minute instead of hot-looping into the same collision |
+| phone reboots | Termux:Boot runs the supervisor again |
+| screen off / phone in pocket | `termux-wake-lock`, or Android suspends Termux within minutes |
+
+Verified by killing it (`SIGTERM` → clean exit 0, `SIGKILL` → rc 137) and by
+`SIGSTOP`ping it to simulate a server that is alive and deaf — the probe caught
+that one and recovered on its own.
+
+**What none of it can fix is Android killing Termux itself.** Nothing inside
+Termux can restart Termux. That is what the battery step is for:
+
+> Settings > Apps > Termux > Battery > **Unrestricted**
+
+Skip it and this will be reliable for a while and then quietly not be there
+when you reach for it — which is the worst of the available outcomes.
+
+Tuning, all environment variables: `PROBE_EVERY` (30s), `PROBE_MISSES` (2),
+`RESTART_DELAY` (5s), `CONFIG_RETRY` (60s), `LOG`, `MAX_LOG_BYTES` (2MB, one
+old copy kept).
 
 ## Endpoints
 
