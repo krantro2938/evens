@@ -14,6 +14,7 @@ const DESTINATIONS: Record<MenuItem, PAGES> = {
     Adri: PAGES.ADRI,
     Yula: PAGES.YULA,
     Camera: PAGES.CAMERA,
+    Setup: PAGES.SETTINGS,
 };
 
 export function handleDashboardEvent(gesture: GESTURE_EVENTS) {

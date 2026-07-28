@@ -46,6 +46,7 @@ import { createDocPage } from "./docPage";
 import { backdrop, createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
 import { navigateBack } from "./main";
+import { ago } from "./utils";
 
 /** Where the menu is: its top level, or the version picker it opens. */
 let menuMode: "root" | "versions" = "root";
@@ -152,6 +153,11 @@ function pagerLabel(state: DocState): string {
     // See the AI page: a blank panel with a healthy pager is a link failure, not
     // a document that failed to render.
     if (state.linkError) return "Glasses link error - tiles not sent";
+
+    // Ahead of the live state: these tiles came out of the on-device cache
+    // because the server was unreachable, and a stale document that says
+    // nothing is indistinguishable from a current one.
+    if (state.cachedAt) return clip(`Offline - cached ${ago(state.cachedAt)}`, FOOTER_COLS);
 
     const s = status();
     if (s && s.upstream !== "open") return `Reader ${s.upstream}`;

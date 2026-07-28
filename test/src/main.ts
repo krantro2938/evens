@@ -29,6 +29,7 @@ import {
     IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
+    SETTINGS_ID,
     SOLVE_RECT,
     TILE_H,
     TILE_W,
@@ -54,10 +55,29 @@ import {
     handleCameraPageEvent,
     leaveCameraPage,
 } from "./camera";
+import {
+    enterSettingsPage,
+    handleSettingsPageEvent,
+    leaveSettingsPage,
+} from "./settings";
 import { tileLayout } from "./render/tiles";
 import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
 import { appLog } from "./debug";
+import { mountCompanion } from "./companion";
+
+// The companion app goes up FIRST, before the bridge is waited on.
+//
+// waitForEvenAppBridge() is a top-level await, and in a plain browser — no Even
+// Hub host, no simulator — it never resolves. Everything below it is then dead
+// code, which is fine for the glasses and fatal for the phone screen: the tab
+// where you upload a photo and type a solution would be a permanent "Starting…"
+// on exactly the devices most likely to open it.
+//
+// So the companion is mounted synchronously and knows nothing about the bridge.
+// It talks to the document server over HTTP like any other client.
+const companionHost = document.getElementById("app");
+if (companionHost) mountCompanion(companionHost);
 
 // Wait for the bridge to be ready before doing anything else.
 // In the simulator this resolves immediately; on hardware it waits
@@ -217,6 +237,9 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.CAMERA:
             handleCameraPageEvent(gesture);
             break;
+        case PAGES.SETTINGS:
+            handleSettingsPageEvent(gesture);
+            break;
         // Adri and Yula are placeholders, and the placeholder's own text says
         // "Double click to go back" — but with no case here the gesture reached
         // nothing at all and the page was a dead end you had to restart out of.
@@ -240,6 +263,9 @@ function leaveCurrentPage() {
             break;
         case PAGES.CAMERA:
             leaveCameraPage();
+            break;
+        case PAGES.SETTINGS:
+            leaveSettingsPage();
             break;
     }
 }
@@ -406,6 +432,34 @@ export async function buildPage(page: PAGES) {
         case PAGES.CAMERA:
             await buildDocumentPage({ feedback: true, menu: true });
             await enterCameraPage();
+            break;
+
+        // One full-screen text container and nothing else: this page has a
+        // single sentence to say and a single (destructive) action, so there is
+        // nothing to lay out and nothing to stack. See settings.ts.
+        case PAGES.SETTINGS:
+            await bridge.rebuildPageContainer(
+                new RebuildPageContainer({
+                    containerTotalNum: 1,
+                    textObject: [
+                        new TextContainerProperty({
+                            xPosition: 0,
+                            yPosition: 0,
+                            width: BODY_W,
+                            height: BODY_H,
+                            borderWidth: 0,
+                            borderColor: 5,
+                            paddingLength: CONTAINER_PAD,
+                            containerID: SETTINGS_ID,
+                            containerName: "settings",
+                            content: " ",
+                            isEventCapture: 1,
+                            ...zOrder(Z_BACKDROP),
+                        }),
+                    ],
+                }),
+            );
+            await enterSettingsPage();
             break;
 
         default:

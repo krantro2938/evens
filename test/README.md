@@ -1,7 +1,12 @@
 # Scry — Even Hub G2 app
 
-Vite + TypeScript + SDK + CLI + simulator. A dashboard of tiles, plus two
-document pages that show server-rendered PNG tiles pushed over BLE.
+Vite + TypeScript + SDK + CLI + simulator. Two halves of one app:
+
+- **on the glasses** — a dashboard of tiles, plus document pages that show
+  server-rendered PNG tiles pushed over BLE;
+- **on the phone** — a [companion app](#the-companion-app) in the same bundle,
+  for everything that needs a keyboard, a file picker or more than two lines of
+  text.
 
 ## Run
 
@@ -56,10 +61,11 @@ wildcards) to `app.json` as well.
 
 | Page | Shows | Gestures |
 |---|---|---|
-| Dashboard | five tiles, two on the top row and three below | swipe to move focus, tap to open |
+| Dashboard | six tiles, three to a row | swipe to move focus, tap to open |
 | **AI** | the solution to the assignment on the paper, live — or a **trigger button** when there isn't one yet | swipe to page, **tap to page or to solve**, **double-tap for the action menu** |
 | **Assign** | what the [lookcam reader](../../lookcam/assignment) has transcribed off the paper, live | swipe or tap to page, **double-tap for the version menu** |
 | **Camera** | **what the camera sees, refreshed while you aim it** — plus every scan control | **tap to start/stop**, **swipe to rotate the view**, **double-tap for the action menu** |
+| **Setup** | **publish the phone's newest photo as the assignment** | **tap to arm, tap again to publish**, double-tap to go back |
 
 The two document pages are instances of `src/docPage.ts` — same tile fetching,
 paging, SSE-with-poll-fallback, per-tile dedup and text fallback. They differ
@@ -110,6 +116,20 @@ Swipe up or down to rotate the view by 90° (the menu has the same, spelled out)
 Nothing on this page pages, so the swipes were free, and rotation is what you
 came here to fix.
 
+**The preview is drawn as ink, not as a photograph.** A sheet of paper is mostly
+paper, so a greyscale photo of one lights most of an emissive panel — a wall of
+green, worst when the frame is blank or badly exposed and there is nothing in it
+to see. The server subtracts each frame's local background instead and keeps only
+what is darker than its surroundings: text, rules and the edge of the sheet,
+bright on black, the way the document tiles have always been drawn. Glare and
+uneven lighting are background by construction and simply stop being visible,
+and a full panel drops to ~4KB. `Photo view` in the menu switches back, for the
+frame that is about the room rather than the page.
+
+A frame with nothing readable in it therefore renders **black** — which would
+otherwise look exactly like a preview that had stopped arriving, so the footer
+says `no detail` when the server reports the frame had no ink in it to scale.
+
 ### The solve button
 
 When no solution answers the paper currently under the camera — nothing solved
@@ -157,6 +177,66 @@ instead: `Done - 4 problems`, `3/5 read, partial`, or which archived scan is
 pinned. Repeating the advice there would invite you to act on it from the one
 screen that can't show you the result.
 
+### The Setup page
+
+One action, one sentence, and no document. It publishes the phone's newest photo
+as the assignment — so the fast way to scan a sheet is no longer to aim a fixed
+camera at it, but to shoot it and look up:
+
+```
+        ┌───────────────────────────────────────┐
+        │ SETTINGS - publish a photo            │
+        │                                       │
+        │ Publish IMG_20260728_1200.jpg?        │
+        │ This REPLACES the current assignment. │
+        │                                       │
+        │ Tap again to confirm (7s)             │
+        │ Double tap to go back                 │
+        └───────────────────────────────────────┘
+```
+
+The photo comes from the [gallery bridge](../phone) on the phone — the same
+setting the companion app configures, because they are one web app on one phone.
+
+**A tap does not publish.** Publishing archives the current assignment and reads
+the photo as a new one (a photo is a different sheet; merging it into a
+half-built transcription would interleave two papers), so the first tap *arms*
+and names the photo it is about to use, and the second commits. The arming
+expires after ten seconds — a confirmation that never lapses just turns the next
+stray tap, minutes later, into the destructive one. Swipes do nothing here for
+the same reason.
+
+## The companion app
+
+The glasses are a reader and a pair of buttons. Everything that needs a
+keyboard, a file picker or more than two lines of text needs a screen, and that
+screen is the phone. Same bundle, same backend, four tabs:
+
+| Tab | What |
+|---|---|
+| **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Publishing replaces the assignment, behind a confirmation |
+| **Assignment** | the transcription as text you can scroll, select and **copy** — the same markdown the glasses render into tiles — and beneath it the box you write your own answer in |
+| **Solution** | read back the last answer *you* saved |
+
+The editor is on the same tab as the problems rather than one of its own,
+because writing an answer means reading the question; an editor you have to
+leave the paper to reach is one you check against memory. An unsaved draft is
+kept in `localStorage` on every keystroke, because losing a page of maths to a
+backgrounded tab is unrecoverable.
+
+It is mounted **before** `waitForEvenAppBridge()`, which is a top-level await
+that never resolves in a plain browser with no Even Hub host. Everything after
+it would then be dead code — fine for the glasses, fatal for the phone screen.
+So the companion knows nothing about the bridge and talks to the document server
+over HTTP like any other client.
+
+Your solution lands in the same table as a solve run's answer, tagged
+`source='me'`, and the AI page shows the newest solution whoever wrote it — so
+saving here is also how you get your own working in front of your eyes to check
+against the paper. The Solution tab deliberately shows the last thing *you*
+saved rather than the newest overall, which would become the agent's the moment
+a solve run lands.
+
 ### The action menu
 
 A tap does the obvious thing, which isn't always the thing you want: a half-read
@@ -173,7 +253,8 @@ slides the marker, tap confirms, double-tap or 12s of silence dismisses:
           Close
 ```
 
-On the Camera page, plus `Rotate view` and `Small preview` in every state:
+On the Camera page, plus `Rotate view`, `Photo view` and `Small preview` in
+every state:
 
 | State | Offers |
 |---|---|
@@ -363,13 +444,16 @@ Its origin must also be in the `network` whitelist in `app.json`.
 
 | File | Purpose |
 |---|---|
-| `index.html` | WebView host. Viewport meta tag locks zoom; CSS kills iOS double-tap zoom + rubber-band scroll. |
+| `index.html` | WebView host, and the companion app's stylesheet. Viewport meta tag locks zoom; CSS kills iOS double-tap zoom + rubber-band scroll. |
 | `src/main.ts` | Bridge setup, page containers, the OS event subscription, navigation. |
 | `src/dashboard.ts` | Menu focus + tap routing. |
 | `src/docPage.ts` | Everything a document page does: tiles, paging, SSE, fallbacks. |
 | `src/menu.ts` | Reusable centred action menu — turns one gesture into a list of actions. |
 | `src/ai.ts` · `src/assignment.ts` | The two document pages — configuration over `docPage`. |
 | `src/camera.ts` | The Camera page: the live preview loop, and every scan control. |
+| `src/settings.ts` | The Setup page: arm, confirm, publish the phone's newest photo. |
+| `src/gallery.ts` | The phone's camera roll and publishing a photo — shared by the Setup page and the companion app. |
+| `src/companion/` | The phone-screen app: the tab shell, one module per tab, and a small DOM helper. |
 | `src/render/tiles.ts` | Fetch + decode the server's tiles; tile geometry. |
 | `src/render/tilePush.ts` | Getting an image into a tile container: dedup cache, `sendFailed` retry, legacy payload shape, and the BLE cost log. |
 | `src/state.ts` · `src/constants.ts` | Global state; layout, container IDs, endpoints. |

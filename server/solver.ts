@@ -465,6 +465,51 @@ export function submitSolution(
   return { ok: true, solution_id: solution.id, version: hashContent(text) };
 }
 
+/**
+ * Your own answer, typed into the companion app.
+ *
+ * No token, because there is no run: this is not an agent submitting against a
+ * request, it is you writing down what you worked out. It deliberately does NOT
+ * finish or supersede a run in flight — asking Claude and writing it yourself
+ * are independent, and a solve you kicked off should still land when it's done.
+ *
+ * It lands in the same table, so the glasses' AI page shows it the moment it is
+ * saved (that page shows the NEWEST solution, whatever wrote it) and the version
+ * picker lists it alongside the agent's, labelled by `source`.
+ */
+export async function saveMySolution(
+  markdown: string,
+  notes?: string | null,
+): Promise<SubmitResult> {
+  const text = markdown.trim();
+  if (!text) return { ok: false, reason: "empty_markdown" };
+  if (text.length > MAX_MARKDOWN_CHARS) {
+    return { ok: false, reason: `markdown_too_long_${text.length}` };
+  }
+
+  // The CONTENT HASH of the assignment, which is what `assignment_version`
+  // means everywhere else in this table (see startRun) — not the reader's
+  // attempt number, which looks like a version and is a different quantity
+  // entirely. Get this wrong and the row is never `stale` and never matches
+  // latestSolutionFor(), so the AI page offers to re-solve a paper you have
+  // already answered.
+  const { snapshot } = await readAssignment();
+  const version = snapshot?.version ?? null;
+  const solution = insertSolution({
+    run_id: null,
+    assignment_version: version,
+    markdown: text,
+    model: null,
+    notes: notes ?? null,
+    source: "me",
+  });
+  console.log(`[solver] my solution saved: ${text.length} chars (solution ${solution.id})`);
+
+  notifyDocument();
+  notifyStatus();
+  return { ok: true, solution_id: solution.id, version: hashContent(text) };
+}
+
 /** The agent giving up. Keeps the reason for the glasses instead of a timeout. */
 export function failRun(token: string, error: string): SubmitResult {
   const run = runByToken(token);

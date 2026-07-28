@@ -482,6 +482,119 @@ export function startUpstream(): void {
     })();
 }
 
+// ── publishing a photo ──────────────────────────────────────────────────────
+//
+// A sheet you photographed with the phone, read as the assignment instead of
+// aiming the camera at it. The reader does the work (POST /photo there); this
+// forwards the bytes and keeps the last one so the companion app and the
+// glasses can show WHAT was published, which the reader does not expose.
+
+/** What the reader accepts inline — kept in step with GEMINI_IMAGE_TYPES. */
+export const PHOTO_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+] as const;
+
+export interface PublishedPhoto {
+    bytes: Buffer;
+    mime: string;
+    at: number;
+    /** Filename as the phone knew it, when the uploader bothered to say. */
+    name: string | null;
+}
+
+/**
+ * In memory, not on disk. It is a display convenience with a lifetime of "until
+ * you publish the next one" — the reader already persists the frame it read as
+ * /frame.jpg, which is the copy that matters, and writing a second one here
+ * would mean owning its cleanup.
+ */
+let lastPhoto: PublishedPhoto | null = null;
+
+export function getPublishedPhoto(): PublishedPhoto | null {
+    return lastPhoto;
+}
+
+export interface PublishResult {
+    ok: boolean;
+    detail?: string;
+    /** The version the reader started for this photo, when it reset. */
+    version?: number;
+    problems?: number;
+    done?: boolean;
+}
+
+/**
+ * Send a photo upstream to be read as the whole assignment.
+ *
+ * `reset` defaults to true and is the reason this is a different verb from a
+ * capture: a photo is a different sheet, and merging it into the transcription
+ * the camera has been building would interleave two assignments. The previous
+ * attempt is archived rather than lost — the reader does that.
+ */
+export async function publishPhoto(
+    photo: Buffer,
+    mime: string,
+    opts: { reset?: boolean; note?: string; name?: string | null } = {},
+): Promise<PublishResult> {
+    if (!isConfigured()) return { ok: false, detail: "no reader configured" };
+
+    const query = new URLSearchParams();
+    if (opts.reset === false) query.set("reset", "0");
+    if (opts.note) query.set("note", opts.note);
+    const suffix = query.toString() ? `?${query}` : "";
+
+    let res: Response;
+    try {
+        res = await fetch(`${BASE_URL}/photo${suffix}`, {
+            method: "POST",
+            headers: { ...authHeaders(), "content-type": mime },
+            body: new Uint8Array(photo),
+            // A photo is one Gemini call on a phone-sized image, so it is slow
+            // in a way a control POST never is. The default would give up on a
+            // request that was going to succeed.
+            signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS),
+        });
+    } catch (err) {
+        return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+    }
+
+    const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        reset?: { version?: number } | null;
+        done?: boolean;
+        assignment?: { problems?: unknown[] };
+    };
+
+    if (!res.ok || body.ok === false) {
+        return { ok: false, detail: body.error ?? `reader HTTP ${res.status}` };
+    }
+
+    // Only kept once the reader has accepted it: a photo it refused is not the
+    // photo the assignment came from, and showing it as such would be a lie.
+    lastPhoto = { bytes: photo, mime, at: Date.now(), name: opts.name ?? null };
+
+    // The reader emits its own events for this, so the status will catch up on
+    // its own — but refetching here means the companion app's next poll already
+    // shows the new transcription rather than the one it replaced.
+    void refreshDocument();
+    void refreshArchive();
+
+    return {
+        ok: true,
+        version: body.reset?.version,
+        problems: body.assignment?.problems?.length ?? 0,
+        done: Boolean(body.done),
+    };
+}
+
+/** A phone photo is megabytes and a Gemini read of one is not quick. */
+const PHOTO_TIMEOUT_MS = Number(process.env.PHOTO_TIMEOUT_MS ?? 120_000);
+
 // ── control ─────────────────────────────────────────────────────────────────
 
 async function post(path: string, body?: unknown): Promise<Response> {

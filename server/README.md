@@ -38,6 +38,8 @@ Default port `8787` (override with `PORT`).
 | `GET /solution/status` | the `status` payload on demand (poll fallback) |
 | `POST /solution/solve` | the trigger button: mint a run and start the routine → `{ ok, action: "triggered"\|"queued", run_id, detail? }` |
 | `POST /solution/cancel` | abandon the live run → `{ ok, action: "cancelled", run_id }` |
+| `POST /solution/mine` | `{"markdown","notes?"}` — **your own answer**, typed in the companion app. No token and no run: it is not an agent submitting against a request → `{ ok, solution_id, version }` |
+| `GET /solution/mine` | the newest solution you wrote yourself → `{ saved, markdown, created_at, … }` |
 
 ### assignment
 
@@ -50,9 +52,12 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 | `GET /assignment/tiles` | same shape as `/tiles` |
 | `GET /assignment/events` | SSE. `event: markdown` when the transcription changes, `event: status` on job/camera-advice changes, `event: ping` heartbeats |
 | `GET /assignment/status` | the `status` payload on demand (poll fallback) |
-| `GET /assignment/camera[?size=4\|1&rotate=0\|90\|180\|270&overlay=menu]` | **the live camera as tiles** — `{ tiles, size, rotate, at }`, same tile shape as `/tiles`. Costs a frame grab, never a Gemini call. Renders are coalesced for `CAMERA_PREVIEW_TTL_MS`, so several viewers (and a poll that overlaps the last one) share one grab. |
+| `GET /assignment/camera[?size=4\|1&rotate=0\|90\|180\|270&mode=ink\|photo&overlay=menu]` | **the live camera as tiles** — `{ tiles, size, rotate, mode, contrast, at }`, same tile shape as `/tiles`. Costs a frame grab, never a Gemini call. Renders are coalesced for `CAMERA_PREVIEW_TTL_MS`, so several viewers (and a poll that overlaps the last one) share one grab. |
 | `POST /assignment/toggle` | start / stop / reset+start, chosen from live job state → `{ ok, action, detail? }` |
 | `POST /assignment/control` | `{"action":"start\|stop\|reset\|restart\|extend\|toggle"}` — the same, named outright → `{ ok, action, detail? }` |
+| `POST /assignment/photo[?reset=0&name=]` | **publish a photo as the assignment** — the body IS the image (`image/jpeg\|png\|webp\|heic\|heif`). Forwards to the reader, which archives the current attempt and reads this photo as a new one. `?reset=0` merges into the current attempt instead → `{ ok, version, problems, done }` |
+| `GET /assignment/photo` | the photo last published, as bytes — for showing what you sent |
+| `GET /assignment/photo/meta` | the same as metadata, so a poll doesn't drag the bytes with it |
 
 `status` is:
 
@@ -97,6 +102,8 @@ displayed.
 | `CAMERA_SNAPSHOT_URL` | `$ASSIGNMENT_URL/snapshot.jpg` | where preview frames come from. The reader owns the gateway URL, its token and the RTSP fallback, so by default this needs nothing — point it elsewhere only if this server can reach the camera stack but the reader can't be used |
 | `CAMERA_SNAPSHOT_TOKEN` | — | only for a `CAMERA_SNAPSHOT_URL` aimed at the web gateway, which gates on its own `SNAPSHOT_TOKEN` rather than the reader's |
 | `CAMERA_PREVIEW_TTL_MS` | `700` | how long a rendered preview frame is reused |
+| `MAX_PHOTO_BYTES` | `12000000` | a published photo bigger than this is refused before it costs a model call |
+| `PHOTO_TIMEOUT_MS` | `120000` | how long to wait for the reader to transcribe a published photo |
 | `DATA_DIR` | `../data` | `solver.sqlite` (runs + every solution), and the OAuth copy |
 | `SOLVER_TOKEN` | — | the routine's shared secret. **Empty leaves `/solution/claim` open** — fine locally, not on a public vhost. |
 | `ROUTINE_ID` | — | the routine a tap fires. Empty: runs are queued for the runner instead. |
@@ -128,6 +135,25 @@ so chasing every event would keep the link permanently saturated.
 The reader's token stays here. The glasses never hold it — `EventSource` can't
 set headers, so a browser-side client would have to carry it in a query string,
 i.e. in the shipped app bundle.
+
+### The camera preview's two modes
+
+`mode=ink` (the default) subtracts each frame's own local background and keeps
+what is **darker** than its surroundings — text, rules, the edge of the sheet —
+drawn bright on black, the way the document tiles are drawn. `mode=photo` is the
+equalised greyscale photograph it replaced.
+
+The reason is the panel. A greyscale photo of a sheet of paper is mostly light
+pixels, and on an emissive display that means most of the panel is lit: a wall
+of green with the detail buried in it, worst exactly when the frame is blank or
+badly exposed. Ink spends the panel only on marks, which also makes it about a
+third the bytes (~4KB for a full panel against ~13KB).
+
+`contrast` in the response is how much ink the frame actually had, 0–255, before
+it was scaled up. Below ~16 the server stops amplifying — otherwise a frame with
+nothing in it has its own sensor noise stretched into a convincing field of text
+— so the panel goes black and this number is what says why. It is `null` in
+photo mode, which never renders black and so has nothing to disambiguate.
 
 ## The solve loop
 

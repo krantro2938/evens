@@ -14,20 +14,24 @@ export const DEFAULT_COLOR = 1;
 // const INNER_H = BODY_H - 2 * (BODY_PAD + BODY_BORDER)
 
 // ── the dashboard ───────────────────────────────────────────────────────────
-// Five tiles on two rows: the two pages you read from on top, where the tiles
-// are half the panel wide, and the rest below. Reading order is also the order
-// a swipe walks them.
+// Six tiles on two rows of three: the two pages you read from lead, and reading
+// order is also the order a swipe walks them.
 //
-// Camera is last and it is the newest: it owns the live view and every scan
-// control, which used to live on the Assignment page. That page is now purely
-// for reading what has been transcribed — aiming the camera and reading the
-// result are different jobs, and doing both from one screen meant a tap could
-// start a job while you were trying to turn a page.
-export const MENU_ITEMS = ["AI", "Assign", "Adri", "Yula", "Camera"] as const;
+// Camera owns the live view and every scan control, which used to live on the
+// Assignment page. That page is now purely for reading what has been
+// transcribed — aiming the camera and reading the result are different jobs,
+// and doing both from one screen meant a tap could start a job while you were
+// trying to turn a page.
+//
+// Setup is last, and it is deliberately the furthest tile from where a swipe
+// starts: its one action replaces the whole assignment with a photo from the
+// phone (see settings.ts), and the entry to that should not be somewhere you
+// arrive by overshooting.
+export const MENU_ITEMS = ["AI", "Assign", "Adri", "Yula", "Camera", "Setup"] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
 /** How many tiles on each row, top to bottom. Must sum to MENU_ITEMS.length. */
-export const DASHBOARD_ROWS = [2, 3] as const;
+export const DASHBOARD_ROWS = [3, 3] as const;
 /** Space between tiles, and between the tiles and the panel edge. */
 export const DASHBOARD_GAP = 6;
 
@@ -73,6 +77,7 @@ export enum PAGES {
     YULA,
     ASSIGNMENT,
     CAMERA,
+    SETTINGS,
 }
 
 export enum GESTURE_EVENTS {
@@ -115,6 +120,16 @@ export const DOC_PAGER_ID = 6; // bottom text line
 export const DOC_FEEDBACK_ID = 7; // assignment only: camera advice / start-stop
 export const DOC_MENU_ID = 8; // both document pages: the centred action menu
 export const DOC_SOLVE_ID = 9; // AI only: the trigger button / solve progress
+
+/**
+ * The Settings page is one full-screen text container and nothing else.
+ *
+ * It has no tiles to stack against and one thing to say at a time, so a second
+ * container would only be somewhere for the two halves of a sentence to
+ * disagree. Shares id 1 with the dashboard's backdrop: container ids need to be
+ * unique on a PAGE, and only one page is ever built.
+ */
+export const SETTINGS_ID = 1;
 
 // ── image payload shape ─────────────────────────────────────────────────────
 // SDK 0.0.12 stamps `compressMode: 2` — LZ4 — into every `updateImageRawData`

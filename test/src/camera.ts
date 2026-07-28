@@ -50,6 +50,9 @@ import { TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 /** Named actions the document server accepts (see server/assignment.ts). */
 type ControlAction = "start" | "stop" | "reset" | "restart" | "extend";
 
+/** How the server draws a frame for the panel — see server/render/camera.ts. */
+type PreviewMode = "ink" | "photo";
+
 interface PreviewTile {
     index: number;
     data: string;
@@ -59,6 +62,9 @@ interface PreviewResponse {
     tiles: PreviewTile[];
     size: number;
     rotate: number;
+    mode: PreviewMode;
+    /** Ink amplitude the frame actually had, 0-255. `null` in photo mode. */
+    contrast: number | null;
 }
 
 // ── pacing ──────────────────────────────────────────────────────────────────
@@ -97,6 +103,29 @@ let previewError: string | null = null;
 let rotation = 0;
 /** 4 tiles (the whole panel) or 1 (a corner), when the link can't feed the big one. */
 let previewSize: 1 | 4 = 4;
+
+/**
+ * Marks on black (the default) or the photograph. The server does the work; see
+ * the note at the top of server/render/camera.ts for why ink is the default.
+ * Photo is here for the frame that isn't about a page — finding the desk in a
+ * dark room, checking whether a hand is in shot — which ink discards.
+ */
+let mode: PreviewMode = "ink";
+
+/**
+ * Ink amplitude in the last frame, as the server measured it, or null in photo
+ * mode. An ink render of a frame with nothing readable in it is BLACK, and a
+ * preview that has stopped arriving is also black; this is what separates them
+ * in the footer.
+ */
+let contrast: number | null = null;
+
+/**
+ * Below this the server stopped scaling the frame up (INK_MIN_SPAN in
+ * server/render/camera.ts), which is to say the panel is dark because the frame
+ * had nothing in it — not because the preview is broken.
+ */
+const LOW_INK = 16;
 
 // A control takes a round trip to the reader; ignore gestures until it lands so
 // an impatient double-press can't start and immediately stop a job.
@@ -216,7 +245,13 @@ function pagerLabel(): string {
     else if (!frames) parts.push("Preview starting...");
     else parts.push(`Live ${elapsed(Date.now() - lastFrameAt)} ago`);
 
+    // Said before the job's state, and in place of nothing else, because a dark
+    // panel is the one thing on this page that reads as a fault when it isn't:
+    // the frame arrived and there was nothing in it to draw.
+    if (contrast !== null && contrast < LOW_INK && !previewError) parts.push("no detail");
+
     if (rotation) parts.push(`rot ${rotation}`);
+    if (mode === "photo") parts.push("photo");
 
     const s = status();
     if (s) {
@@ -236,7 +271,7 @@ function pagerLabel(): string {
 // ── the preview loop ────────────────────────────────────────────────────────
 
 function previewQuery(): string {
-    const parts = [`size=${previewSize}`, `rotate=${rotation}`];
+    const parts = [`size=${previewSize}`, `rotate=${rotation}`, `mode=${mode}`];
     // While the menu is up the same frame is rendered with the menu's rectangle
     // reserved, so the panel has something dark to sit on and the camera stays
     // visible around it. Cheaper than a separate backdrop, and far more useful:
@@ -256,7 +291,9 @@ async function fetchPreview(): Promise<PreviewTile[]> {
         const body = (await res.json().catch(() => ({}))) as { detail?: string };
         throw new Error(body.detail ? clip(body.detail, 30) : `HTTP ${res.status}`);
     }
-    return ((await res.json()) as PreviewResponse).tiles;
+    const preview = (await res.json()) as PreviewResponse;
+    contrast = preview.contrast;
+    return preview.tiles;
 }
 
 /** One frame: fetch, push, then schedule the next off what the push cost. */
@@ -431,6 +468,19 @@ function buildMenu(): MenuEntry[] {
     if (captures > 0) items.push(control("Clear", "reset"));
 
     items.push({ label: `Rotate view (${rotation})`, run: () => turn(90) });
+    // Labelled with what it switches TO, like the size entry below it.
+    items.push({
+        label: mode === "ink" ? "Photo view" : "Ink view",
+        run: () => {
+            mode = mode === "ink" ? "photo" : "ink";
+            // The two modes share no pixels — every container is about to hold
+            // a completely different picture, and the dedup cache would happily
+            // decide a tile hadn't changed enough to resend.
+            tiles.reset();
+            contrast = null;
+            schedulePreview(0);
+        },
+    });
     items.push({
         label: previewSize === 4 ? "Small preview" : "Big preview",
         run: () => {
@@ -556,6 +606,7 @@ export async function enterCameraPage(): Promise<void> {
     frames = 0;
     lastFrameAt = 0;
     previewError = null;
+    contrast = null;
     working = null;
     controlError = null;
     shownPager = null;

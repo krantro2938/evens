@@ -46,19 +46,24 @@ import {
   control,
   fetchFrame,
   getArchive,
+  getPublishedPhoto,
   getStatus,
   isConfigured as assignmentConfigured,
+  PHOTO_TYPES,
+  publishPhoto,
   startUpstream,
   subscribeStatus,
   toggle,
   type ControlAction,
 } from "./assignment";
 import {
+  PREVIEW_MODES,
   renderCameraTiles,
   ROTATIONS,
+  type CameraPreview,
+  type PreviewMode,
   type PreviewSize,
 } from "./render/camera";
-import type { TileData } from "./render/tiles";
 import {
   authorizeSolver,
   cancelRun,
@@ -66,13 +71,14 @@ import {
   createAiSource,
   failRun,
   getSolverStatus,
+  saveMySolution,
   solverTokenRequired,
   startRun,
   submitSolution,
   subscribeSolver,
 } from "./solver";
 import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
-import { DB_PATH } from "./db";
+import { DB_PATH, latestMySolution } from "./db";
 import { triggerDescription } from "./trigger";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -511,19 +517,20 @@ const PREVIEW_TTL_MS = Number(process.env.CAMERA_PREVIEW_TTL_MS ?? 700);
 
 interface PreviewEntry {
   at: number;
-  tiles: TileData[];
+  preview: CameraPreview;
 }
 const previewCache = new Map<string, PreviewEntry>();
-const previewInFlight = new Map<string, Promise<TileData[]>>();
+const previewInFlight = new Map<string, Promise<CameraPreview>>();
 
 async function cameraPreview(
   size: PreviewSize,
   rotate: number,
+  mode: PreviewMode,
   menu: boolean,
-): Promise<TileData[]> {
-  const key = `${size}:${rotate}:${menu ? "menu" : "plain"}`;
+): Promise<CameraPreview> {
+  const key = `${size}:${rotate}:${mode}:${menu ? "menu" : "plain"}`;
   const hit = previewCache.get(key);
-  if (hit && Date.now() - hit.at <= PREVIEW_TTL_MS) return hit.tiles;
+  if (hit && Date.now() - hit.at <= PREVIEW_TTL_MS) return hit.preview;
 
   let pending = previewInFlight.get(key);
   if (!pending) {
@@ -531,17 +538,18 @@ async function cameraPreview(
       // Ask for a frame no older than the cache we're about to write, so the
       // two staleness budgets don't stack.
       const jpeg = await fetchFrame(PREVIEW_TTL_MS);
-      const tiles = await renderCameraTiles(jpeg, {
+      const preview = await renderCameraTiles(jpeg, {
         size,
         rotate,
+        mode,
         // The advice panel sits over the bottom-right tile here exactly as it
         // does on the assignment page, so it needs the same baked background.
         // With the action menu open its box is reserved too — that is what lets
         // the camera stay live and visible around a menu you are reading.
         reserved: size === 4 ? (menu ? [HUD_FEEDBACK, HUD_MENU] : [HUD_FEEDBACK]) : [],
       });
-      previewCache.set(key, { at: Date.now(), tiles });
-      return tiles;
+      previewCache.set(key, { at: Date.now(), preview });
+      return preview;
     })().finally(() => previewInFlight.delete(key));
     previewInFlight.set(key, pending);
   }
@@ -562,9 +570,19 @@ app.get("/assignment/camera", async (c) => {
     return c.json({ error: "bad_rotation", detail: `use one of ${ROTATIONS.join(", ")}` }, 400);
   }
 
+  const mode = (c.req.query("mode") ?? "ink") as PreviewMode;
+  if (!PREVIEW_MODES.includes(mode)) {
+    return c.json({ error: "bad_mode", detail: `use one of ${PREVIEW_MODES.join(", ")}` }, 400);
+  }
+
   try {
-    const tiles = await cameraPreview(size, rotate, c.req.query("overlay") === "menu");
-    return c.json({ tiles, size, rotate, at: Date.now() });
+    const { tiles, contrast } = await cameraPreview(
+      size,
+      rotate,
+      mode,
+      c.req.query("overlay") === "menu",
+    );
+    return c.json({ tiles, size, rotate, mode, contrast, at: Date.now() });
   } catch (err) {
     // Expected whenever the stream isn't publishing, so it is a message to put
     // on the glasses rather than a stack trace to hunt for.
@@ -614,6 +632,111 @@ app.post("/assignment/control", async (c) => {
   }
   const result = await control(action as ControlAction);
   return c.json(result, result.ok ? 200 : 502);
+});
+
+// ── publishing a photo as the assignment ────────────────────────────────────
+//
+// The body IS the image. Not multipart: every caller here is code (the
+// companion app's file picker, the phone's gallery bridge) rather than an HTML
+// form, and a raw body keeps the megabytes off a parser and out of a second
+// copy in memory.
+
+/** Refuse before spending a Gemini call and two minutes on it. */
+const MAX_PHOTO_BYTES = Number(process.env.MAX_PHOTO_BYTES ?? 12_000_000);
+
+app.post("/assignment/photo", async (c) => {
+  if (!assignmentConfigured()) {
+    return c.json({ ok: false, detail: "no reader configured (set ASSIGNMENT_URL)" }, 503);
+  }
+
+  const mime = (c.req.header("content-type") ?? "").split(";")[0]!.trim();
+  if (!PHOTO_TYPES.includes(mime as (typeof PHOTO_TYPES)[number])) {
+    return c.json(
+      { ok: false, detail: `send the image as the body, as one of: ${PHOTO_TYPES.join(", ")}` },
+      415,
+    );
+  }
+
+  const photo = Buffer.from(await c.req.arrayBuffer());
+  if (photo.length === 0) return c.json({ ok: false, detail: "empty body" }, 400);
+  if (photo.length > MAX_PHOTO_BYTES) {
+    return c.json(
+      {
+        ok: false,
+        detail: `photo is ${(photo.length / 1e6).toFixed(1)}MB, limit is ${MAX_PHOTO_BYTES / 1e6}MB`,
+      },
+      413,
+    );
+  }
+
+  const result = await publishPhoto(photo, mime, {
+    // Default true, and the glasses never send anything else: a photo is a new
+    // sheet. `?reset=0` is for the companion app's "add to the current one".
+    reset: c.req.query("reset") !== "0",
+    name: c.req.query("name") ?? c.req.header("x-photo-name") ?? null,
+    note: c.req.query("note") ?? undefined,
+  });
+  return c.json(result, result.ok ? 200 : 502);
+});
+
+/** The photo the assignment was last read from — for showing what you sent. */
+app.get("/assignment/photo", (c) => {
+  const photo = getPublishedPhoto();
+  if (!photo) return c.json({ error: "no photo published this run" }, 404);
+  return new Response(new Uint8Array(photo.bytes), {
+    headers: {
+      "content-type": photo.mime,
+      "content-length": String(photo.bytes.length),
+      "cache-control": "no-store",
+    },
+  });
+});
+
+/** The same thing as metadata, so a poll doesn't drag the bytes with it. */
+app.get("/assignment/photo/meta", (c) => {
+  const photo = getPublishedPhoto();
+  if (!photo) return c.json({ published: false });
+  return c.json({
+    published: true,
+    at: photo.at,
+    mime: photo.mime,
+    bytes: photo.bytes.length,
+    name: photo.name,
+  });
+});
+
+// ── your own solution ───────────────────────────────────────────────────────
+//
+// Written in the companion app rather than by an agent. It lands in the same
+// table as a solve run's answer, so the glasses' AI page picks it up with no
+// changes there — that page shows the newest solution, whoever wrote it.
+
+app.post("/solution/mine", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    markdown?: unknown;
+    notes?: unknown;
+  };
+  if (typeof body.markdown !== "string") {
+    return c.json({ ok: false, reason: "markdown must be a string" }, 400);
+  }
+  const result = await saveMySolution(
+    body.markdown,
+    typeof body.notes === "string" ? body.notes : null,
+  );
+  return c.json(result, result.ok ? 200 : 400);
+});
+
+app.get("/solution/mine", (c) => {
+  const solution = latestMySolution();
+  if (!solution) return c.json({ saved: false, markdown: "" });
+  return c.json({
+    saved: true,
+    id: solution.id,
+    markdown: solution.markdown,
+    notes: solution.notes,
+    assignment_version: solution.assignment_version,
+    created_at: solution.created_at,
+  });
 });
 
 startUpstream();

@@ -50,6 +50,7 @@ import { backdrop, createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
 import { navigateBack } from "./main";
 import { appLog } from "./debug";
+import { ago } from "./utils";
 
 /** Where the solve loop lives on the document server. */
 const SOLVE_BASE = "/solution";
@@ -288,6 +289,11 @@ function pagerLabel(state: DocState): string {
     // Ahead of everything else, because it explains a blank panel that otherwise
     // looks like a bug in the document: the tiles never reached the glasses.
     if (state.linkError) return "Glasses link error - tiles not sent";
+
+    // Ahead of the live state: these tiles came out of the on-device cache
+    // because the server was unreachable, and a stale document that says
+    // nothing is indistinguishable from a current one.
+    if (state.cachedAt) return `Offline - cached ${ago(state.cachedAt)}`;
 
     if (requestError) return "Request failed - tap to retry";
     if (requesting) return "Starting a solve...";

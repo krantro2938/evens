@@ -19,7 +19,7 @@ import {
 import type { DocState } from "./state";
 import { bridge, navigateBack } from "./main";
 import { appLog } from "./debug";
-import { fetchTiles, type TilePage } from "./render/tiles";
+import { cachedTiles, fetchTiles, type TilePage } from "./render/tiles";
 import { createTilePusher } from "./render/tilePush";
 
 export interface DocPageConfig {
@@ -318,9 +318,15 @@ export function createDocPage(config: DocPageConfig): DocPage {
         await showPage(state.currentPage);
     }
 
-    function applyTiles(pages: TilePage[], version: number): Promise<void> {
+    function applyTiles(
+        pages: TilePage[],
+        version: number,
+        cachedAt: number | null = null,
+    ): Promise<void> {
         state.pages = pages;
         state.version = version;
+        // What the footer needs to stop presenting an old document as live.
+        state.cachedAt = cachedAt;
         // The variant is a render of the document that just went stale.
         dropVariant();
         loadVariant();
@@ -372,9 +378,21 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // document is as likely to hash lower as higher.
     async function refresh(version: number): Promise<void> {
         if (version === state.version && state.pages.length) return;
+
+        // Already rendered this exact document, on this device, before. The
+        // version is the server's content hash, so a hit is the same bytes it
+        // would send — and the fetch, the render and the wait are all skipped.
+        const query = config.query?.() ?? "";
+        const known = await cachedTiles(base, query, version);
+        if (known) {
+            appLog(name, "tiles from cache, version", version);
+            await applyTiles(known.pages, known.version, known.cachedAt);
+            return;
+        }
+
         try {
-            const { pages, version: tileVersion } = await fetchTiles(base, config.query?.());
-            await applyTiles(pages, tileVersion);
+            const { pages, version: tileVersion, cachedAt } = await fetchTiles(base, query);
+            await applyTiles(pages, tileVersion, cachedAt);
         } catch (err) {
             appLog(name, "tiles fetch failed → text fallback", err);
             await showTextFallback();
@@ -383,8 +401,8 @@ export function createDocPage(config: DocPageConfig): DocPage {
 
     async function loadInitial(): Promise<void> {
         try {
-            const { pages, version } = await fetchTiles(base, config.query?.());
-            await applyTiles(pages, version);
+            const { pages, version, cachedAt } = await fetchTiles(base, config.query?.());
+            await applyTiles(pages, version, cachedAt);
         } catch (err) {
             appLog(name, "initial tiles failed → text fallback", err);
             await showTextFallback();

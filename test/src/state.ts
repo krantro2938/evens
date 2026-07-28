@@ -21,6 +21,17 @@ export type DocState = {
      * panel.
      */
     linkError: boolean;
+    /**
+     * When the tiles on screen were cached, or null if they came off the
+     * network. Set when the server was unreachable and the on-device cache
+     * answered instead (see render/tileCache.ts).
+     *
+     * The footer says so. The tiles are never *wrong* — they are keyed by the
+     * server's content hash — but "the assignment as it was three hours ago" is
+     * a different claim from "the assignment", and a stale page that looks live
+     * is the one failure this cache could introduce.
+     */
+    cachedAt: number | null;
 };
 
 /** Mirror of the server's `status` SSE payload (see server/assignment.ts). */
@@ -117,6 +128,7 @@ const newDocState = (): DocState => ({
     version: -1,
     status: "Loading...",
     linkError: false,
+    cachedAt: null,
 });
 
 export class GLOBAL_STATE {

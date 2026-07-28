@@ -5,31 +5,139 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
     <title>Scry</title>
     <style>
+      /* ER brand dark-theme surface (#232323) + Neutral-200 text (#E5E5E5). */
+      :root {
+        --bg: #232323;
+        --surface: #2c2c2c;
+        --line: #3d3d3d;
+        --text: #e5e5e5;
+        --muted: #9a9a9a;
+        --accent: #7ee787;
+        --danger: #ff8a80;
+      }
+
       html, body {
         margin: 0;
         height: 100%;
-        /* ER brand dark-theme surface (#232323) + Neutral-200 text (#E5E5E5). */
-        background: #232323;
-        color: #E5E5E5;
-        font: 14px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         /* Kill WebView zoom + iOS auto-sizing + rubber-band scroll. */
         touch-action: manipulation;
         -webkit-text-size-adjust: 100%;
         overscroll-behavior: none;
       }
-      #app {
+
+      #app { height: 100%; }
+
+      /* The companion app: a tab bar that stays put, and one scrolling panel. */
+      .app { display: flex; flex-direction: column; height: 100%; }
+
+      .tabs {
         display: flex;
-        height: 100%;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        box-sizing: border-box;
-        text-align: center;
+        flex: 0 0 auto;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg);
       }
+      .tab {
+        flex: 1;
+        padding: 14px 4px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--muted);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+
+      .panels { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      .panel { padding: 16px 16px 40px; }
+      .panel[hidden] { display: none; }
+
+      h2 { margin: 0 0 4px; font-size: 17px; }
+      .muted { color: var(--muted); margin: 4px 0 12px; }
+
+      .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+      .row > .input { flex: 1 1 200px; }
+
+      .btn {
+        padding: 11px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .btn:disabled { opacity: 0.45; cursor: default; }
+      .btn.primary { border-color: var(--accent); color: var(--accent); }
+
+      .input, .editor {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+      }
+      .editor { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+
+      .preview { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+
+      /* Transcriptions and solutions: preformatted, wrapped, and scrollable on
+         their own so a long one never stretches the page horizontally. */
+      .doc {
+        margin: 12px 0 0;
+        padding: 12px;
+        max-height: 55vh;
+        overflow: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px;
+      }
+      .doc.short { max-height: 30vh; }
+
+      .card {
+        margin: 16px 0 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+      .card summary { cursor: pointer; font-weight: 600; }
+      .code {
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: var(--bg);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+
+      /* A second heading inside a panel — the solution editor under the
+         assignment — needs air above it and a rule to sit under. */
+      .section { margin: 28px 0 0; padding-top: 20px; border-top: 1px solid var(--line); }
+
+      .status { margin: 10px 0 0; min-height: 1.4em; }
+      .status.ok { color: var(--accent); }
+      .status.error { color: var(--danger); }
+      .status.info { color: var(--muted); }
+
+      /* The file input and the clipboard fallback: present, never seen. */
+      .offscreen { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
     </style>
   </head>
   <body>
-    <div id="app">Companion app is running. Check the glasses display.</div>
+    <div id="app">Starting…</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

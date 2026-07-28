@@ -68,12 +68,36 @@ db.exec(`
     markdown             TEXT    NOT NULL,
     model                TEXT,
     notes                TEXT,
+    -- 'agent' (a solve run) or 'me' (typed in the companion app). See the note
+    -- at the migration below for why this is a column and not a magic value
+    -- stuffed into the model field.
+    source               TEXT    NOT NULL DEFAULT 'agent',
     created_at           INTEGER NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS runs_state_idx      ON runs(state);
   CREATE INDEX IF NOT EXISTS solutions_recent_idx ON solutions(created_at DESC);
 `);
+
+/**
+ * `source` on a database that predates it.
+ *
+ * There is no migration framework here and this is the first column ever added,
+ * so it is done inline: the CREATE above covers a fresh database, this covers
+ * the one already sitting in data/. ADD COLUMN with a DEFAULT is the one shape
+ * SQLite rewrites nothing for, and every existing row is genuinely an agent's.
+ *
+ * It has to be a column rather than a convention on `model`, because the
+ * distinction is not cosmetic: `model` is free text from whatever solved the
+ * paper, and something that answers "did I write this?" cannot be a string
+ * nobody validates. The version picker labels rows with it and the AI page
+ * shows the newest solution whatever wrote it, so a mislabelled row is a
+ * solution attributed to the wrong author on the glasses.
+ */
+if (!db.query<{ name: string }, []>(`PRAGMA table_info(solutions)`).all().some((c) => c.name === "source")) {
+  db.exec(`ALTER TABLE solutions ADD COLUMN source TEXT NOT NULL DEFAULT 'agent'`);
+  console.log("[db] migrated: solutions.source");
+}
 
 /** A run's lifecycle. `superseded` is what a re-trigger does to its predecessor. */
 export type RunState =
@@ -103,6 +127,9 @@ export interface RunRow {
   error: string | null;
 }
 
+/** Who wrote a solution. Not a label — see the migration note above. */
+export type SolutionSource = "agent" | "me";
+
 export interface SolutionRow {
   id: number;
   run_id: number | null;
@@ -110,6 +137,7 @@ export interface SolutionRow {
   markdown: string;
   model: string | null;
   notes: string | null;
+  source: SolutionSource;
   created_at: number;
 }
 
@@ -240,13 +268,14 @@ export interface NewSolution {
   markdown: string;
   model: string | null;
   notes: string | null;
+  source?: SolutionSource;
 }
 
 export function insertSolution(solution: NewSolution): SolutionRow {
   return db
     .query<SolutionRow, any[]>(
-      `INSERT INTO solutions (run_id, assignment_version, markdown, model, notes, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+      `INSERT INTO solutions (run_id, assignment_version, markdown, model, notes, source, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
        RETURNING *`,
     )
     .get(
@@ -255,8 +284,27 @@ export function insertSolution(solution: NewSolution): SolutionRow {
       solution.markdown,
       solution.model,
       solution.notes,
+      solution.source ?? "agent",
       Date.now(),
     )!;
+}
+
+/**
+ * The newest solution you wrote yourself, if any.
+ *
+ * Separate from latestSolution() on purpose: the companion app's own tab must
+ * keep showing YOUR answer after a solve run lands a newer one, or the tab
+ * called "my solution" would quietly start displaying the agent's.
+ */
+export function latestMySolution(): SolutionRow | null {
+  return (
+    db
+      .query<SolutionRow, []>(
+        `SELECT * FROM solutions WHERE source='me'
+          ORDER BY created_at DESC, id DESC LIMIT 1`,
+      )
+      .get() ?? null
+  );
 }
 
 /** The one the AI page shows: newest first, whatever it was solving. */
