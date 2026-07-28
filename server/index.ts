@@ -16,6 +16,10 @@
 // rectangle darkened, so the menu can open without hiding the document) and a
 // history selector: `?solution_id=` for the AI page, `?version=` for the
 // assignment's earlier scans.
+// A third document, `/adri/*`, is neither: it is markdown you type in the
+// companion app (PUT /doc/:slug), stored one row per slug, and read back on the
+// glasses' Adri page. One version each — editing IS the update.
+//
 //   GET  /solution/claim   ─┐ the Claude routine's side of the solve loop
 //   POST /solution/submit   │ (see solver.ts) — token-gated, not for the glasses
 //   POST /solution/fail    ─┘
@@ -79,6 +83,7 @@ import {
 } from "./solver";
 import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
 import { DB_PATH, latestMySolution } from "./db";
+import { docSource, isDocSlug, readDoc, saveDoc } from "./docs";
 import { triggerDescription } from "./trigger";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -633,6 +638,54 @@ app.post("/assignment/control", async (c) => {
   const result = await control(action as ControlAction);
   return c.json(result, result.ok ? 200 : 502);
 });
+
+// ── hand-written documents (the Adri page) ──────────────────────────────────
+//
+// A sheet you state yourself and an answer you write yourself, both edited in
+// the companion app. There is exactly ONE of each — saving replaces it — so
+// there is no history to page through and no `?version=` here.
+//
+// `/doc/:slug` is the editing surface. `/adri/*` is the reading surface, and it
+// is the same shape as `/assignment/*` and `/tiles` because the glasses page is
+// an ordinary document page: same tile pipeline, same SSE, same client code.
+
+const adriSource = docSource("adri-solution");
+const adriTiles = createTileCache(adriSource);
+/** The overlay variant, for when the glasses open a menu over the document. */
+const adriMenuTiles = createTileCache(adriSource, { reserved: [HUD_MENU] });
+
+app.get("/doc/:slug", (c) => {
+  const slug = c.req.param("slug");
+  if (!isDocSlug(slug)) return c.json({ error: "unknown_document", slug }, 404);
+  return c.json(readDoc(slug));
+});
+
+app.put("/doc/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  if (!isDocSlug(slug)) return c.json({ error: "unknown_document", slug }, 404);
+
+  const body = (await c.req.json().catch(() => ({}))) as { markdown?: unknown };
+  if (typeof body.markdown !== "string") {
+    return c.json({ ok: false, reason: "markdown must be a string" }, 400);
+  }
+  const result = saveDoc(slug, body.markdown);
+  return c.json(result, result.ok ? 200 : 400);
+});
+
+app.get("/adri/markdown", async (c) => c.json(await adriSource.read()));
+
+app.get("/adri/tiles", async (c) => {
+  try {
+    const menu = c.req.query("overlay") === "menu";
+    const tiles = await (menu ? adriMenuTiles : adriTiles)();
+    return c.json({ ...tiles, overlay: menu ? "menu" : null });
+  } catch (err) {
+    console.error("render adri tiles failed:", err);
+    return c.json({ error: "tiles_unavailable" }, 502);
+  }
+});
+
+app.get("/adri/events", (c) => documentStream(adriSource)(c));
 
 // ── publishing a photo as the assignment ────────────────────────────────────
 //

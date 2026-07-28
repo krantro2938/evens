@@ -101,6 +101,8 @@ export const POLL_INTERVAL_MS = 10_000;
 /** Path prefixes on the document server, one per document page. */
 export const DOC_BASE_SOLUTION = "";
 export const DOC_BASE_ASSIGNMENT = "/assignment";
+/** The hand-written document, edited in the companion app. See src/adri.ts. */
+export const DOC_BASE_ADRI = "/adri";
 
 // Image containers are capped at 288×144 and 4 per page, so a full 576×288
 // frame is a 2×2 grid of 288×128 tiles (the bottom ~30px is left for a text

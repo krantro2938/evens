@@ -75,6 +75,14 @@ db.exec(`
     created_at           INTEGER NOT NULL
   );
 
+  -- Documents you write by hand, one row per slug. See the note at putDoc for
+  -- why this is a separate table from solutions rather than a flag on it.
+  CREATE TABLE IF NOT EXISTS docs (
+    slug        TEXT PRIMARY KEY,
+    markdown    TEXT    NOT NULL,
+    updated_at  INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS runs_state_idx      ON runs(state);
   CREATE INDEX IF NOT EXISTS solutions_recent_idx ON solutions(created_at DESC);
 `);
@@ -352,3 +360,40 @@ export function solutionCount(): number {
 }
 
 export { DB_PATH };
+
+// ── hand-written documents ──────────────────────────────────────────────────
+
+export interface DocRow {
+  slug: string;
+  markdown: string;
+  updated_at: number;
+}
+
+/**
+ * One row per slug, replaced in place.
+ *
+ * DELIBERATELY NOT the `solutions` table. That one is an append-only log —
+ * every solve run adds a row, the AI page shows the newest, and the version
+ * picker walks the history. These are the opposite: there is one Adri
+ * assignment and one Adri solution, editing IS the update, and a history of
+ * drafts would be a list of things nobody asked to keep. Putting both
+ * behaviours in one table would mean every reader having to know which kind of
+ * row it was looking at.
+ *
+ * The version the glasses refetch on is a content hash of the markdown, not a
+ * counter here — so saving the same text twice costs no render and no BLE push,
+ * exactly as it does for every other document in this server.
+ */
+export function putDoc(slug: string, markdown: string): DocRow {
+  return db
+    .query<DocRow, [string, string, number]>(
+      `INSERT INTO docs (slug, markdown, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(slug) DO UPDATE SET markdown = ?2, updated_at = ?3
+       RETURNING *`,
+    )
+    .get(slug, markdown, Date.now())!;
+}
+
+export function getDoc(slug: string): DocRow | null {
+  return db.query<DocRow, [string]>(`SELECT * FROM docs WHERE slug=?1`).get(slug) ?? null;
+}

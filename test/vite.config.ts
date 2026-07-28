@@ -24,6 +24,10 @@ const DOC_ROUTES = [
     "/events",
     "/assignment",
     "/solution",
+    // The hand-written documents: "/doc" is where the companion app edits them,
+    // "/adri" is where the glasses read one back.
+    "/doc",
+    "/adri",
     // The app ships its own log here — the glasses have no console.
     "/log",
 ];

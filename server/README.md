@@ -5,12 +5,13 @@ PNG tiles** (headless Chromium + sharp) so the glasses client stays thin — no
 marked/MathJax/html2canvas on-device. Pushes live updates so the glasses
 re-fetch when the document changes.
 
-Two documents, one pipeline:
+Three documents, one pipeline:
 
 | Document | Source | Glasses page |
 |---|---|---|
 | the AI document | whatever Claude last solved (SQLite), falling back to `solution.md` in the repo root, watched with `fs.watch` | AI |
 | the assignment | the [lookcam assignment reader](../../lookcam/assignment), over SSE | Assignment |
+| Adri | markdown you type in the companion app (SQLite, one row) | Adri |
 
 It also owns the **solve loop**: the AI page's trigger button hands the
 transcribed assignment to a Claude routine and displays the markdown that comes
@@ -40,6 +41,25 @@ Default port `8787` (override with `PORT`).
 | `POST /solution/cancel` | abandon the live run → `{ ok, action: "cancelled", run_id }` |
 | `POST /solution/mine` | `{"markdown","notes?"}` — **your own answer**, typed in the companion app. No token and no run: it is not an agent submitting against a request → `{ ok, solution_id, version }` |
 | `GET /solution/mine` | the newest solution you wrote yourself → `{ saved, markdown, created_at, … }` |
+
+### hand-written documents (the Adri page)
+
+Markdown you type in the companion app rather than derive from a camera or an
+agent. **One row per slug** — saving replaces it, there is no history, and the
+version is a content hash, so saving the same text twice costs no render and no
+BLE push while an edit pushes new tiles to the glasses on its own.
+
+Slugs are a fixed list (`adri-assignment`, `adri-solution`): every one is a page
+on the glasses and a tab in the companion app, both built at compile time, so an
+open endpoint would let a typo create a document nothing can ever show.
+
+| Route | Purpose |
+|---|---|
+| `GET /doc/:slug` | `{ slug, markdown, saved, version, updated_at }`. `saved:false` distinguishes "never written" from "written empty" |
+| `PUT /doc/:slug` | `{"markdown"}` — replaces it → `{ ok, version, updated_at }`. An empty body clears it, and the placeholder comes back |
+| `GET /adri/markdown` | the `adri-solution` document, as the glasses read it |
+| `GET /adri/tiles[?overlay=menu]` | same tile shape as `/tiles` |
+| `GET /adri/events` | SSE — `event: markdown` when it is edited |
 
 ### assignment
 
@@ -111,6 +131,7 @@ displayed.
 | `SOLVE_TIMEOUT_MS` | `1200000` | a claimed run that never submits fails after this |
 | `SOLVE_QUEUE_TIMEOUT_MS` | `10800000` | a queued run nobody claims fails after this |
 | `SOLVE_MAX_CHARS` | `200000` | submissions larger than this are refused, not rendered |
+| `DOC_MAX_CHARS` | `200000` | the same ceiling for a hand-written document |
 
 CORS is open so the app (served from the Vite dev origin) can reach it.
 

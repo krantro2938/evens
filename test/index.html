@@ -33,21 +33,28 @@
       /* The companion app: a tab bar that stays put, and one scrolling panel. */
       .app { display: flex; flex-direction: column; height: 100%; }
 
+      /* Scrolls sideways rather than squeezing: five labels on a 390px phone
+         would otherwise be five columns of clipped text, and "Assignment" and
+         "Adri answer" are not words you can shorten and still tell apart. */
       .tabs {
         display: flex;
         flex: 0 0 auto;
+        overflow-x: auto;
+        scrollbar-width: none;
         border-bottom: 1px solid var(--line);
         background: var(--bg);
       }
+      .tabs::-webkit-scrollbar { display: none; }
       .tab {
-        flex: 1;
-        padding: 14px 4px;
+        flex: 0 0 auto;
+        padding: 14px 14px;
         border: 0;
         border-bottom: 2px solid transparent;
         background: none;
         color: var(--muted);
         font: inherit;
         font-weight: 600;
+        white-space: nowrap;
         cursor: pointer;
       }
       .tab.on { color: var(--text); border-bottom-color: var(--accent); }

@@ -65,6 +65,7 @@ wildcards) to `app.json` as well.
 | **AI** | the solution to the assignment on the paper, live — or a **trigger button** when there isn't one yet | swipe to page, **tap to page or to solve**, **double-tap for the action menu** |
 | **Assign** | what the [lookcam reader](../../lookcam/assignment) has transcribed off the paper, live | swipe or tap to page, **double-tap for the version menu** |
 | **Camera** | **what the camera sees, refreshed while you aim it** — plus every scan control | **tap to start/stop**, **swipe to rotate the view**, **double-tap for the action menu** |
+| **Adri** | **a solution you wrote yourself**, edited on the phone | swipe or tap to page, double-tap to go back |
 | **Setup** | **publish the phone's newest photo as the assignment** | **tap to arm, tap again to publish**, double-tap to go back |
 
 The two document pages are instances of `src/docPage.ts` — same tile fetching,
@@ -217,6 +218,17 @@ screen is the phone. Same bundle, same backend, four tabs:
 | **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Publishing replaces the assignment, behind a confirmation |
 | **Assignment** | the transcription as text you can scroll, select and **copy** — the same markdown the glasses render into tiles — and beneath it the box you write your own answer in |
 | **Solution** | read back the last answer *you* saved |
+| **Adri task** | an assignment you state yourself — nothing reads this off a camera |
+| **Adri answer** | the solution to it, shown on the glasses' Adri page |
+
+The two Adri tabs are the same workflow with the machines taken out, and they
+follow a different rule from the others: **there is exactly one of each.**
+Saving replaces what was there rather than appending, and the version is a hash
+of the text — so an edit changes the version and the Adri page redraws on its
+own, while saving unchanged text does nothing at all (the button says `Saved`
+and is disabled until you actually change something). An unsaved draft is kept
+locally and wins over the server's copy on reload, because being one save behind
+is better than losing what you typed.
 
 The editor is on the same tab as the problems rather than one of its own,
 because writing an answer means reading the question; an editor you have to
@@ -452,6 +464,7 @@ Its origin must also be in the `network` whitelist in `app.json`.
 | `src/ai.ts` · `src/assignment.ts` | The two document pages — configuration over `docPage`. |
 | `src/camera.ts` | The Camera page: the live preview loop, and every scan control. |
 | `src/settings.ts` | The Setup page: arm, confirm, publish the phone's newest photo. |
+| `src/adri.ts` | The Adri page — the simplest document page: a reader, nothing to trigger. |
 | `src/gallery.ts` | The phone's camera roll and publishing a photo — shared by the Setup page and the companion app. |
 | `src/companion/` | The phone-screen app: the tab shell, one module per tab, and a small DOM helper. |
 | `src/render/tiles.ts` | Fetch + decode the server's tiles; tile geometry. |

@@ -137,6 +137,8 @@ export class GLOBAL_STATE {
     };
     aiState: DocState = newDocState();
     assignmentState: DocState = newDocState();
+    /** The Adri page: a document you wrote yourself (see src/adri.ts). */
+    adriState: DocState = newDocState();
     /** Live job/camera state from the reader; null until the first `status`. */
     assignmentStatus: AssignmentStatus | null = null;
     /** Live solve state for the AI page; null until the first `status`. */

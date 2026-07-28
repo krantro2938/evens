@@ -60,6 +60,7 @@ import {
     handleSettingsPageEvent,
     leaveSettingsPage,
 } from "./settings";
+import { enterAdriPage, handleAdriPageEvent, leaveAdriPage } from "./adri";
 import { tileLayout } from "./render/tiles";
 import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
@@ -240,6 +241,9 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.SETTINGS:
             handleSettingsPageEvent(gesture);
             break;
+        case PAGES.ADRI:
+            handleAdriPageEvent(gesture);
+            break;
         // Adri and Yula are placeholders, and the placeholder's own text says
         // "Double click to go back" — but with no case here the gesture reached
         // nothing at all and the page was a dead end you had to restart out of.
@@ -266,6 +270,9 @@ function leaveCurrentPage() {
             break;
         case PAGES.SETTINGS:
             leaveSettingsPage();
+            break;
+        case PAGES.ADRI:
+            leaveAdriPage();
             break;
     }
 }
@@ -423,6 +430,13 @@ export async function buildPage(page: PAGES) {
         case PAGES.ASSIGNMENT:
             await buildDocumentPage({ feedback: true, menu: true });
             await enterAssignmentPage();
+            break;
+
+        // A plain reader: no feedback box, no solve button, and no menu — there
+        // is one Adri document and nothing on this page acts on it.
+        case PAGES.ADRI:
+            await buildDocumentPage();
+            await enterAdriPage();
             break;
 
         // Same containers as a document page: the preview lands in the four
