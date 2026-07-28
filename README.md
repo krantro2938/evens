@@ -61,11 +61,11 @@ Each service owns one file. Nothing is configured in two places.
 | File | Owns | Key settings |
 |---|---|---|
 | `test/.env.local` | the glasses app | `VITE_MD_TARGET` (dev proxy), `VITE_MD_SERVER` (packed build) |
-| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `ROUTINE_ID`, `ROUTINE_TOKEN` |
+| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `MESSAGE_TOKEN`, `ROUTINE_ID`, `ROUTINE_TOKEN` |
 | the routine, at [claude.ai/code/routines](https://claude.ai/code/routines) | the solving agent | its prompt (a copy lives in `routine/solve.md`), its model, its **network allowlist**, and `SOLVER_TOKEN` again |
-| `vps/docker/.env` in the lookcam repo | the camera stack and the reader | `GEMINI_API_KEY`, `ASSIGNMENT_TOKEN`, `SNAPSHOT_TOKEN`, `DOMAIN`, `ASSIGNMENT_DOMAIN`, `EVENS_DOMAIN` |
+| `vps/docker/.env` in the lookcam repo | the camera stack and the reader | `GEMINI_API_KEY`, `ASSIGNMENT_TOKEN`, `SNAPSHOT_TOKEN`, `MESSAGE_TOKEN`, `DOMAIN`, `ASSIGNMENT_DOMAIN`, `EVENS_DOMAIN` |
 
-Two values have to match across files, and both fail quietly if they don't:
+Three values have to match across files, and all three fail quietly if they don't:
 
 - `ASSIGNMENT_TOKEN` — this repo's `.env` and the lookcam stack's. If the
   assignment page is empty and `/assignment/status` reports an error, check that
@@ -73,6 +73,33 @@ Two values have to match across files, and both fail quietly if they don't:
 - `SOLVER_TOKEN` — this repo's `.env` and the routine's prompt. If a tap says
   "solving" and nothing ever arrives, the routine is being answered `401` at
   `/solution/claim`.
+- `MESSAGE_TOKEN` — this repo's `.env` and the lookcam stack's. If the chat
+  widget on `cam.aansl.com` says "unauthorized" on send, this is why.
+
+## Messages
+
+A chat widget in the bottom-right of `cam.aansl.com`, and a `Msgs` tile on the
+glasses. Text goes one way, canned replies come back — there is no keyboard on
+the glasses, so "chat" here means a log you write to from one end.
+
+- **240 characters**, ASCII only. Both are the panel's limits, not a policy: the
+  font has no glyph outside ASCII and silently draws *nothing* for what it
+  lacks, so the widget names the offending characters instead of sending a
+  sentence with holes in it. Curly quotes, dashes and ellipses are folded rather
+  than refused — a paste shouldn't be an error.
+- **An arriving message takes the screen for 7–15 seconds** (scaled by length),
+  then hands it back to whatever you were doing. Tap to reply, double-tap to
+  dismiss. It does *not* interrupt the Camera page — messages wait until you
+  leave it, rather than stealing a tap mid-scan.
+- **The unread count on the `Msgs` tile is the only notification indicator.** No
+  document page reserves pixels for one: all four image containers hold the
+  document, and text containers are transparent, so a permanent badge would mean
+  a permanent hole in every rendered page (the problem `HUD_FEEDBACK` solves by
+  baking a box into the tiles).
+- **Only the send route is gated.** `MESSAGE_TOKEN` is held by the camera web
+  app alone, so being logged in there is the only way to write to the glasses.
+  Reply and ack are open, because a packed app cannot hold a secret — the same
+  trade `/solve` already makes.
 
 Templates: `.env.example` in this directory and in `test/`.
 

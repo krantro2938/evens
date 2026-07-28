@@ -144,6 +144,14 @@ export class GLOBAL_STATE {
     /** Live solve state for the AI page; null until the first `status`. */
     solverStatus: SolverStatus | null = null;
     currentPage: PAGES = PAGES.DASHBOARD;
+    /**
+     * Messages sent from the web app that the glasses have not drawn yet.
+     *
+     * Lives here rather than in messages.ts because the dashboard draws it into
+     * the Msgs tile, and that count IS the notification indicator — no document
+     * page reserves pixels for one.
+     */
+    unreadMessages = 0;
 
     constructor() {}
 

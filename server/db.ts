@@ -83,8 +83,29 @@ db.exec(`
     updated_at  INTEGER NOT NULL
   );
 
+  -- Short messages between the camera web app and the glasses. An append-only
+  -- log in both directions: 'out' is typed on cam.aansl.com, 'in' is a quick
+  -- reply tapped on the glasses.
+  --
+  -- Persisted rather than fanned out and forgotten because the glasses are
+  -- offline most of the time. A message sent to a phone that is asleep has to
+  -- be waiting when the app next connects, or the widget is a toy that only
+  -- works when you happen to be wearing them.
+  CREATE TABLE IF NOT EXISTS messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    body       TEXT    NOT NULL,
+    -- 'out' = website -> glasses, 'in' = a reply tapped on the glasses.
+    direction  TEXT    NOT NULL,
+    created_at INTEGER NOT NULL,
+    -- When the glasses actually put it on the screen. NULL = never shown, which
+    -- is what makes the dashboard's unread count and the banner-on-connect
+    -- behaviour possible. Only meaningful for 'out'.
+    seen_at    INTEGER
+  );
+
   CREATE INDEX IF NOT EXISTS runs_state_idx      ON runs(state);
   CREATE INDEX IF NOT EXISTS solutions_recent_idx ON solutions(created_at DESC);
+  CREATE INDEX IF NOT EXISTS messages_recent_idx  ON messages(created_at DESC);
 `);
 
 /**
@@ -396,4 +417,75 @@ export function putDoc(slug: string, markdown: string): DocRow {
 
 export function getDoc(slug: string): DocRow | null {
   return db.query<DocRow, [string]>(`SELECT * FROM docs WHERE slug=?1`).get(slug) ?? null;
+}
+
+// ── messages ────────────────────────────────────────────────────────────────
+
+export type MessageDirection = "out" | "in";
+
+export interface MessageRow {
+  id: number;
+  body: string;
+  direction: MessageDirection;
+  created_at: number;
+  seen_at: number | null;
+}
+
+export function insertMessage(body: string, direction: MessageDirection): MessageRow {
+  return db
+    .query<MessageRow, [string, MessageDirection, number]>(
+      `INSERT INTO messages (body, direction, created_at) VALUES (?1, ?2, ?3) RETURNING *`,
+    )
+    .get(body, direction, Date.now())!;
+}
+
+/**
+ * Newest last, so both readers can append without reversing.
+ *
+ * The website wants a chat log that reads downward and the glasses want the
+ * most recent at the bottom of a pager; returning oldest-first serves both,
+ * and the LIMIT is applied to the newest rows before the flip.
+ */
+export function recentMessages(limit = 50): MessageRow[] {
+  return db
+    .query<MessageRow, [number]>(
+      `SELECT * FROM (SELECT * FROM messages ORDER BY created_at DESC, id DESC LIMIT ?1)
+       ORDER BY created_at ASC, id ASC`,
+    )
+    .all(limit);
+}
+
+/** Outbound messages the glasses have never displayed, oldest first. */
+export function unseenMessages(): MessageRow[] {
+  return db
+    .query<MessageRow, []>(
+      `SELECT * FROM messages WHERE direction='out' AND seen_at IS NULL
+       ORDER BY created_at ASC, id ASC`,
+    )
+    .all();
+}
+
+export function unseenCount(): number {
+  return (
+    db
+      .query<{ n: number }, []>(
+        `SELECT COUNT(*) AS n FROM messages WHERE direction='out' AND seen_at IS NULL`,
+      )
+      .get()?.n ?? 0
+  );
+}
+
+/**
+ * Mark everything up to and including `id` as shown on the glasses.
+ *
+ * Ranged rather than per-id because the banner shows a burst as one queue: if
+ * three arrived while the phone was asleep, the glasses display them in order
+ * and acknowledge the last. Acknowledging only that one and leaving its
+ * predecessors unseen would re-show them on the next connect forever.
+ */
+export function markMessagesSeen(id: number): number {
+  return db.run(
+    `UPDATE messages SET seen_at=?1 WHERE direction='out' AND seen_at IS NULL AND id <= ?2`,
+    [Date.now(), id],
+  ).changes;
 }

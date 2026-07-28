@@ -84,6 +84,17 @@ import {
 } from "./solver";
 import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
 import { DB_PATH, latestMySolution } from "./db";
+import {
+  getMessageStatus,
+  markSeen,
+  messageStreamClosed,
+  messageStreamOpened,
+  normalise,
+  QUICK_REPLIES,
+  recentMessages,
+  send,
+  subscribeMessages,
+} from "./messages";
 import { docSource, isDocSlug, readDoc, saveDoc } from "./docs";
 import { triggerDescription } from "./trigger";
 
@@ -818,6 +829,127 @@ app.get("/solution/mine", (c) => {
   });
 });
 
+// ── messages ────────────────────────────────────────────────────────────────
+//
+// GATING IS ASYMMETRIC, ON PURPOSE, and it is the same split as /solution/*:
+//
+//   POST /messages         gated by MESSAGE_TOKEN. The camera web app is behind
+//                          a password and this server is not, so an open send
+//                          endpoint would be a push-text-to-my-HUD service on
+//                          the public internet. cam.aansl.com holds the token
+//                          and proxies; nothing else should send.
+//   everything else        open, because the glasses hold no secret (they ship
+//                          to a device — see the note above /solution/*). The
+//                          cost is that a stranger who finds the host could
+//                          post a fake "Yes" into the log. Accepted: it is the
+//                          same exposure /solve already carries, and the
+//                          alternative is a credential in a packed app.
+
+const MESSAGE_TOKEN = process.env.MESSAGE_TOKEN ?? "";
+
+app.post("/messages", async (c) => {
+  if (MESSAGE_TOKEN && c.req.header("x-message-token") !== MESSAGE_TOKEN) {
+    console.log(`[messages] rejected send (${c.req.header("x-forwarded-for") ?? "direct"})`);
+    return c.json({ ok: false, reason: "unauthorized" }, 401);
+  }
+  const body = (await c.req.json().catch(() => ({}))) as { text?: unknown };
+  const check = normalise(body.text);
+  if (!check.ok) return c.json({ ok: false, reason: check.reason }, 400);
+
+  const row = send(check.body, "out");
+  return c.json({ ok: true, message: row, folded: check.folded });
+});
+
+/** A quick reply, tapped on the glasses. Constrained to the canned set. */
+app.post("/messages/reply", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { text?: unknown };
+  if (typeof body.text !== "string" || !QUICK_REPLIES.includes(body.text as never)) {
+    return c.json(
+      { ok: false, reason: `reply must be one of: ${QUICK_REPLIES.join(", ")}` },
+      400,
+    );
+  }
+  return c.json({ ok: true, message: send(body.text, "in") });
+});
+
+/** The glasses confirming they drew everything up to `id`. */
+app.post("/messages/seen", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { id?: unknown };
+  const id = Number(body.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return c.json({ ok: false, reason: "id must be a positive integer" }, 400);
+  }
+  return c.json({ ok: true, marked: markSeen(id) });
+});
+
+app.get("/messages", (c) => {
+  const limit = Math.min(200, Math.max(1, Number(c.req.query("limit") ?? 50) || 50));
+  return c.json({ messages: recentMessages(limit), status: getMessageStatus() });
+});
+
+app.get("/messages/status", (c) => c.json(getMessageStatus()));
+
+/**
+ * The app-lifetime stream.
+ *
+ * Every other stream in this server belongs to a page and dies when you walk
+ * off it (see docPage.ts). This one is opened once at startup and outlives
+ * navigation, because a message has to reach you on whichever page you are
+ * standing on — that is the entire point of the banner.
+ *
+ * Emits `messages` with the recent log plus status, on connect and on every
+ * change. One payload rather than a delta: the log is 50 short rows, the
+ * glasses redraw the whole page anyway, and a delta protocol would be a second
+ * thing to keep in sync for no bytes worth saving.
+ */
+app.get("/messages/events", (c) =>
+  streamSSE(c, async (stream) => {
+    let closed = false;
+    stream.onAbort(() => {
+      closed = true;
+    });
+
+    messageStreamOpened();
+
+    let chain: Promise<void> = Promise.resolve();
+    const write = (event: string, data: string): Promise<void> => {
+      chain = chain
+        .then(async () => {
+          if (closed) return;
+          await stream.writeSSE({ event, data });
+        })
+        .catch(() => {
+          closed = true;
+        });
+      return chain;
+    };
+
+    const sendLog = async () => {
+      try {
+        await write(
+          "messages",
+          JSON.stringify({ messages: recentMessages(50), status: getMessageStatus() }),
+        );
+      } catch (err) {
+        console.error("[messages] SSE write failed:", err);
+      }
+    };
+
+    const unsubscribe = subscribeMessages(() => void sendLog());
+    await sendLog();
+
+    try {
+      while (!closed) {
+        await write("ping", "");
+        await stream.sleep(HEARTBEAT_MS);
+      }
+    } finally {
+      unsubscribe();
+      messageStreamClosed();
+    }
+  }),
+);
+
 startUpstream();
 
 console.log(`Document server on http://localhost:${PORT}`);
@@ -832,6 +964,11 @@ console.log(
   `Solve trigger: ${triggerDescription()}${
     solverTokenRequired() ? "" : "  (SOLVER_TOKEN unset — /solution/claim is open)"
   }`,
+);
+console.log(
+  MESSAGE_TOKEN
+    ? "Messages: POST /messages requires MESSAGE_TOKEN"
+    : "Messages: MESSAGE_TOKEN unset — POST /messages is OPEN to anyone who can reach this host",
 );
 
 export default {

@@ -27,11 +27,23 @@ export const DEFAULT_COLOR = 1;
 // starts: its one action replaces the whole assignment with a photo from the
 // phone (see settings.ts), and the entry to that should not be somewhere you
 // arrive by overshooting.
-export const MENU_ITEMS = ["AI", "Assign", "Adri", "Yula", "Camera", "Setup"] as const;
+// Msgs sits in the top row and NOT at the end: Setup keeps the last slot for
+// the reason below, and messages are something you check on the way past rather
+// than navigate to deliberately. The unread count is drawn into this tile (see
+// createDashboardTiles) — that count is the whole notification indicator, which
+// is why no document page reserves pixels for one.
+export const MENU_ITEMS = ["AI", "Assign", "Msgs", "Adri", "Yula", "Camera", "Setup"] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
-/** How many tiles on each row, top to bottom. Must sum to MENU_ITEMS.length. */
-export const DASHBOARD_ROWS = [3, 3] as const;
+/**
+ * How many tiles on each row, top to bottom. Must sum to MENU_ITEMS.length.
+ *
+ * Seven items is 8 text containers with the backdrop, which is exactly the
+ * SDK's textObject ceiling. An eighth tile does not fit — `rebuildPageContainer`
+ * rejects the page and leaves the PREVIOUS one on screen, so the dashboard
+ * would simply stop changing rather than report anything.
+ */
+export const DASHBOARD_ROWS = [4, 3] as const;
 /** Space between tiles, and between the tiles and the panel edge. */
 export const DASHBOARD_GAP = 6;
 
@@ -78,6 +90,7 @@ export enum PAGES {
     ASSIGNMENT,
     CAMERA,
     SETTINGS,
+    MESSAGES,
 }
 
 export enum GESTURE_EVENTS {
@@ -132,6 +145,33 @@ export const DOC_SOLVE_ID = 9; // AI only: the trigger button / solve progress
  * unique on a PAGE, and only one page is ever built.
  */
 export const SETTINGS_ID = 1;
+
+/**
+ * The Messages page — the log, and the quick-reply picker.
+ *
+ * One container for the same reason Settings has one: it is text on an
+ * otherwise empty screen. The reply picker is a MODE of this container rather
+ * than a menu.ts panel, because menu.ts exists to float over image tiles and
+ * needs a backdrop to be legible over them. There is nothing underneath here,
+ * so the marker can simply be drawn into the same block of text.
+ */
+export const MESSAGES_ID = 1;
+
+/**
+ * How long an arriving message holds the screen before it hands it back.
+ *
+ * Scaled, not fixed: 240 characters is about 45 words, which nobody reads on a
+ * HUD in the 7 seconds that is plenty for "on my way". Floor 7s, a second per
+ * 20 characters, capped so a long message can't sit on your face indefinitely.
+ */
+export const BANNER_MIN_MS = 7_000;
+export const BANNER_MAX_MS = 15_000;
+export const BANNER_MS_PER_20_CHARS = 1_000;
+
+export function bannerMs(text: string): number {
+    const scaled = BANNER_MIN_MS + Math.floor(text.length / 20) * BANNER_MS_PER_20_CHARS;
+    return Math.min(BANNER_MAX_MS, scaled);
+}
 
 // ── image payload shape ─────────────────────────────────────────────────────
 // SDK 0.0.12 stamps `compressMode: 2` — LZ4 — into every `updateImageRawData`

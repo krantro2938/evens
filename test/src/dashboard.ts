@@ -13,6 +13,7 @@ const DESTINATIONS: Record<MenuItem, PAGES> = {
     Assign: PAGES.ASSIGNMENT,
     Adri: PAGES.ADRI,
     Yula: PAGES.YULA,
+    Msgs: PAGES.MESSAGES,
     Camera: PAGES.CAMERA,
     Setup: PAGES.SETTINGS,
 };

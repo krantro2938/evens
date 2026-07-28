@@ -36,6 +36,11 @@ services:
       # a public vhost means anyone can read the assignment and post a
       # "solution" onto your glasses.
       SOLVER_TOKEN: ${SOLVER_TOKEN:?set SOLVER_TOKEN in .env}
+      # The camera web app's secret for POST /messages — the one message route
+      # that isn't open, because it writes to the glasses. Must equal
+      # MESSAGE_TOKEN in the lookcam stack's .env. Unset leaves it open; not
+      # fatal (the feature still works), so no :? guard.
+      MESSAGE_TOKEN: ${MESSAGE_TOKEN:-}
       # The routine a tap fires, and its API-trigger token — both from
       # claude.ai/code/routines. Without them a tap still queues the work, so
       # these are optional, and their absence is reported on the glasses rather

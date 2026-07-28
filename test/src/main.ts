@@ -29,6 +29,7 @@ import {
     IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
+    MESSAGES_ID,
     SETTINGS_ID,
     SOLVE_RECT,
     TILE_H,
@@ -43,6 +44,13 @@ import {
 } from "./constants";
 import { GlobalState } from "./state";
 import { handleDashboardEvent } from "./dashboard";
+import {
+    enterMessagesPage,
+    flushHeldMessages,
+    handleMessagesPageEvent,
+    leaveMessagesPage,
+    startMessageStream,
+} from "./messages";
 import { stringToShortId } from "./utils";
 import { enterAiPage, handleAiPageEvent, leaveAiPage } from "./ai";
 import {
@@ -119,7 +127,15 @@ function createDashboardTiles() {
             paddingLength: CONTAINER_PAD,
             containerID: stringToShortId(item),
             containerName: item,
-            content: item,
+            // The Msgs tile carries the unread count. This is the app's only
+            // notification indicator: a document page has no spare layer to put
+            // one on (see messages.ts), and a tile you already walk past on the
+            // way to everything else is a better home for it than a permanent
+            // hole in every rendered document.
+            content:
+                item === "Msgs" && GlobalState.unreadMessages > 0
+                    ? `${item} ${GlobalState.unreadMessages}`
+                    : item,
             isEventCapture: 0,
             ...zOrder(Z_TILE_BASE + index),
         });
@@ -149,6 +165,12 @@ if (result !== 0) {
     appLog("createStartUpPageContainer failed:", result);
     // 1 = invalid params, 2 = oversize, 3 = out of memory
 }
+
+// Opened here rather than by the Messages page, and never closed. A message has
+// to reach you on whichever page you are standing on, so this is the one stream
+// in the app that outlives navigation — everything else in docPage.ts is
+// deliberately torn down when you walk away from it.
+startMessageStream();
 
 // Which build is on the glasses, in the log the glasses can actually send. The
 // z-order mode is the first thing to know when tiles stop arriving.
@@ -244,6 +266,9 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.ADRI:
             handleAdriPageEvent(gesture);
             break;
+        case PAGES.MESSAGES:
+            handleMessagesPageEvent(gesture);
+            break;
         // Adri and Yula are placeholders, and the placeholder's own text says
         // "Double click to go back" — but with no case here the gesture reached
         // nothing at all and the page was a dead end you had to restart out of.
@@ -267,12 +292,18 @@ function leaveCurrentPage() {
             break;
         case PAGES.CAMERA:
             leaveCameraPage();
+            // Messages that arrived while you were aiming are held rather than
+            // dropped (see announce() in messages.ts). This is where they land.
+            flushHeldMessages();
             break;
         case PAGES.SETTINGS:
             leaveSettingsPage();
             break;
         case PAGES.ADRI:
             leaveAdriPage();
+            break;
+        case PAGES.MESSAGES:
+            leaveMessagesPage();
             break;
     }
 }
@@ -478,6 +509,35 @@ export async function buildPage(page: PAGES) {
                 }),
             );
             await enterSettingsPage();
+            break;
+
+        // Text on an empty screen, exactly like Settings — and for the same
+        // reason there is one container: the log, the arrival banner and the
+        // reply picker are three renderings of one block of text, not three
+        // things that need to be on screen together. See messages.ts.
+        case PAGES.MESSAGES:
+            await bridge.rebuildPageContainer(
+                new RebuildPageContainer({
+                    containerTotalNum: 1,
+                    textObject: [
+                        new TextContainerProperty({
+                            xPosition: 0,
+                            yPosition: 0,
+                            width: BODY_W,
+                            height: BODY_H,
+                            borderWidth: 0,
+                            borderColor: 5,
+                            paddingLength: CONTAINER_PAD,
+                            containerID: MESSAGES_ID,
+                            containerName: "messages",
+                            content: " ",
+                            isEventCapture: 1,
+                            ...zOrder(Z_BACKDROP),
+                        }),
+                    ],
+                }),
+            );
+            await enterMessagesPage();
             break;
 
         default:
