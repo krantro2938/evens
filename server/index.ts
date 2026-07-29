@@ -16,9 +16,13 @@
 // rectangle darkened, so the menu can open without hiding the document) and a
 // history selector: `?solution_id=` for the AI page, `?version=` for the
 // assignment's earlier scans.
-// A third document, `/adri/*`, is neither: it is markdown you type in the
-// companion app (PUT /doc/:slug), stored one row per slug, and read back on the
-// glasses' Adri page. One version each — editing IS the update.
+// Two more documents are neither: markdown you type yourself (PUT /doc/:slug),
+// stored one row per slug, read back on the glasses. One version each — editing
+// IS the update, so there is no history and no `?version=`.
+//
+//   /adri/*   the Adri sheet and answer      slug adri-assignment, adri-solution
+//   /mine/*   your own working on the        slug my-solution
+//             assignment the camera read
 //
 //   GET  /solution/claim   ─┐ the Claude routine's side of the solve loop
 //   POST /solution/submit   │ (see solver.ts) — token-gated, not for the glasses
@@ -76,14 +80,13 @@ import {
   createAiSource,
   failRun,
   getSolverStatus,
-  saveMySolution,
   solverTokenRequired,
   startRun,
   submitSolution,
   subscribeSolver,
 } from "./solver";
 import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
-import { DB_PATH, latestMySolution } from "./db";
+import { DB_PATH } from "./db";
 import {
   getMessageStatus,
   markSeen,
@@ -724,6 +727,33 @@ app.get("/adri/tiles", async (c) => {
 
 app.get("/adri/events", (c) => documentStream(adriSource)(c));
 
+// ── your own solution (the Mine page) ───────────────────────────────────────
+//
+// The same three routes over a different slug, because it is the same kind of
+// thing: one document, edited in the companion app, read on the glasses. It is
+// NOT `/solution/*` — that family is the agent's solve loop, an append-only log
+// with runs, tokens and a version picker, and your own working shares none of
+// it. Editing is `PUT /doc/my-solution` like every other document here.
+
+const mineSource = docSource("my-solution");
+const mineTiles = createTileCache(mineSource);
+const mineMenuTiles = createTileCache(mineSource, { reserved: [HUD_MENU] });
+
+app.get("/mine/markdown", async (c) => c.json(await mineSource.read()));
+
+app.get("/mine/tiles", async (c) => {
+  try {
+    const menu = c.req.query("overlay") === "menu";
+    const tiles = await (menu ? mineMenuTiles : mineTiles)();
+    return c.json({ ...tiles, overlay: menu ? "menu" : null });
+  } catch (err) {
+    console.error("render mine tiles failed:", err);
+    return c.json({ error: "tiles_unavailable" }, 502);
+  }
+});
+
+app.get("/mine/events", (c) => documentStream(mineSource)(c));
+
 // ── publishing a photo as the assignment ────────────────────────────────────
 //
 // The body IS the image. Not multipart: every caller here is code (the
@@ -792,40 +822,6 @@ app.get("/assignment/photo/meta", (c) => {
     mime: photo.mime,
     bytes: photo.bytes.length,
     name: photo.name,
-  });
-});
-
-// ── your own solution ───────────────────────────────────────────────────────
-//
-// Written in the companion app rather than by an agent. It lands in the same
-// table as a solve run's answer, so the glasses' AI page picks it up with no
-// changes there — that page shows the newest solution, whoever wrote it.
-
-app.post("/solution/mine", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as {
-    markdown?: unknown;
-    notes?: unknown;
-  };
-  if (typeof body.markdown !== "string") {
-    return c.json({ ok: false, reason: "markdown must be a string" }, 400);
-  }
-  const result = await saveMySolution(
-    body.markdown,
-    typeof body.notes === "string" ? body.notes : null,
-  );
-  return c.json(result, result.ok ? 200 : 400);
-});
-
-app.get("/solution/mine", (c) => {
-  const solution = latestMySolution();
-  if (!solution) return c.json({ saved: false, markdown: "" });
-  return c.json({
-    saved: true,
-    id: solution.id,
-    markdown: solution.markdown,
-    notes: solution.notes,
-    assignment_version: solution.assignment_version,
-    created_at: solution.created_at,
   });
 });
 

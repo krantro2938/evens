@@ -5,13 +5,14 @@ PNG tiles** (headless Chromium + sharp) so the glasses client stays thin — no
 marked/MathJax/html2canvas on-device. Pushes live updates so the glasses
 re-fetch when the document changes.
 
-Three documents, one pipeline:
+Four documents, one pipeline:
 
 | Document | Source | Glasses page |
 |---|---|---|
 | the AI document | whatever Claude last solved (SQLite), falling back to `solution.md` in the repo root, watched with `fs.watch` | AI |
 | the assignment | the [lookcam assignment reader](../../lookcam/assignment), over SSE | Assignment |
-| Adri | markdown you type in the companion app (SQLite, one row) | Adri |
+| Adri | markdown you type in the camera web app (SQLite, one row) | Adri |
+| my solution | your own answer to the scan, typed in the companion app (SQLite, one row) | Mine |
 
 It also owns the **solve loop**: the AI page's trigger button hands the
 transcribed assignment to a Claude routine and displays the markdown that comes
@@ -39,19 +40,27 @@ Default port `8787` (override with `PORT`).
 | `GET /solution/status` | the `status` payload on demand (poll fallback) |
 | `POST /solution/solve` | the trigger button: mint a run and start the routine → `{ ok, action: "triggered"\|"queued", run_id, detail? }` |
 | `POST /solution/cancel` | abandon the live run → `{ ok, action: "cancelled", run_id }` |
-| `POST /solution/mine` | `{"markdown","notes?"}` — **your own answer**, typed in the companion app. No token and no run: it is not an agent submitting against a request → `{ ok, solution_id, version }` |
-| `GET /solution/mine` | the newest solution you wrote yourself → `{ saved, markdown, created_at, … }` |
 
-### hand-written documents (the Adri page)
+**Your own answer is not here.** It used to be — a `solutions` row with
+`source='me'` — and since this page shows the newest row whoever wrote it,
+writing down your own working hid Claude's. It is a hand-written document now
+(`my-solution`, below), on its own glasses page.
 
-Markdown you type in the companion app rather than derive from a camera or an
-agent. **One row per slug** — saving replaces it, there is no history, and the
-version is a content hash, so saving the same text twice costs no render and no
-BLE push while an edit pushes new tiles to the glasses on its own.
+### hand-written documents (the Adri and Mine pages)
 
-Slugs are a fixed list (`adri-assignment`, `adri-solution`): every one is a page
-on the glasses and a tab in the companion app, both built at compile time, so an
-open endpoint would let a typo create a document nothing can ever show.
+Markdown you type yourself rather than derive from a camera or an agent. **One
+row per slug** — saving replaces it, there is no history, and the version is a
+content hash, so saving the same text twice costs no render and no BLE push
+while an edit pushes new tiles to the glasses on its own.
+
+Slugs are a fixed list (`adri-assignment`, `adri-solution`, `my-solution`):
+every one is a page on the glasses and a tab in an app, both built at compile
+time, so an open endpoint would let a typo create a document nothing can ever
+show.
+
+`my-solution` is deliberately a document and not a `solutions` row: it is one
+answer you keep editing, not an attempt log, and rows in that table are what the
+AI page displays.
 
 | Route | Purpose |
 |---|---|
@@ -60,6 +69,9 @@ open endpoint would let a typo create a document nothing can ever show.
 | `GET /adri/markdown` | the `adri-solution` document, as the glasses read it |
 | `GET /adri/tiles[?overlay=menu]` | same tile shape as `/tiles` |
 | `GET /adri/events` | SSE — `event: markdown` when it is edited |
+| `GET /mine/markdown` | the `my-solution` document, as the glasses read it |
+| `GET /mine/tiles[?overlay=menu]` | same tile shape as `/tiles` |
+| `GET /mine/events` | SSE — `event: markdown` when it is edited |
 
 ### assignment
 

@@ -8,9 +8,8 @@
 //
 //   Photo       give the reader a sheet to read — from the picker, or from the
 //               phone's own camera roll via the gallery bridge
-//   Assignment  what the reader made of it, with a copy button, and beneath it
-//               the box you write your own answer in
-//   Solution    read back what you saved
+//   Assignment  what the reader made of it, with a copy button
+//   Solution    your own answer: one document, written and read back here
 //
 // The Adri documents are edited in the CAMERA web app (cam.aansl.com), not
 // here — see lookcam/web. They are typed on a keyboard rather than a phone, and
@@ -19,7 +18,13 @@
 // IT SHARES THE GLASSES' BACKEND, NOT ITS CODE. Every tab talks to the same
 // document server the glasses do, so a photo published here and a photo
 // published from the Settings page are the same operation, and a solution typed
-// here is on the glasses' AI page before you have put the phone down.
+// here is on the glasses' Mine page before you have put the phone down.
+//
+// AND IT KEEPS A COPY OF EVERYTHING IT SHOWS. The reader lives on a VPS and the
+// phone is the device most likely to lose it, so each tab mirrors its document
+// to localStorage and shows that, labelled, when a fetch fails — and a solution
+// saved with no signal is held and synced later rather than refused. See
+// cache.ts.
 //
 // The app is mounted only when there is a DOM to mount into — main.ts drives
 // the glasses and must keep working in a host that never renders this at all.
@@ -72,8 +77,9 @@ export function mountCompanion(host: HTMLElement): void {
         if (!tab || !body) return;
 
         // Mounted lazily: the assignment and solution tabs each hit the server
-        // on mount, and paying for all three on load makes the first paint wait
-        // on requests for tabs you are not looking at.
+        // on mount (after painting their cached copy), and paying for all three
+        // on load makes the first paint wait on requests for tabs you are not
+        // looking at.
         if (!mounted.has(id)) {
             mounted.add(id);
             tab.mount(body);

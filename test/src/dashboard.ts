@@ -12,7 +12,7 @@ const DESTINATIONS: Record<MenuItem, PAGES> = {
     AI: PAGES.AI,
     Assign: PAGES.ASSIGNMENT,
     Adri: PAGES.ADRI,
-    Yula: PAGES.YULA,
+    Mine: PAGES.MINE,
     Msgs: PAGES.MESSAGES,
     Camera: PAGES.CAMERA,
     Setup: PAGES.SETTINGS,

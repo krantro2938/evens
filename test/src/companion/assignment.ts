@@ -1,20 +1,23 @@
-// Tab 2 — what the reader made of the sheet, and your answer to it.
+// Tab 2 — what the reader made of the sheet.
 //
 // The same markdown the glasses render into tiles, as text you can select,
 // scroll and copy. That last one is the point: the transcription is the input
 // to whatever you actually solve the paper with, and until now the only way to
 // get it off the glasses was to ask the server for it yourself.
 //
-// The editor sits directly beneath it, on the same tab, because writing an
-// answer means reading the question — and because saving is what puts your own
-// working on the glasses. It lands in the same table as a solve run's answer,
-// and the AI page shows the newest solution whoever wrote it.
+// Read-only, and cached. The answer you write is the Solution tab now — it is
+// its own document rather than a box under the question, because it is a thing
+// you come back to and edit, not something you dash off while reading. The
+// transcription itself is mirrored to localStorage on every successful load, so
+// the paper is still readable on a phone that has lost the server.
 
 import { MARKDOWN_SERVER_URL, POLL_INTERVAL_MS } from "../constants";
+import { ago } from "../utils";
+import { offline, readCache, writeCache } from "./cache";
 import { copyText, el, status } from "./dom";
 
-/** An unsaved answer, kept locally so a backgrounded tab can't eat it. */
-const DRAFT_KEY = "evens.companion.draft";
+/** The last transcription the server confirmed, for when it can't be reached. */
+const CACHE_KEY = "assignment";
 
 interface MarkdownResponse {
     content: string;
@@ -55,14 +58,43 @@ export function mountAssignmentTab(): {
             body.textContent = text || "Nothing transcribed yet.";
             copyButton.disabled = !text;
 
+            let described: string | null = null;
             if (statusRes.ok) {
                 const s = (await statusRes.json()) as AssignmentStatus;
-                meta.textContent = describe(s);
+                described = describe(s);
+                meta.textContent = described;
             }
+            // Cached only on the good path, so the fallback is always a whole
+            // transcription the server actually served — never a half-read one.
+            writeCache(CACHE_KEY, { content: text, described });
             state.clear();
         } catch (err) {
-            state.error(err instanceof Error ? err.message : String(err));
+            showCached(err);
         }
+    }
+
+    /**
+     * The server is unreachable. Show the last copy rather than an error over an
+     * empty pane — the transcription does not go stale quickly, and reading the
+     * paper is the entire reason this tab exists.
+     */
+    function showCached(err: unknown): void {
+        const cached = readCache<{ content: string; described: string | null }>(CACHE_KEY);
+        if (cached) {
+            text = cached.value.content ?? "";
+            body.textContent = text || "Nothing transcribed yet.";
+            copyButton.disabled = !text;
+            meta.textContent = `Offline copy — read ${ago(cached.at)}${
+                cached.value.described ? ` · ${cached.value.described}` : ""
+            }`;
+        }
+        state.error(
+            offline()
+                ? `Offline${cached ? " — showing the copy stored on this phone." : " — nothing cached on this phone yet."}`
+                : `${err instanceof Error ? err.message : String(err)}${
+                      cached ? " — showing the copy stored on this phone." : ""
+                  }`,
+        );
     }
 
     function describe(s: AssignmentStatus): string {
@@ -105,89 +137,6 @@ export function mountAssignmentTab(): {
             el("div", { class: "row" }, copyButton, reload),
             state.node,
             body,
-            // Directly beneath the problems, not on a tab of its own: writing an
-            // answer means reading the question, and a solution editor you have
-            // to leave the paper to reach is one you check against memory.
-            solutionEditor(),
-        );
-    }
-
-    // ── your own answer ─────────────────────────────────────────────────────
-
-    function solutionEditor(): HTMLElement {
-        const editor = el("textarea", {
-            class: "editor",
-            rows: "12",
-            placeholder: "# My solution\n\n1. …\n\nMarkdown and $LaTeX$ both render on the glasses.",
-        }) as HTMLTextAreaElement;
-        try {
-            editor.value = localStorage.getItem(DRAFT_KEY) ?? "";
-        } catch {
-            /* no draft to restore */
-        }
-        // Typing a page of maths into a phone and losing it to a backgrounded
-        // tab is unrecoverable, so every keystroke is kept until it is saved.
-        editor.addEventListener("input", () => {
-            try {
-                localStorage.setItem(DRAFT_KEY, editor.value);
-            } catch {
-                /* the draft simply won't persist */
-            }
-        });
-
-        const saveState = status();
-        const saveButton = el("button", {
-            class: "btn primary",
-            type: "button",
-            text: "Save my solution",
-        }) as HTMLButtonElement;
-
-        saveButton.addEventListener("click", () => {
-            const markdown = editor.value.trim();
-            if (!markdown) return saveState.error("Nothing to save yet.");
-            saveButton.disabled = true;
-            saveState.info("Saving...");
-            void (async () => {
-                try {
-                    const res = await fetch(`${MARKDOWN_SERVER_URL}/solution/mine`, {
-                        method: "POST",
-                        headers: { "content-type": "application/json" },
-                        body: JSON.stringify({
-                            markdown,
-                            notes: "written in the companion app",
-                        }),
-                    });
-                    const saved = (await res.json()) as { ok: boolean; reason?: string };
-                    if (!saved.ok) throw new Error(saved.reason ?? `HTTP ${res.status}`);
-                    saveState.ok("Saved. It is on the glasses' AI page now, and in the Solution tab.");
-                    // Once the server has it, a second local copy is only
-                    // somewhere for the two to start disagreeing.
-                    try {
-                        localStorage.removeItem(DRAFT_KEY);
-                    } catch {
-                        /* nothing to do */
-                    }
-                } catch (err) {
-                    saveState.error(
-                        `Could not save: ${err instanceof Error ? err.message : String(err)}`,
-                    );
-                } finally {
-                    saveButton.disabled = false;
-                }
-            })();
-        });
-
-        return el(
-            "div",
-            { class: "section" },
-            el("h2", { text: "Your solution" }),
-            el("p", {
-                class: "muted",
-                text: "Saving puts it on the glasses' AI page, next to what the reader transcribed.",
-            }),
-            editor,
-            el("div", { class: "row" }, saveButton),
-            saveState.node,
         );
     }
 

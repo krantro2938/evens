@@ -61,11 +61,12 @@ wildcards) to `app.json` as well.
 
 | Page | Shows | Gestures |
 |---|---|---|
-| Dashboard | six tiles, three to a row | swipe to move focus, tap to open |
+| Dashboard | seven tiles, four then three | swipe to move focus, tap to open |
 | **AI** | the solution to the assignment on the paper, live — or a **trigger button** when there isn't one yet | swipe to page, **tap to page or to solve**, **double-tap for the action menu** |
 | **Assign** | what the [lookcam reader](../../lookcam/assignment) has transcribed off the paper, live | swipe or tap to page, **double-tap for the version menu** |
 | **Camera** | **what the camera sees, refreshed while you aim it** — plus every scan control | **tap to start/stop**, **swipe to rotate the view**, **double-tap for the action menu** |
-| **Adri** | **a solution you wrote yourself**, edited on the phone | swipe or tap to page, double-tap to go back |
+| **Adri** | **a solution you wrote yourself**, edited in the camera web app | swipe or tap to page, double-tap to go back |
+| **Mine** | **your own answer to the scanned assignment**, written in the companion app | swipe or tap to page, double-tap to go back |
 | **Setup** | **publish the phone's newest photo as the assignment** | **tap to arm, tap again to publish**, double-tap to go back |
 
 The two document pages are instances of `src/docPage.ts` — same tile fetching,
@@ -211,30 +212,51 @@ the same reason.
 
 The glasses are a reader and a pair of buttons. Everything that needs a
 keyboard, a file picker or more than two lines of text needs a screen, and that
-screen is the phone. Same bundle, same backend, four tabs:
+screen is the phone. Same bundle, same backend, three tabs:
 
 | Tab | What |
 |---|---|
 | **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Publishing replaces the assignment, behind a confirmation |
-| **Assignment** | the transcription as text you can scroll, select and **copy** — the same markdown the glasses render into tiles — and beneath it the box you write your own answer in |
-| **Solution** | read back the last answer *you* saved |
-| **Adri task** | an assignment you state yourself — nothing reads this off a camera |
-| **Adri answer** | the solution to it, shown on the glasses' Adri page |
+| **Assignment** | the transcription as text you can scroll, select and **copy** — the same markdown the glasses render into tiles |
+| **Solution** | **your own answer**: write it, save it, read it back. One document — saving replaces it |
 
-The two Adri tabs are the same workflow with the machines taken out, and they
-follow a different rule from the others: **there is exactly one of each.**
-Saving replaces what was there rather than appending, and the version is a hash
-of the text — so an edit changes the version and the Adri page redraws on its
-own, while saving unchanged text does nothing at all (the button says `Saved`
-and is disabled until you actually change something). An unsaved draft is kept
-locally and wins over the server's copy on reload, because being one save behind
-is better than losing what you typed.
+(The Adri documents are edited in the **camera web app**, not here — see
+`lookcam/web`. They are typed on a keyboard, and that app is the one already
+open on a desktop.)
 
-The editor is on the same tab as the problems rather than one of its own,
-because writing an answer means reading the question; an editor you have to
-leave the paper to reach is one you check against memory. An unsaved draft is
-kept in `localStorage` on every keystroke, because losing a page of maths to a
-backgrounded tab is unrecoverable.
+Your solution follows the same rule as the Adri documents: **there is exactly
+one of it.** Saving replaces what was there rather than appending, and the
+version is a hash of the text — so an edit pushes new tiles to the glasses'
+Mine page on its own, while saving unchanged text costs no render and no BLE.
+
+It is a *document*, not a row in the solve loop's `solutions` table, and that is
+the point of the split: that table is what the **AI** page shows, newest row
+whoever wrote it, so writing down your own working used to hide Claude's answer
+on the glasses. Yours is the Mine page now and Claude's is the AI page, and you
+can put them side by side without either erasing the other.
+
+### Nothing here needs the network to be up
+
+The phone is the device most likely to lose the server — the reader lives on a
+VPS and the assignment is not usually done next to it. So every tab keeps a copy
+of what it shows in `localStorage` (`src/companion/cache.ts`) and paints that
+first, before the fetch even returns:
+
+- **Assignment** — the last transcription the server confirmed, labelled
+  `Offline copy — read 20m ago` when the fetch fails. Never a red error over an
+  empty pane while a perfectly readable copy is on the device.
+- **Solution** — the last confirmed copy, plus every keystroke of an unsaved
+  draft, which wins over the server's text on reload: being one save behind
+  beats losing a page of maths to a backgrounded tab.
+- **A save with no signal is not refused.** It is kept as pending, the tab says
+  `Not synced — saved on this phone`, and it retries by itself: when you come
+  back to the tab, when the browser fires `online`, and on a slow timer while
+  you sit there (a captive portal never fires `online`). A save the *server*
+  refuses — too long, malformed — stops being pending and says why, because
+  retrying that forever would never work.
+
+The glasses do the same thing one layer down: document pages fall back to the
+on-device tile cache and the footer reads `Offline - cached 20m ago`.
 
 It is mounted **before** `waitForEvenAppBridge()`, which is a top-level await
 that never resolves in a plain browser with no Even Hub host. Everything after
@@ -242,12 +264,6 @@ it would then be dead code — fine for the glasses, fatal for the phone screen.
 So the companion knows nothing about the bridge and talks to the document server
 over HTTP like any other client.
 
-Your solution lands in the same table as a solve run's answer, tagged
-`source='me'`, and the AI page shows the newest solution whoever wrote it — so
-saving here is also how you get your own working in front of your eyes to check
-against the paper. The Solution tab deliberately shows the last thing *you*
-saved rather than the newest overall, which would become the agent's the moment
-a solve run lands.
 
 ### The action menu
 
@@ -465,6 +481,7 @@ Its origin must also be in the `network` whitelist in `app.json`.
 | `src/camera.ts` | The Camera page: the live preview loop, and every scan control. |
 | `src/settings.ts` | The Setup page: arm, confirm, publish the phone's newest photo. |
 | `src/adri.ts` | The Adri page — the simplest document page: a reader, nothing to trigger. |
+| `src/mine.ts` | The Mine page — the same reader over your own answer (`/mine/*`). |
 | `src/gallery.ts` | The phone's camera roll and publishing a photo — shared by the Setup page and the companion app. |
 | `src/companion/` | The phone-screen app: the tab shell, one module per tab, and a small DOM helper. |
 | `src/render/tiles.ts` | Fetch + decode the server's tiles; tile geometry. |

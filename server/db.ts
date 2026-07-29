@@ -68,9 +68,10 @@ db.exec(`
     markdown             TEXT    NOT NULL,
     model                TEXT,
     notes                TEXT,
-    -- 'agent' (a solve run) or 'me' (typed in the companion app). See the note
-    -- at the migration below for why this is a column and not a magic value
-    -- stuffed into the model field.
+    -- Who wrote it. Every new row is 'agent': answers you write yourself are a
+    -- document now (docs.my-solution), not an entry in this log. Rows from
+    -- before that are 'me' and the column keeps them honest — see the note at
+    -- the migration below.
     source               TEXT    NOT NULL DEFAULT 'agent',
     created_at           INTEGER NOT NULL
   );
@@ -116,12 +117,12 @@ db.exec(`
  * the one already sitting in data/. ADD COLUMN with a DEFAULT is the one shape
  * SQLite rewrites nothing for, and every existing row is genuinely an agent's.
  *
- * It has to be a column rather than a convention on `model`, because the
- * distinction is not cosmetic: `model` is free text from whatever solved the
- * paper, and something that answers "did I write this?" cannot be a string
- * nobody validates. The version picker labels rows with it and the AI page
- * shows the newest solution whatever wrote it, so a mislabelled row is a
- * solution attributed to the wrong author on the glasses.
+ * It is a column rather than a convention on `model` because the distinction is
+ * not cosmetic: `model` is free text from whatever solved the paper, and
+ * something that answers "did I write this?" cannot be a string nobody
+ * validates. Nothing writes 'me' any more, but the AI page still shows the
+ * newest row whatever wrote it, so the handful of rows you typed before the
+ * split have to stay distinguishable from the agent's.
  */
 if (!db.query<{ name: string }, []>(`PRAGMA table_info(solutions)`).all().some((c) => c.name === "source")) {
   db.exec(`ALTER TABLE solutions ADD COLUMN source TEXT NOT NULL DEFAULT 'agent'`);
@@ -316,24 +317,6 @@ export function insertSolution(solution: NewSolution): SolutionRow {
       solution.source ?? "agent",
       Date.now(),
     )!;
-}
-
-/**
- * The newest solution you wrote yourself, if any.
- *
- * Separate from latestSolution() on purpose: the companion app's own tab must
- * keep showing YOUR answer after a solve run lands a newer one, or the tab
- * called "my solution" would quietly start displaying the agent's.
- */
-export function latestMySolution(): SolutionRow | null {
-  return (
-    db
-      .query<SolutionRow, []>(
-        `SELECT * FROM solutions WHERE source='me'
-          ORDER BY created_at DESC, id DESC LIMIT 1`,
-      )
-      .get() ?? null
-  );
 }
 
 /** The one the AI page shows: newest first, whatever it was solving. */

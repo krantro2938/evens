@@ -32,7 +32,7 @@ export const DEFAULT_COLOR = 1;
 // than navigate to deliberately. The unread count is drawn into this tile (see
 // createDashboardTiles) — that count is the whole notification indicator, which
 // is why no document page reserves pixels for one.
-export const MENU_ITEMS = ["AI", "Assign", "Msgs", "Adri", "Yula", "Camera", "Setup"] as const;
+export const MENU_ITEMS = ["AI", "Assign", "Msgs", "Adri", "Mine", "Camera", "Setup"] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
 /**
@@ -86,7 +86,7 @@ export enum PAGES {
     DASHBOARD,
     AI,
     ADRI,
-    YULA,
+    MINE,
     ASSIGNMENT,
     CAMERA,
     SETTINGS,
@@ -116,6 +116,8 @@ export const DOC_BASE_SOLUTION = "";
 export const DOC_BASE_ASSIGNMENT = "/assignment";
 /** The hand-written document, edited in the companion app. See src/adri.ts. */
 export const DOC_BASE_ADRI = "/adri";
+/** Your own answer to the scanned assignment, also hand-written. See src/mine.ts. */
+export const DOC_BASE_MINE = "/mine";
 
 // Image containers are capped at 288×144 and 4 per page, so a full 576×288
 // frame is a 2×2 grid of 288×128 tiles (the bottom ~30px is left for a text

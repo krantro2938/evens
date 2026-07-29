@@ -68,6 +68,7 @@ import {
     leaveSettingsPage,
 } from "./settings";
 import { enterAdriPage, handleAdriPageEvent, leaveAdriPage } from "./adri";
+import { enterMinePage, handleMinePageEvent, leaveMinePage } from "./mine";
 import { tileLayout } from "./render/tiles";
 import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
@@ -265,14 +266,17 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.ADRI:
             handleAdriPageEvent(gesture);
             break;
+        case PAGES.MINE:
+            handleMinePageEvent(gesture);
+            break;
         case PAGES.MESSAGES:
             handleMessagesPageEvent(gesture);
             break;
-        // Adri and Yula are placeholders, and the placeholder's own text says
-        // "Double click to go back" — but with no case here the gesture reached
-        // nothing at all and the page was a dead end you had to restart out of.
-        // A default rather than two named cases: whatever page gets added next
-        // should be escapable before it is finished, not after.
+        // A default rather than a named case per page: whatever page gets added
+        // next should be escapable before it is finished, not after. Adri was a
+        // placeholder whose own text said "Double click to go back" while no
+        // case here handled the gesture, so the page was a dead end you had to
+        // restart out of.
         default:
             if (gesture === GESTURE_EVENTS.DOUBLE_TAP) navigateBack();
             break;
@@ -300,6 +304,9 @@ function leaveCurrentPage() {
             break;
         case PAGES.ADRI:
             leaveAdriPage();
+            break;
+        case PAGES.MINE:
+            leaveMinePage();
             break;
         case PAGES.MESSAGES:
             leaveMessagesPage();
@@ -471,6 +478,13 @@ export async function buildPage(page: PAGES) {
         case PAGES.ADRI:
             await buildDocumentPage();
             await enterAdriPage();
+            break;
+
+        // Likewise a plain reader — your own answer, typed on the phone. The AI
+        // page keeps the solve button; nothing on this page acts on anything.
+        case PAGES.MINE:
+            await buildDocumentPage();
+            await enterMinePage();
             break;
 
         // Same containers as a document page: the preview lands in the four

@@ -3,8 +3,16 @@
 //
 // Everything else this server shows is derived — solution.md is a file, the
 // assignment comes off the reader, the AI page is whatever Claude last
-// submitted. Adri is neither: it is a sheet you state yourself and an answer you
-// write yourself, and the glasses are only there to read it back to you.
+// submitted. These are neither: a sheet you state yourself (Adri), an answer
+// you write yourself, and the glasses are only there to read it back to you.
+//
+// `my-solution` is your working on the assignment the CAMERA read, and it is a
+// document here rather than a row in `solutions` for two reasons. It is one
+// thing you edit, not an attempt log — saving replaces it, exactly like Adri.
+// And a `solutions` row is what the AI page shows (newest wins, whoever wrote
+// it), so writing your own answer used to overwrite Claude's on the glasses.
+// Yours and the agent's are now two documents on two pages, and neither hides
+// the other.
 //
 // It costs almost no code because a DocSource is the only thing the rendering
 // pipeline knows about (see doc.ts). Give it markdown and a version that moves
@@ -22,7 +30,7 @@ import { getDoc, putDoc } from "./db";
  * can write and never see, and an open endpoint would let a typo create one
  * silently.
  */
-export const DOC_SLUGS = ["adri-assignment", "adri-solution"] as const;
+export const DOC_SLUGS = ["adri-assignment", "adri-solution", "my-solution"] as const;
 export type DocSlug = (typeof DOC_SLUGS)[number];
 
 export function isDocSlug(value: string): value is DocSlug {
@@ -36,6 +44,7 @@ const MAX_DOC_CHARS = Number(process.env.DOC_MAX_CHARS ?? 200_000);
 const PLACEHOLDER: Record<DocSlug, string> = {
     "adri-assignment": "# Adri\n\nNothing set yet.\n\nWrite the assignment in the companion app.",
     "adri-solution": "# Adri\n\nNo solution yet.\n\nWrite one in the companion app.",
+    "my-solution": "# My solution\n\nNothing written yet.\n\nWrite one in the companion app.",
 };
 
 const listeners = new Map<DocSlug, Set<() => void>>();
