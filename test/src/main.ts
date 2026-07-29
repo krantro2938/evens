@@ -29,7 +29,6 @@ import {
     IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
-    MESSAGES_ID,
     SETTINGS_ID,
     SOLVE_RECT,
     TILE_H,
@@ -45,7 +44,7 @@ import {
 import { GlobalState } from "./state";
 import { handleDashboardEvent } from "./dashboard";
 import {
-    enterMessagesPage,
+    buildMessagesPage,
     flushHeldMessages,
     handleMessagesPageEvent,
     leaveMessagesPage,
@@ -511,33 +510,12 @@ export async function buildPage(page: PAGES) {
             await enterSettingsPage();
             break;
 
-        // Text on an empty screen, exactly like Settings — and for the same
-        // reason there is one container: the log, the arrival banner and the
-        // reply picker are three renderings of one block of text, not three
-        // things that need to be on screen together. See messages.ts.
+        // The one page whose containers this function does not know. A bubble
+        // is sized to its own message and placed on the side that sent it, so
+        // how many containers there are and where they sit is a property of the
+        // conversation — the page builds itself. See messages.ts.
         case PAGES.MESSAGES:
-            await bridge.rebuildPageContainer(
-                new RebuildPageContainer({
-                    containerTotalNum: 1,
-                    textObject: [
-                        new TextContainerProperty({
-                            xPosition: 0,
-                            yPosition: 0,
-                            width: BODY_W,
-                            height: BODY_H,
-                            borderWidth: 0,
-                            borderColor: 5,
-                            paddingLength: CONTAINER_PAD,
-                            containerID: MESSAGES_ID,
-                            containerName: "messages",
-                            content: " ",
-                            isEventCapture: 1,
-                            ...zOrder(Z_BACKDROP),
-                        }),
-                    ],
-                }),
-            );
-            await enterMessagesPage();
+            await buildMessagesPage();
             break;
 
         default:

@@ -146,16 +146,87 @@ export const DOC_SOLVE_ID = 9; // AI only: the trigger button / solve progress
  */
 export const SETTINGS_ID = 1;
 
+// ── the Messages page: one container per bubble ─────────────────────────────
+//
+// A text container draws a BOX — borderWidth and borderRadius, the same ones
+// the dashboard tiles use — and it sits wherever you put it. That is a chat
+// bubble: give each message its own container, size it to its text, and place
+// it against the left edge or the right one.
+//
+// Which makes the layout the page's own job rather than a renderer's. Geometry
+// is fixed when a container is built, so a conversation that has changed — a
+// message arrived, or you scrolled — is a new set of containers and a page
+// rebuild. That is cheap here: this page has no image containers, so a rebuild
+// costs one call and no BLE payload at all.
+//
+// EVERY BUBBLE MUST BE TALL ENOUGH FOR ITS TEXT. Overflow is not clipped, it is
+// scrolled — the host attaches a scroller to any text container holding more
+// than it can show, and that scroller then eats the swipes meant for the page.
+// So the height comes from the wrap, the wrap comes from the width, and the
+// width comes from textWidth() in messages.ts, which is an ESTIMATE of a
+// proportional font. Everything below is sized with slack for that estimate to
+// be wrong in the direction that costs pixels rather than the one that costs a
+// scroller.
+
+/** One per message on screen, plus the layer that catches gestures. */
+export const MSG_EVENT_ID = 1;
+export const MSG_BUBBLE_IDS = [2, 3, 4, 5, 6] as const;
+export const MSG_HINT_ID = 7;
+/** The reply picker. Its own page, not an overlay — see messages.ts. */
+export const MSG_REPLY_ID = 8;
+
 /**
- * The Messages page — the log, and the quick-reply picker.
+ * How many bubbles can be on screen at once.
  *
- * One container for the same reason Settings has one: it is text on an
- * otherwise empty screen. The reply picker is a MODE of this container rather
- * than a menu.ts panel, because menu.ts exists to float over image tiles and
- * needs a backdrop to be legible over them. There is nothing underneath here,
- * so the marker can simply be drawn into the same block of text.
+ * Not a design choice: the SDK takes at most 8 text containers per page, and
+ * this page spends one on the gesture layer, one on the hint strip and one on
+ * the reply picker. A ninth container is not clipped — `rebuildPageContainer`
+ * REJECTS the page and leaves the previous one up, so the symptom would be a
+ * Messages page that simply stops changing.
  */
-export const MESSAGES_ID = 1;
+export const MSG_MAX_BUBBLES = MSG_BUBBLE_IDS.length;
+
+/**
+ * The strip along the bottom that says what a gesture will do.
+ *
+ * The same 36px the document pager gets, written out rather than shared with
+ * DOC_PAGER_H: that constant is declared further down this file, and a `const`
+ * that reads another one above its declaration throws at module load rather
+ * than reading as undefined.
+ */
+export const MSG_HINT_H = 36;
+export const MSG_HINT_Y = BODY_H - MSG_HINT_H; // 252
+
+/** Bubbles live above the hint strip and hang from the bottom of that space. */
+export const MSG_FLOOR = MSG_HINT_Y;
+
+// A bubble stops well short of the far edge, so which side it is on stays
+// obvious even when it is a long message — the side IS the sender here, since
+// a text container has no fill to distinguish them with.
+export const BUBBLE_MAX_W = 430;
+export const BUBBLE_MIN_W = 70;
+export const BUBBLE_PAD = 6;
+export const BUBBLE_BORDER = 2;
+export const BUBBLE_RADIUS = 8;
+/** Gap between stacked bubbles. */
+export const BUBBLE_GAP = 5;
+/**
+ * Row height inside a bubble. Deliberately roomier than LINE_HEIGHT, for the
+ * same reason MENU_LINE_H is: that constant is this app's assumption about the
+ * panel font, and a bubble that is two pixels short of its own text gets a
+ * scroller instead of a scrollbar-free box.
+ */
+export const BUBBLE_LINE_H = 30;
+/** Margin from the panel edge to the bubble on its side. */
+export const BUBBLE_EDGE = 6;
+
+// ── z-order on the Messages page ────────────────────────────────────────────
+// Bubbles never overlap each other, so their order among themselves does not
+// matter — but the all-or-nothing rule means every container on the page needs
+// one anyway (see Z_ORDER_ENABLED).
+export const Z_BUBBLE_BASE = 2; // bubbles take 2..6
+export const Z_HINT = 7;
+export const Z_REPLY = 8;
 
 /**
  * How long an arriving message holds the screen before it hands it back.
