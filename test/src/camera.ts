@@ -19,6 +19,12 @@
 // be repainting a camera at it. So the controls live here, next to the picture
 // of what they are about, and the Assignment page is now purely a reader.
 //
+// They live in the MENU here, not on the tap. The same argument that moved them
+// off the Assignment page applies to the gesture: a temple tap is the easiest
+// thing on these glasses to do by accident, and while a scan is running the
+// thing it did was stop it — losing the page you were holding steady. Tap now
+// only dismisses an error; every control is one double-tap away.
+//
 // PACING. The preview is the most expensive thing this app draws — a camera
 // frame does not palette-compress the way black-background text does, so a full
 // panel of it is ~30KB against ~7KB for a page of transcription. Rather than
@@ -233,7 +239,7 @@ function elapsed(ms: number): string {
  * as it is into the assignment's tiles.
  */
 function feedbackText(): string {
-    if (controlError) return fitBox([controlError, "Tap to retry"]);
+    if (controlError) return fitBox([controlError, "Tap to dismiss"]);
     if (working) return fitBox([`${working}...`]);
 
     const s = status();
@@ -243,7 +249,7 @@ function feedbackText(): string {
 
     if (s.running) {
         const f = s.feedback;
-        if (!f) return fitBox([`Capture ${s.captures}...`, "Tap to stop"]);
+        if (!f) return fitBox([`Capture ${s.captures}...`, "2x = menu"]);
         // The sheet is read a piece at a time, so the question this box answers
         // is "where do I point next", not "is the whole page in shot". When the
         // model gives a direction that leads, because it is the thing you act
@@ -267,19 +273,19 @@ function feedbackText(): string {
         return fitBox([needLabel(s) || "Framing OK", "Hold still"]);
     }
 
-    // Nothing is running: the box becomes the button's label. Rescanning is
-    // never offered here — it throws the transcription away, which no temple
-    // tap should be able to do (see primaryAction).
+    // Nothing is running: the box says what the scan is and where the controls
+    // are. It names the MENU rather than a tap — every scan action moved there
+    // when a stray tap turned out to be able to stop a reading mid-page.
     if (s.done) return fitBox([`Done - ${s.problems} problems`, "2x = menu"]);
-    if (s.error) return fitBox([`Failed: ${s.error}`, "Tap to retry"]);
+    if (s.error) return fitBox([`Failed: ${s.error}`, "2x = menu"]);
     // A scan that ran out of budget almost always did so one edge short — say
     // which, because that is the difference between "point it lower and resume"
     // and "the paper ends there, mark it read" (both are in the menu).
     if (s.reason === "max_captures")
         return fitBox(["Hit capture limit", needLabel(s) || "2x = menu"]);
     if (s.captures > 0)
-        return fitBox([`Stopped at ${s.captures}`, needLabel(s) || "Tap to resume"]);
-    return fitBox(["Tap to start reading", "2x = menu"]);
+        return fitBox([`Stopped at ${s.captures}`, needLabel(s) || "2x = menu"]);
+    return fitBox(["Nothing read yet", "2x = menu to start"]);
 }
 
 /**
@@ -606,25 +612,6 @@ function turn(degrees: number): void {
     repaint();
 }
 
-/**
- * What a tap does: start, resume, or stop — whichever preserves work. The
- * server makes the real decision (defaultAction in server/assignment.ts); a
- * finished scan and a spent budget deliberately do nothing, because the only
- * thing left for them is a rescan, and that throws the transcription away.
- */
-function primaryAction(): void {
-    const s = status();
-    if (s?.done || s?.reason === "max_captures") return;
-    void send("/toggle", undefined, toggleLabel());
-}
-
-function toggleLabel(): string {
-    const s = status();
-    if (s?.running) return "Stopping";
-    if ((s?.captures ?? 0) > 0) return "Resuming";
-    return "Starting";
-}
-
 async function send(path: string, body: unknown, label: string): Promise<void> {
     if (controlInFlight) return;
     controlInFlight = true;
@@ -716,12 +703,16 @@ export function handleCameraPageEvent(gesture: GESTURE_EVENTS): void {
     if (gesture === GESTURE_EVENTS.SWIPE_DOWN) return turn(90);
 
     if (gesture === GESTURE_EVENTS.TAP) {
-        // A tap acknowledges the error it is retrying past.
+        // A tap acknowledges the error it is retrying past, and does nothing
+        // else. It used to toggle the scan, which meant a stray tap while you
+        // were holding the paper steady stopped the reading mid-page — the one
+        // action on this page you would never choose at that moment. Every scan
+        // control is a double-tap away in the menu (buildMenu), where choosing
+        // one is deliberate, so nothing was lost by taking it off the gesture
+        // that is easiest to make by accident.
         if (controlError) {
             controlError = null;
             repaint();
-            return;
         }
-        primaryAction();
     }
 }

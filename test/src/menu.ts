@@ -163,7 +163,40 @@ export function backdrop(): Uint8Array[] {
     return backdropTiles;
 }
 
+// ── who is open, app-wide ───────────────────────────────────────────────────
+//
+// Every page builds its own menu, so nothing could previously answer "is the
+// wearer mid-choice right now" — and the one thing that most needs to ask is
+// the arriving-message card, which takes the whole screen. Landing that on top
+// of an open menu doesn't just hide it: the gesture you were about to make goes
+// to the card instead, so a swipe meant to move the marker dismisses a message
+// you never read, and the menu you left behind times out unseen.
+//
+// Identity, not a counter: a page torn down mid-open calls close(false), and a
+// count would drift by one every time that raced an open.
+
+const openMenus = new Set<object>();
+const closedListeners = new Set<() => void>();
+
+/** Whether any page currently has its action menu up. */
+export function anyMenuOpen(): boolean {
+    return openMenus.size > 0;
+}
+
+/** Called when the last open menu closes — never when one of several closes. */
+export function subscribeMenusClosed(fn: () => void): () => void {
+    closedListeners.add(fn);
+    return () => closedListeners.delete(fn);
+}
+
+function markClosed(token: object): void {
+    if (!openMenus.delete(token)) return;
+    if (openMenus.size === 0) for (const fn of closedListeners) fn();
+}
+
 export function createMenu(config: MenuConfig): Menu {
+    /** This menu's identity in `openMenus`. Nothing reads it but the set. */
+    const token = {};
     const heading = () => {
         const h = config.heading ?? DEFAULT_HEADING;
         return typeof h === "function" ? h() : h;
@@ -176,7 +209,16 @@ export function createMenu(config: MenuConfig): Menu {
     // Cleared if the host rejects a write to the panel container — the page
     // forgot menuContainer(), or its rebuild was refused. There's no point
     // retrying on every swipe, and the footer mirror carries the menu alone.
+    //
+    // Reset on every open() rather than kept for the session. One refused write
+    // is usually transient (a rebuild landing in the same moment), and treating
+    // it as permanent is what turned a single bad frame into a menu that drew a
+    // dark backdrop with nothing in it for the rest of the session — the panel
+    // was disabled, but the thing that makes the panel readable still went up.
     let panel = !MENU_IN_FOOTER;
+    // Whether the backdrop is currently up, so a menu that loses its panel can
+    // take it back down instead of leaving a black box on screen.
+    let backdropUp = false;
 
     /**
      * Every action at once, marker on the current one — so you can see where
@@ -224,6 +266,15 @@ export function createMenu(config: MenuConfig): Menu {
                     // no amount of retrying fixes either.
                     panel = false;
                     appLog(config.name, "menu panel write refused - footer only");
+                    // The backdrop exists to make the panel readable. With no
+                    // panel it is just a dark rectangle over the page, and the
+                    // footer mirror — which no tile can cover — is carrying the
+                    // menu on its own. Take it down: an unreadable black box is
+                    // worse than the document it was hiding.
+                    if (backdropUp) {
+                        backdropUp = false;
+                        await config.backdrop?.hide();
+                    }
                 }
             }
             await config.onPaint?.();
@@ -242,11 +293,22 @@ export function createMenu(config: MenuConfig): Menu {
         }
         if (!entries) return;
         entries = null;
-        if (!repaint) return;
+        // Before the repaint, so anything that reacts to the last menu closing
+        // (an arriving message waiting its turn) sees an app with none open.
+        markClosed(token);
+        if (!repaint) {
+            // The page is being torn down with its containers; nothing to put
+            // back, but the next open must not think a backdrop is still up.
+            backdropUp = false;
+            return;
+        }
         // Blank the text BEFORE the document comes back, or there is a moment
         // with the menu still legible over a restored page.
         paint();
-        void config.enqueue(() => config.backdrop?.hide() ?? Promise.resolve());
+        if (backdropUp) {
+            backdropUp = false;
+            void config.enqueue(() => config.backdrop?.hide() ?? Promise.resolve());
+        }
     }
 
     function move(delta: number): void {
@@ -276,10 +338,15 @@ export function createMenu(config: MenuConfig): Menu {
 
         open(): void {
             entries = config.build();
+            openMenus.add(token);
             selected = 0;
+            // A fresh attempt at the panel every time. See the note at `panel`:
+            // the previous open failing is not evidence that this one will.
+            panel = !MENU_IN_FOOTER;
             arm();
             // Backdrop first: it masks the document, so the panel's text lands
             // on something dark rather than flashing over the page.
+            backdropUp = true;
             void config.enqueue(
                 () => config.backdrop?.show(backdrop()) ?? Promise.resolve(),
             );

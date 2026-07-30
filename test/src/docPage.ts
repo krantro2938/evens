@@ -115,6 +115,23 @@ interface Snapshot {
 const RETRY_DELAY_MS = 4_000;
 const RETRIES_PER_VISIT = 3;
 
+/**
+ * The shortest gap between two paging swipes this page will act on.
+ *
+ * A page turn is a BLE tile push, and that takes long enough that the swipes
+ * arriving while it runs all queue up behind it — so a touchpad that reports one
+ * physical swipe twice, or a finger that bounced, walks the document two or
+ * three pages past where you meant to stop, seconds after you stopped moving.
+ * Dropping the extras is right rather than merely convenient: nothing here can
+ * tell an accidental repeat from an intended one except the gap between them,
+ * and a reader paging deliberately does not do it in under a third of a second.
+ *
+ * Only swipes are gated. Tap is a page turn on some pages too, but it is also
+ * the confirm gesture, and a tap the page silently ignored would be a worse bug
+ * than the one this fixes.
+ */
+const PAGE_SWIPE_MIN_GAP_MS = 350;
+
 export function createDocPage(config: DocPageConfig): DocPage {
     const { state, base, name } = config;
 
@@ -125,6 +142,12 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // Which page's tiles are currently on the panel — avoids re-pushing over the
     // slow BLE link when a gesture lands on the same page.
     let displayedPage = -1;
+
+    // When the last paging swipe was accepted, for PAGE_SWIPE_MIN_GAP_MS. Read
+    // and written on the gesture callback rather than inside `enqueue`: the
+    // point is to refuse the swipe before it joins the queue, because a swipe
+    // already on the queue is a page turn that will happen.
+    let lastSwipeAt = 0;
 
     // Every write to an image container goes through here: dedup cache, retry,
     // and the BLE timing log. Shared with the Camera page (see tilePush.ts).
@@ -512,6 +535,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
         async enter(): Promise<void> {
             active = true;
             displayedPage = -1;
+            lastSwipeAt = 0;
             retriesLeft = RETRIES_PER_VISIT;
             state.linkError = false;
             // Leaving the page with a menu open skips the backdrop teardown —
@@ -551,11 +575,17 @@ export function createDocPage(config: DocPageConfig): DocPage {
         handleGesture(gesture: GESTURE_EVENTS): void {
             switch (gesture) {
                 case GESTURE_EVENTS.SWIPE_UP:
-                    enqueue(() => showPage(state.currentPage - 1));
+                case GESTURE_EVENTS.SWIPE_DOWN: {
+                    const now = Date.now();
+                    if (now - lastSwipeAt < PAGE_SWIPE_MIN_GAP_MS) {
+                        appLog(name, "swipe ignored - too soon after the last");
+                        return;
+                    }
+                    lastSwipeAt = now;
+                    const step = gesture === GESTURE_EVENTS.SWIPE_UP ? -1 : 1;
+                    enqueue(() => showPage(state.currentPage + step));
                     break;
-                case GESTURE_EVENTS.SWIPE_DOWN:
-                    enqueue(() => showPage(state.currentPage + 1));
-                    break;
+                }
                 case GESTURE_EVENTS.TAP:
                     if (config.tapAction === "action") config.onPrimaryAction?.();
                     else enqueue(() => showPage(state.currentPage + 1));
