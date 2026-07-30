@@ -7,8 +7,16 @@
 //                (see docPage.ts) — this one has to outlive navigation, because
 //                a message has to reach you on whichever page you are standing
 //                on. That is the whole point.
-//   the page     the conversation, reachable from the Msgs tile, plus the
-//                reply picker.
+//   the page     three layouts behind one PAGES.MESSAGES: the arrival card, the
+//                conversation, and the reply picker.
+//
+// AN ARRIVAL IS A CARD, NOT THE CONVERSATION. A message that lands takes the
+// panel away from whatever you were doing, and it has to earn that: one box in
+// the middle holding the sentence that just arrived, big and alone, gone again
+// on a timer. Showing the chat log instead — which is what this used to do —
+// spends the takeover on four messages you have already read and puts the new
+// one at the bottom edge, which is the worst place on the panel to find it. The
+// history is still one swipe away; it is just not what an interruption is for.
 //
 // ONE CONTAINER PER MESSAGE. A text container draws a box — borderWidth and
 // borderRadius, exactly as the dashboard tiles do — and it sits at whatever
@@ -34,7 +42,16 @@
 
 import { RebuildPageContainer, TextContainerProperty, TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 import {
+    BANNER_BORDER,
+    BANNER_GAP,
+    BANNER_LINE_H,
+    BANNER_MAX_CARDS,
+    BANNER_MAX_W,
+    BANNER_MIN_W,
+    BANNER_MORE_H,
     bannerMs,
+    BANNER_PAD,
+    BANNER_RADIUS,
     BODY_H,
     BODY_W,
     BUBBLE_BORDER,
@@ -52,6 +69,8 @@ import {
     MARKDOWN_SERVER_URL,
     MENU_W,
     MENU_X,
+    MSG_BANNER_IDS,
+    MSG_BANNER_MORE_ID,
     MSG_BUBBLE_IDS,
     MSG_EVENT_ID,
     MSG_FLOOR,
@@ -62,6 +81,8 @@ import {
     MSG_REPLY_ID,
     PAGES,
     Z_BACKDROP,
+    Z_BANNER_BASE,
+    Z_BANNER_MORE,
     Z_BUBBLE_BASE,
     Z_HINT,
     Z_REPLY,
@@ -99,6 +120,12 @@ let active = false;
 let returnTo: PAGES | null = null;
 let bannerTimer: ReturnType<typeof setTimeout> | null = null;
 let bannerQueue: Message[] = [];
+/**
+ * What the card is announcing. The NEWEST of these is on the panel; the rest
+ * are only a count in the hint, because two messages on one card is two
+ * messages neither of which is read at a glance.
+ */
+let bannerBatch: Message[] = [];
 
 /** Which reply the marker is on, in `reply` mode. */
 let replyIndex = 0;
@@ -204,15 +231,54 @@ function announce(unseen: Message[]): void {
         return;
     }
 
+    // Already looking at the conversation: it just lands in it.
+    //
+    // A card exists to interrupt you, and there is nothing to interrupt here —
+    // the message arrives as a bubble at the bottom of the page you are reading,
+    // which is where you would have gone looking for it. `mode` is what
+    // distinguishes this from a card that is already up on this page: that one
+    // is a takeover in progress, and the new message joins its stack.
+    if (GlobalState.currentPage === PAGES.MESSAGES && mode !== "banner") {
+        // Back to the bottom, where the new message is. Not while the reply
+        // picker is up, though — rebuilding under the gesture you are
+        // mid-choice on would swap the page out from under it.
+        if (mode === "chat") {
+            scrollBack = 0;
+            void rebuild();
+        }
+        void ackSeen(unseen[unseen.length - 1]!.id);
+        return;
+    }
+
     bannerQueue = [];
-    if (mode !== "banner") returnTo = GlobalState.currentPage;
+    // Only the FIRST card of an episode records where you were. A second
+    // message arriving while you are reading the first — or while you have
+    // swiped up into the conversation — would otherwise record MESSAGES as the
+    // page to hand back to, and lose the page you were actually on.
+    if (returnTo === null) returnTo = GlobalState.currentPage;
+
+    // ADDED TO, not replaced. A message arriving while the last one is still on
+    // the panel joins the stack under it; replacing the batch (which is what
+    // this used to do) took the message you were mid-sentence through away and
+    // put a different one in its place.
+    //
+    // `unseen` is not reliably the whole episode either way: announcing acks the
+    // newest, so by the next arrival the server has usually marked the earlier
+    // ones seen and they are no longer in it. Hence the merge by id rather than
+    // trusting one list or the other.
+    const held = mode === "banner" ? bannerBatch : [];
+    const seen = new Set(held.map((m) => m.id));
+    bannerBatch = [...held, ...unseen.filter((m) => !seen.has(m.id))].sort(
+        (a, b) => a.created_at - b.created_at || a.id - b.id,
+    );
+
     mode = "banner";
     scrollBack = 0;
 
     if (GlobalState.currentPage !== PAGES.MESSAGES) navigate(PAGES.MESSAGES);
     else void rebuild();
 
-    armBannerTimer(unseen);
+    armBannerTimer();
     void ackSeen(unseen[unseen.length - 1]!.id);
 }
 
@@ -227,13 +293,22 @@ export function flushHeldMessages(): void {
     }
 }
 
-function armBannerTimer(unseen: Message[]): void {
+/**
+ * Timed off what is actually on the stack.
+ *
+ * All of it, not just the newest: every card up there is something you have not
+ * read, and a second message arriving should buy time rather than spend it.
+ * Restarted on each arrival, and capped by bannerMs.
+ */
+function armBannerTimer(): void {
     clearBannerTimer();
-    const longest = unseen.reduce((n, m) => Math.max(n, m.body.length), 0);
+    const shown = bannerBatch.slice(-BANNER_MAX_CARDS);
+    if (!shown.length) return;
+    const text = shown.map((m) => m.body).join(" ");
     bannerTimer = setTimeout(() => {
         bannerTimer = null;
         if (mode === "banner") dismissBanner();
-    }, bannerMs("x".repeat(longest)));
+    }, bannerMs(text));
 }
 
 function clearBannerTimer(): void {
@@ -246,6 +321,7 @@ function clearBannerTimer(): void {
 function dismissBanner(): void {
     clearBannerTimer();
     mode = "chat";
+    bannerBatch = [];
     const back = returnTo;
     returnTo = null;
     // Back to what you were doing, not to the dashboard: the message
@@ -471,6 +547,158 @@ function maxScrollBack(): number {
     return Math.max(0, messages.length - 1);
 }
 
+// ── the arrival cards ───────────────────────────────────────────────────────
+
+/** Whether there is anything to announce. */
+function bannerMessage(): Message | null {
+    return bannerBatch[bannerBatch.length - 1] ?? null;
+}
+
+/** Inner width of a card of outer width `w`. */
+function cardInner(w: number): number {
+    return w - 2 * (BANNER_PAD + BANNER_BORDER);
+}
+
+interface Card {
+    lines: string[];
+    w: number;
+    h: number;
+}
+
+/** One message as a box that hugs its own text, same shape as `measure`. */
+function measureCard(m: Message): Card {
+    const lines = wrapToWidth(m.body, cardInner(BANNER_MAX_W));
+    const widest = lines.reduce((n, line) => Math.max(n, textWidth(line)), 0);
+    const w = Math.max(
+        BANNER_MIN_W,
+        Math.min(BANNER_MAX_W, Math.ceil(widest * 1.06) + 2 * (BANNER_PAD + BANNER_BORDER) + 4),
+    );
+    return { lines, w, h: lines.length * BANNER_LINE_H + 2 * (BANNER_PAD + BANNER_BORDER) };
+}
+
+/** Cut a card down to `room` lines, ending it in "..." (see `clip`). */
+function clipCard(card: Card, room: number): Card {
+    const lines = card.lines.slice(0, room);
+    lines[room - 1] = clip(lines[room - 1] ?? "", cardInner(card.w));
+    return { ...card, lines, h: lines.length * BANNER_LINE_H + 2 * (BANNER_PAD + BANNER_BORDER) };
+}
+
+/**
+ * The arrivals as a centred stack, newest at the bottom, and the count of the
+ * ones that did not fit on it.
+ *
+ * Two things can push a message off the stack, and they mean the same thing to
+ * the reader: more than BANNER_MAX_CARDS have arrived, or the ones that have
+ * are long enough that three boxes do not fit above the hint strip. Either way
+ * the oldest go first — a stack you read bottom-up should lose its top — and
+ * what is left of them is a number, because the conversation has the rest.
+ */
+function stackCards(): { cards: Card[]; hidden: number } {
+    const shown = bannerBatch.slice(-BANNER_MAX_CARDS);
+    let hidden = bannerBatch.length - shown.length;
+    let cards = shown.map(measureCard);
+
+    const height = (list: Card[], more: number): number =>
+        list.reduce((n, c) => n + c.h, 0) +
+        BANNER_GAP * (list.length - 1) +
+        (more > 0 ? BANNER_MORE_H + BANNER_GAP : 0);
+
+    // Drop from the top until the stack fits. Measured as it currently IS —
+    // hidden going from 0 to 1 is what adds the count line, so a stack that
+    // fits without one must not be shortened to make room for a line it would
+    // not have had.
+    while (cards.length > 1 && height(cards, hidden) > MSG_FLOOR) {
+        cards = cards.slice(1);
+        hidden++;
+    }
+
+    // One card, still too tall: clip it rather than draw nothing. Overflow is
+    // not clipped by the host, it is SCROLLED, and that scroller would eat the
+    // swipe that opens the conversation.
+    const room = Math.max(
+        1,
+        Math.floor(
+            (MSG_FLOOR - (hidden > 0 ? BANNER_MORE_H + BANNER_GAP : 0) - 2 * (BANNER_PAD + BANNER_BORDER)) /
+                BANNER_LINE_H,
+        ),
+    );
+    if (cards.length === 1 && cards[0]!.lines.length > room) cards = [clipCard(cards[0]!, room)];
+
+    return { cards, hidden };
+}
+
+function moreContainer(hidden: number, y: number): TextContainerProperty {
+    const content = `${hidden} more - swipe up for the chat`;
+    const w = Math.min(BODY_W, textWidth(content) + 2 * BANNER_PAD + 8);
+    return new TextContainerProperty({
+        xPosition: Math.max(0, Math.round((BODY_W - w) / 2)),
+        yPosition: y,
+        width: w,
+        height: BANNER_MORE_H,
+        // No border and no radius: a framed box here would read as a fourth
+        // message rather than as a note about the ones you cannot see.
+        borderWidth: 0,
+        borderColor: DEFAULT_COLOR,
+        paddingLength: 0,
+        containerID: MSG_BANNER_MORE_ID,
+        containerName: "bannerMore",
+        content,
+        isEventCapture: 0,
+        ...zOrder(Z_BANNER_MORE),
+    });
+}
+
+/**
+ * The stack, placed.
+ *
+ * Each box hugs its own text and is then centred on the panel — as close to
+ * centred text as this gets, since a text container has no alignment and
+ * padding lines with spaces would use the wrong number of them (textWidth is an
+ * estimate; see above).
+ */
+function bannerContainers(): TextContainerProperty[] {
+    const { cards, hidden } = stackCards();
+    const total =
+        cards.reduce((n, c) => n + c.h, 0) +
+        BANNER_GAP * (cards.length - 1) +
+        (hidden > 0 ? BANNER_MORE_H + BANNER_GAP : 0);
+
+    const out: TextContainerProperty[] = [eventLayer()];
+    let y = Math.max(0, Math.round((MSG_FLOOR - total) / 2));
+
+    if (hidden > 0) {
+        out.push(moreContainer(hidden, y));
+        y += BANNER_MORE_H + BANNER_GAP;
+    }
+
+    cards.forEach((card, i) => {
+        out.push(
+            new TextContainerProperty({
+                xPosition: Math.max(0, Math.round((BODY_W - card.w) / 2)),
+                yPosition: y,
+                width: card.w,
+                height: card.h,
+                borderWidth: BANNER_BORDER,
+                // The newest is the one you have not read: it gets the bright
+                // frame, the ones above it the dim one. Same distinction the
+                // dashboard draws between the focused tile and the rest.
+                borderColor: i === cards.length - 1 ? FOCUSED_COLOR : DEFAULT_COLOR,
+                borderRadius: BANNER_RADIUS,
+                paddingLength: BANNER_PAD,
+                containerID: MSG_BANNER_IDS[i]!,
+                containerName: `banner${i}`,
+                content: card.lines.join("\n"),
+                isEventCapture: 0,
+                ...zOrder(Z_BANNER_BASE + i),
+            }),
+        );
+        y += card.h + BANNER_GAP;
+    });
+
+    out.push(hintContainer());
+    return out;
+}
+
 // ── the hint strip ──────────────────────────────────────────────────────────
 
 /**
@@ -486,7 +714,13 @@ function hintText(): string {
     if (note) return note;
     if (mode === "reply") return "Swipe to choose, tap to send, double-tap to go back";
     if (!messages.length) return "No messages yet - send one from cam.aansl.com";
-    if (mode === "banner") return "NEW MESSAGE   Tap to reply   Double-tap to dismiss";
+    // The cards say what arrived and the line above them counts what did not
+    // fit, so the strip is only what a gesture does — all three of them, and one
+    // line. A second line is a scroller (see MSG_HINT_H), which is what the
+    // terse wording buys: spelled out in full ("Tap to reply   Swipe up for
+    // chat   Double-tap to close") this is 550px of the 568 the strip has.
+    // Measured with textWidth, which is an estimate — hence the slack.
+    if (mode === "banner") return "Tap reply   Swipe up chat   Double-tap close";
     if (scrollBack > 0) return `${scrollBack} back   Swipe down for newer   Tap to reply`;
     return "Tap to reply   Swipe up for older";
 }
@@ -648,14 +882,22 @@ function rebuild(): Promise<void> {
 async function build(): Promise<void> {
     if (!active) return;
 
+    // An arrival with nothing to show falls through to the conversation rather
+    // than putting an empty box on your face — `announce` never leaves the batch
+    // empty, but the mode outlives a rebuild and the batch is cleared on the way
+    // out.
+    const showCards = mode === "banner" && bannerMessage() !== null;
+
     const textObject =
         mode === "reply"
             ? replyContainers()
-            : [
-                  eventLayer(),
-                  ...layout().map((bubble, i) => bubbleContainer(bubble, i)),
-                  hintContainer(),
-              ];
+            : showCards
+              ? bannerContainers()
+              : [
+                    eventLayer(),
+                    ...layout().map((bubble, i) => bubbleContainer(bubble, i)),
+                    hintContainer(),
+                ];
 
     // The hint's content is part of this page now, so what a later upgrade
     // dedupes against is whatever went out here.
@@ -697,6 +939,7 @@ export function leaveMessagesPage(): void {
     active = false;
     clearBannerTimer();
     mode = "chat";
+    bannerBatch = [];
     returnTo = null;
     note = "";
     scrollBack = 0;
@@ -714,9 +957,44 @@ export function handleMessagesPageEvent(gesture: GESTURE_EVENTS): void {
             replyIndex = (replyIndex - 1 + quickReplies.length) % quickReplies.length;
             void rebuild();
         } else if (gesture === GESTURE_EVENTS.DOUBLE_TAP) {
-            mode = returnTo !== null ? "banner" : "chat";
+            mode = returnTo !== null && bannerMessage() ? "banner" : "chat";
             note = "";
+            // Backing out of the picker restarts the countdown it stopped —
+            // otherwise the card you came from sits there for good.
+            if (mode === "banner") armBannerTimer();
             void rebuild();
+        }
+        return;
+    }
+
+    // The arrival card. Not the conversation's gestures: there is one message
+    // on screen, so there is nothing to scroll — the swipes are the two ways
+    // out of it instead.
+    if (mode === "banner") {
+        switch (gesture) {
+            case GESTURE_EVENTS.TAP:
+                clearBannerTimer();
+                mode = "reply";
+                replyIndex = 0;
+                note = "";
+                void rebuild();
+                break;
+
+            // Up into the history, which is where the card came from. The
+            // countdown stops: you have gone somewhere deliberately, and being
+            // thrown back to the camera mid-read is not what a timer is for.
+            case GESTURE_EVENTS.SWIPE_UP:
+                clearBannerTimer();
+                mode = "chat";
+                bannerBatch = [];
+                scrollBack = 0;
+                void rebuild();
+                break;
+
+            case GESTURE_EVENTS.SWIPE_DOWN:
+            case GESTURE_EVENTS.DOUBLE_TAP:
+                dismissBanner();
+                break;
         }
         return;
     }
@@ -751,8 +1029,10 @@ export function handleMessagesPageEvent(gesture: GESTURE_EVENTS): void {
             }
             break;
 
+        // Back where the message found you if you got here from a card —
+        // navigateBack() goes to the dashboard, which is not where you were.
         case GESTURE_EVENTS.DOUBLE_TAP:
-            if (mode === "banner") dismissBanner();
+            if (returnTo !== null) dismissBanner();
             else navigateBack();
             break;
     }

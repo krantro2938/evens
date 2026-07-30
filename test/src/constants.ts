@@ -176,6 +176,16 @@ export const MSG_BUBBLE_IDS = [2, 3, 4, 5, 6] as const;
 export const MSG_HINT_ID = 7;
 /** The reply picker. Its own page, not an overlay — see messages.ts. */
 export const MSG_REPLY_ID = 8;
+/**
+ * The arrival cards: what has just landed, stacked, newest at the bottom.
+ *
+ * Share ids 2..4 with the first bubbles because ids only have to be unique
+ * within ONE payload, and no page ever carries both — an arrival is the cards,
+ * opening the conversation is the bubbles.
+ */
+export const MSG_BANNER_IDS = [2, 3, 4] as const;
+/** The line above the stack, when there are arrivals the stack has no room for. */
+export const MSG_BANNER_MORE_ID = 5;
 
 /**
  * How many bubbles can be on screen at once.
@@ -222,11 +232,45 @@ export const BUBBLE_LINE_H = 30;
 /** Margin from the panel edge to the bubble on its side. */
 export const BUBBLE_EDGE = 6;
 
+// ── the arrival cards ───────────────────────────────────────────────────────
+// What has just arrived: one centred box per message, stacked, newest at the
+// bottom — and nothing else.
+//
+// Not the conversation. A message arriving takes the panel away from whatever
+// you were doing, so what it puts there has to be readable at a glance and then
+// gone — the history behind it is something you go and look at (swipe up), not
+// something you are shown while you are trying to read one sentence.
+//
+// Roomier than a bubble on every axis, because these are the only things on
+// screen: wider before they wrap, more padding, and a taller line.
+export const BANNER_MAX_W = 500;
+export const BANNER_MIN_W = 200;
+export const BANNER_PAD = 12;
+export const BANNER_BORDER = 2;
+export const BANNER_RADIUS = 10;
+export const BANNER_LINE_H = 32;
+/** Between stacked cards, and between the stack and the line above it. */
+export const BANNER_GAP = 8;
+
+/**
+ * How many arrivals are shown at once. Beyond this the oldest of them become a
+ * count on one line, because four boxes on a panel is a page to read rather
+ * than a thing to glance at — and the conversation is one swipe away.
+ *
+ * Three also leaves the page inside the SDK's 8-text-container ceiling: gesture
+ * layer, three cards, the count line and the hint strip is six.
+ */
+export const BANNER_MAX_CARDS = MSG_BANNER_IDS.length;
+/** The count line. One line, no border — it is a label, not another card. */
+export const BANNER_MORE_H = BANNER_LINE_H;
+
 // ── z-order on the Messages page ────────────────────────────────────────────
 // Bubbles never overlap each other, so their order among themselves does not
 // matter — but the all-or-nothing rule means every container on the page needs
 // one anyway (see Z_ORDER_ENABLED).
 export const Z_BUBBLE_BASE = 2; // bubbles take 2..6
+export const Z_BANNER_BASE = 2; // arrival cards take 2..4, never with bubbles
+export const Z_BANNER_MORE = 5; // the count line above them
 export const Z_HINT = 7;
 export const Z_REPLY = 8;
 

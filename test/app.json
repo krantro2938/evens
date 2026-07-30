@@ -10,12 +10,8 @@
         {
             "name": "network",
             "desc": "Fetch document pages, tiles and live updates from the document server.",
-            "whitelist": [
-                "https://even.aansl.com"
-            ]
+            "whitelist": ["https://even.aansl.com"]
         }
     ],
-    "supported_languages": [
-        "en"
-    ]
+    "supported_languages": ["en"]
 }
