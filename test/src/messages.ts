@@ -89,6 +89,7 @@ import {
     zOrder,
 } from "./constants";
 import { bridge, buildPage, navigate, navigateBack } from "./main";
+import { anyMenuOpen, subscribeMenusClosed } from "./menu";
 import { GlobalState } from "./state";
 import { appLog } from "./debug";
 
@@ -109,7 +110,11 @@ export interface MessageStatus {
 }
 
 let messages: Message[] = [];
-let quickReplies: string[] = ["Yes", "No", "OK", "Busy", "Call me"];
+// What to offer before the first status payload arrives. The server's list is
+// authoritative and replaces this the moment one does — but /messages/reply
+// validates against that list, so a stale entry here is a reply that draws fine
+// and is refused on send. Keep it equal to QUICK_REPLIES in server/messages.ts.
+let quickReplies: string[] = ["Yes", "No", "OK", "Busy", "Need you", "Look at this", "Help"];
 
 /** What the page is showing. `banner` is the transient arrival takeover. */
 type Mode = "chat" | "banner" | "reply";
@@ -142,8 +147,15 @@ let note = "";
 
 // ── the stream ──────────────────────────────────────────────────────────────
 
+/** The safety net under a stream that looks fine and is delivering nothing. */
+const POLL_IDLE_MS = 60_000;
+/** What it drops to once the stream has actually reported itself down. */
+const POLL_FAST_MS = 10_000;
+
 let source: EventSource | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+/** The interval `pollTimer` is currently running at, 0 when it isn't. */
+let pollEvery = 0;
 
 export function startMessageStream(): void {
     if (source) return;
@@ -166,11 +178,35 @@ export function startMessageStream(): void {
         }
     });
 
-    // EventSource reconnects on its own; this is the fallback for a stream the
-    // webview has quietly given up on, which on a phone that has been asleep is
-    // the normal case rather than the exception.
-    source.addEventListener("error", () => appLog("Messages", "stream error"));
-    if (!pollTimer) pollTimer = setInterval(() => void refresh(), 60_000);
+    // TWO fallbacks, because the stream fails in two different ways.
+    //
+    // The slow poll below runs the whole time, even while the stream looks
+    // healthy: a webview that has been asleep in a pocket comes back with an
+    // EventSource that reports no error and delivers nothing, and the only way
+    // to notice that is to have asked anyway.
+    //
+    // `error` is the loud failure — the stream is known down, and a minute of
+    // silence is too long for a message someone is waiting on a reply to. So it
+    // polls at the fast interval until the stream reconnects, at which point
+    // `open` puts it back on the slow one. Both go through refresh(), which
+    // applies by version, so an overlap costs a request and changes nothing.
+    source.addEventListener("error", () => {
+        appLog("Messages", "stream error - polling faster");
+        setPoll(POLL_FAST_MS);
+    });
+    source.addEventListener("open", () => {
+        if (pollEvery !== POLL_IDLE_MS) appLog("Messages", "stream back - polling slower");
+        setPoll(POLL_IDLE_MS);
+    });
+    setPoll(POLL_IDLE_MS);
+}
+
+/** Move the poll to `every` ms, if it isn't already there. */
+function setPoll(every: number): void {
+    if (pollTimer && pollEvery === every) return;
+    if (pollTimer) clearInterval(pollTimer);
+    pollEvery = every;
+    pollTimer = setInterval(() => void refresh(), every);
 }
 
 async function refresh(): Promise<void> {
@@ -216,18 +252,27 @@ function apply(next: Message[], status: MessageStatus): void {
 /**
  * Show what is unread, unless now is a bad time.
  *
- * The Camera page is the one exception, and it is not a style choice: that page
- * is live preview plus the scan controls, and taking the screen mid-aim would
- * both lose the frame you were lining up and put your next tap somewhere you
- * did not intend. Messages wait until you leave it. Everywhere else — reading a
- * solution, sitting on the dashboard — an interruption costs a glance.
+ * AN OPEN MENU is the one exception, and it is the honest one: a card takes the
+ * whole screen and every gesture with it, so arriving on top of a menu means the
+ * swipe you were about to make moves nothing and the tap dismisses a message you
+ * had not read yet. Those wait for the menu to close, which is usually seconds.
+ *
+ * This used to key off the Camera page instead — first the whole page, then a
+ * running scan. Both were proxies for "the wearer is busy" and both were wrong
+ * at the edges: the preview sits idle most of the time, so cards held for it
+ * were notifications that simply never arrived, while a menu open on the AI page
+ * got interrupted freely. Being mid-choice is the thing worth protecting, and it
+ * is something the app can actually know (see anyMenuOpen).
+ *
+ * Everywhere else — aiming the camera, reading a solution, sitting on the
+ * dashboard — an interruption costs a glance, and the card hands the page back.
  */
 function announce(unseen: Message[]): void {
     if (!unseen.length) return;
 
-    if (GlobalState.currentPage === PAGES.CAMERA) {
+    if (anyMenuOpen()) {
         bannerQueue = unseen;
-        appLog("Messages", "held", unseen.length, "while on Camera");
+        appLog("Messages", "held", unseen.length, "while a menu is open");
         return;
     }
 
@@ -282,16 +327,29 @@ function announce(unseen: Message[]): void {
     void ackSeen(unseen[unseen.length - 1]!.id);
 }
 
-/** Called when leaving the Camera page, so a held message isn't lost. */
+/**
+ * Show whatever was held, now that the moment for holding it has passed.
+ *
+ * Safe to call whenever something *might* have changed: announce() re-checks
+ * the condition, so a flush that turns out to be premature simply puts the
+ * cards back on the queue rather than dropping them on an open menu.
+ */
 export function flushHeldMessages(): void {
     if (bannerQueue.length) {
         const held = bannerQueue;
         bannerQueue = [];
         // Deferred: this runs from leaveCurrentPage(), mid-navigation, and
         // navigating again from inside that would race the page being built.
+        // It also covers the menu case, where confirm() runs the entry straight
+        // after closing — the action gets its repaint before the card lands.
         setTimeout(() => announce(held), 400);
     }
 }
+
+// The other end of the hold above. Subscribed once, for the app's lifetime:
+// this module is imported by main.ts at boot and the stream it feeds never
+// stops, so there is nothing to unsubscribe from.
+subscribeMenusClosed(flushHeldMessages);
 
 /**
  * Timed off what is actually on the stack.

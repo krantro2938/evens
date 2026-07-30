@@ -45,7 +45,6 @@ import { GlobalState } from "./state";
 import { handleDashboardEvent } from "./dashboard";
 import {
     buildMessagesPage,
-    flushHeldMessages,
     handleMessagesPageEvent,
     leaveMessagesPage,
     startMessageStream,
@@ -295,9 +294,6 @@ function leaveCurrentPage() {
             break;
         case PAGES.CAMERA:
             leaveCameraPage();
-            // Messages that arrived while you were aiming are held rather than
-            // dropped (see announce() in messages.ts). This is where they land.
-            flushHeldMessages();
             break;
         case PAGES.SETTINGS:
             leaveSettingsPage();

@@ -27,8 +27,33 @@ import {
  */
 export const MESSAGE_MAX_CHARS = 240;
 
-/** The canned replies the glasses offer. Short: they share a line with a marker. */
-export const QUICK_REPLIES = ["Yes", "No", "OK", "Busy", "Call me"] as const;
+/**
+ * The canned replies the glasses offer.
+ *
+ * Short, because each shares a line with the picker's marker — and the picker
+ * windows a list longer than it can show, so adding one costs a scroll rather
+ * than a redesign.
+ *
+ * The last three are one thought, not three: the useful thing to say from a
+ * pair of glasses is almost never an answer, it is *come and look*. "Call me"
+ * used to hold that slot and was the wrong verb — the person on the other end
+ * is at a keyboard a room away, watching the same camera, so asking them to
+ * phone you is a longer way round than asking them to turn their head.
+ *
+ * Kept in sync with the client's cold-start copy in test/src/messages.ts: the
+ * glasses use whatever the status payload says, but they have to offer
+ * something before the first one arrives, and offering a reply this list no
+ * longer contains means /messages/reply rejects it.
+ */
+export const QUICK_REPLIES = [
+  "Yes",
+  "No",
+  "OK",
+  "Busy",
+  "Need you",
+  "Look at this",
+  "Help",
+] as const;
 
 // ── what the glasses can actually draw ──────────────────────────────────────
 //
