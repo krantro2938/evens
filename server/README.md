@@ -18,6 +18,9 @@ It also owns the **solve loop**: the AI page's trigger button hands the
 transcribed assignment to a Claude routine and displays the markdown that comes
 back. See [the solve loop](#the-solve-loop) below.
 
+Documents can carry **figures** as well as prose and LaTeX — a graph, a geometry
+diagram, vectors, a solution set. See [figures](#figures).
+
 ## Run
 
 ```bash
@@ -146,6 +149,47 @@ displayed.
 | `DOC_MAX_CHARS` | `200000` | the same ceiling for a hand-written document |
 
 CORS is open so the app (served from the Vite dev origin) can reach it.
+
+## Figures
+
+A ```` ```viz ```` block in any document is drawn into the tiles as a figure.
+Every document goes through the same renderer, so this works for a submitted
+solution, the assignment, and a page you typed yourself alike.
+
+````markdown
+```viz
+{"kind":"plot","x":[-3,3],"fns":[{"f":"x^2-3","label":"y"}],
+ "points":[{"at":[1.73,0],"label":"√3"}],
+ "caption":"y = x² − 3, zeros at ±√3"}
+```
+````
+
+Four kinds — `plot`, `figure`, `bars`, `number-line` — specified for the model
+that writes them in [`routine/solve.md`](../routine/solve.md#figures) and
+implemented in [`render/viz/`](render/viz). Three things are worth knowing from
+this side:
+
+- **The block holds a spec, not SVG.** A model asked for SVG has to decide stroke
+  widths, label sizes and which greys survive a 16-colour palette on a panel it
+  cannot see; `render/viz/canvas.ts` already knows all of that, and a spec can be
+  validated before anything is drawn. Model-authored SVG and HTML are not
+  accepted at all.
+- **A bad spec costs the figure, not the page.** It falls back to its `caption`
+  in a bordered box and logs `[viz] …`. Nothing in this path can throw into the
+  render — expressions like `x^2-3` are parsed by hand rather than `eval`'d,
+  because that string arrives over HTTP from an agent.
+- **Figures are placed, not just rendered.** Pages advance by 222 rows but show
+  252, so consecutive pages share 30 — which is why a *line* of text survives
+  being cut. A 170px figure does not, so `keepTogether` in
+  [`tiles.ts`](render/tiles.ts) measures every figure and display equation in the
+  laid-out document and shifts any that straddles a seam onto the next page.
+  It logs `moved N block(s) off a page seam`, and warns if one could not be placed.
+
+To see what the glasses will see, without the glasses:
+
+```bash
+bun run render/viz/preview.ts ../solution.md /tmp/out   # one PNG per page
+```
 
 ## How the assignment bridge works
 

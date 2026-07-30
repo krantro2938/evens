@@ -64,4 +64,27 @@ export const RENDER_CSS = `
 .md-root .math-display svg { max-width: 100%; }
 .md-root .math-error { color: #ff9b9b; font-family: monospace; font-size: 0.9em; }
 .md-root svg { color: #fff; fill: currentColor; }
+
+/* A figure is one indivisible block: the paginator finds it by this class and
+   makes sure a page boundary never lands inside it (see keepTogether in
+   tiles.ts), so the margins here are what separates it from the prose. */
+.md-root .viz-block { display: block; margin: 14px 0; text-align: center; }
+.md-root .viz-block svg { display: block; margin: 0 auto; }
+.md-root .viz-caption {
+  font-size: 15px;
+  line-height: 1.15;
+  color: #bdbdbd;
+  margin-top: 3px;
+  text-align: center;
+}
+/* The fallback when a spec can't be drawn: the caption, boxed so it reads as a
+   figure that isn't there rather than as a stray sentence. */
+.md-root .viz-error {
+  margin: 14px 0;
+  padding: 6px 10px;
+  border: 2px solid #8a8a8a;
+  font-size: 17px;
+  color: #ececec;
+  text-align: center;
+}
 `;

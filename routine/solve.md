@@ -104,6 +104,43 @@ glasses. That is a small, low-contrast screen read at arm's length, so:
 - No preamble, no "here is the solution", no closing commentary. The document
   starts with the assignment's title as `#` and then goes straight into problem 1.
 
+### Figures
+
+Where a picture does the explaining — a graph, a geometry diagram, vectors, a
+solution set — write a `viz` block. The server draws it into the tiles as a real
+figure; you supply only the data, and it handles every decision about how a line
+has to look to be visible on that panel.
+
+````markdown
+```viz
+{"kind":"plot","x":[-3,3],"fns":[{"f":"x^2-3","label":"y"}],
+ "points":[{"at":[1.73,0],"label":"√3"}],
+ "caption":"y = x² − 3, нули при x = ±√3"}
+```
+````
+
+Four kinds. One JSON object, always with a `caption`:
+
+| `kind` | fields |
+|---|---|
+| `plot` | `x`: `[a,b]`, optional `y`; `fns` (up to 3 — a string, or `{"f":…,"label":…}`), `points` (`{"at":[x,y],"label":…,"open":true}`), `vectors` (`{"to":[x,y],"label":…}`, `from` defaults to the origin), `segments`, `asymptotes`: `{"x":[0]}`, `equal`, `xlabel`/`ylabel` |
+| `figure` | `points`: `{"A":[0,0],"B":[4,0]}`, then `segments` (`["A","B"]`, `"AB"`, or `{"from","to","dash","label","marks":2}`), `polygons`: `[["A","B","C"]]`, `circles` (`{"at":"O","r":3}`), `angles` (`{"at":"B","from":"A","to":"C","label":"60°"}` or `"right":true`), `vectors`, `labels` |
+| `bars` | `items`: `{"Январь":420,"Февраль":380}` (≤ 7), optional `unit` |
+| `number-line` | `x`: `[a,b]`, `intervals` (`{"from":"-inf","to":-2,"openTo":true,"label":…}`), `points` |
+
+- **The caption is the figure in words**, because it is what appears in the
+  figure's place if the block cannot be drawn. Write one that stands on its own.
+- Expressions are ordinary infix: `x^2-3`, `1/x`, `2x+1`, `sin(x)`, `sqrt(x)`,
+  `pi`. LaTeX is tolerated (`\frac{1}{2}x`); a function without brackets
+  (`sin x`) is refused rather than guessed at.
+- Coordinates are numbers **you have worked out**. A figure is a claim about the
+  geometry, and a wrong one misleads worse than no figure at all.
+- Labels are short plain text: `A`, `5,2`, `32°`, `√3` — not LaTeX layout.
+- At most one figure per problem, and only where it earns the space. Prose with
+  `$$…$$` is the default; a figure that restates the equation above it has cost a
+  third of the screen to say nothing.
+- Never raw SVG, HTML or an image. These blocks are the only figures there are.
+
 ### 4. Submit it
 
 Write the JSON with a file rather than inline, so LaTeX backslashes survive the

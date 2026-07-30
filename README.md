@@ -33,6 +33,12 @@ the transcription to a solver and the answer arrives on the glasses when it's
 done. Every solution is kept in SQLite, so nothing is lost across restarts — see
 [`server/README.md`](server/README.md#the-solve-loop).
 
+A solution can include **figures** as well as prose and LaTeX — a graph, a
+geometry diagram, vectors, a solution set on a number line. The solver writes a
+```` ```viz ```` block holding the data; the server draws it, sizes it for the
+panel, and makes sure a page boundary never lands in the middle of it. See
+[figures](server/README.md#figures).
+
 A tap always records the run server-side; **what picks it up is deliberately
 separate**, and there are two solvers:
 

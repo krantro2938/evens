@@ -7,7 +7,7 @@
 // BLE. Tiles come back as base64 PNGs, greyscale + palette-reduced so the
 // payload the client forwards stays small.
 
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser, type Page } from "playwright";
 import sharp, { type OverlayOptions } from "sharp";
 import { RENDER_CSS, RENDER_WIDTH } from "./styles";
 import {
@@ -57,6 +57,107 @@ function pageHtml(bodyHtml: string): string {
     </style></head><body><div class="md-root">${bodyHtml}</div></body></html>`;
 }
 
+/**
+ * Blocks a page boundary must not land inside.
+ *
+ * A line of prose survives being cut because consecutive pages share
+ * PAGE_OVERLAP rows — anything shorter than the overlap is whole on *some* page
+ * whatever its position. A figure or a display equation is taller than that, so
+ * it has to be placed rather than merely rendered.
+ */
+const KEEP_TOGETHER = ".viz-block, .viz-error, .math-display";
+
+/** Enough for a document full of figures; the guard is against a layout that
+ * refuses to settle, not against long documents. */
+const KEEP_TOGETHER_PASSES = 40;
+
+/**
+ * Nudge indivisible blocks off the page seams.
+ *
+ * Pages start every `stride` rows and show `PAGE_H` of them, so the windows a
+ * block can sit whole inside are [p·stride, p·stride+PAGE_H) — which overlap by
+ * PAGE_OVERLAP and therefore leave gaps for anything taller than that. For a
+ * block that falls in a gap, insert a spacer that carries it to the next page's
+ * first row.
+ *
+ * One block per pass, then re-measure: a spacer moves everything below it, so
+ * the positions the next decision needs are only knowable after the reflow.
+ * Each pass settles the topmost offender for good — nothing above it ever moves
+ * again — so this terminates in at most one pass per block.
+ */
+async function keepTogether(page: Page): Promise<number> {
+    let shims = 0;
+    for (let pass = 0; pass < KEEP_TOGETHER_PASSES; pass++) {
+        const moved = await page.evaluate(
+            ({ selector, stride, pageH }) => {
+                const root = document.querySelector(".md-root");
+                if (!root) return false;
+                const rootTop = root.getBoundingClientRect().top;
+
+                for (const el of Array.from(root.querySelectorAll<HTMLElement>(selector))) {
+                    const box = el.getBoundingClientRect();
+                    // Taller than a page: no placement helps, and shuffling it
+                    // would only add blank rows before an unavoidable cut.
+                    if (box.height > pageH) continue;
+                    // Two spacers for one block means the reflow is fighting us;
+                    // leave it where it is rather than push it down forever.
+                    if (Number(el.dataset.vizShims ?? 0) >= 2) continue;
+
+                    const top = box.top - rootTop;
+                    const bottom = top + box.height;
+                    const p = Math.max(0, Math.floor(top / stride));
+                    if (bottom <= p * stride + pageH) continue;
+
+                    const gap = (p + 1) * stride - top;
+                    if (gap <= 0) continue;
+
+                    // A spacer rather than a margin: margins collapse against
+                    // the previous block's, so setting one shifts by an amount
+                    // that depends on what came before.
+                    const spacer = document.createElement("div");
+                    spacer.style.cssText = `margin:0;padding:0;height:${gap}px`;
+                    spacer.dataset.vizSpacer = "1";
+                    el.parentNode?.insertBefore(spacer, el);
+                    el.dataset.vizShims = String(Number(el.dataset.vizShims ?? 0) + 1);
+                    return true;
+                }
+                return false;
+            },
+            { selector: KEEP_TOGETHER, stride: Math.max(1, PAGE_H - PAGE_OVERLAP), pageH: PAGE_H },
+        );
+        if (!moved) break;
+        shims++;
+        if (pass === KEEP_TOGETHER_PASSES - 1) {
+            console.warn(`[tiles] keep-together hit its pass limit (${KEEP_TOGETHER_PASSES})`);
+        }
+    }
+
+    // What could not be placed. The only legitimate cause is a block taller than
+    // a page — the renderers clamp figures to prevent it, so this line firing
+    // means a real one got through and someone is about to read half a diagram.
+    const stuck = await page.evaluate(
+        ({ selector, stride, pageH }) => {
+            const root = document.querySelector(".md-root");
+            if (!root) return [] as number[];
+            const rootTop = root.getBoundingClientRect().top;
+            return Array.from(root.querySelectorAll<HTMLElement>(selector))
+                .map((el) => {
+                    const box = el.getBoundingClientRect();
+                    const top = box.top - rootTop;
+                    const p = Math.max(0, Math.floor(top / stride));
+                    return top + box.height <= p * stride + pageH ? 0 : Math.round(box.height);
+                })
+                .filter((h) => h > 0);
+        },
+        { selector: KEEP_TOGETHER, stride: Math.max(1, PAGE_H - PAGE_OVERLAP), pageH: PAGE_H },
+    );
+    if (stuck.length) {
+        console.warn(`[tiles] ${stuck.length} block(s) still cross a page seam (heights: ${stuck.join(", ")}px; a page is ${PAGE_H}px)`);
+    }
+
+    return shims;
+}
+
 // Render the document HTML and screenshot the .md-root element (width fixed at
 // RENDER_WIDTH by the CSS) into a single tall PNG.
 async function screenshot(bodyHtml: string): Promise<Buffer> {
@@ -68,6 +169,8 @@ async function screenshot(bodyHtml: string): Promise<Buffer> {
     try {
         await page.setContent(pageHtml(bodyHtml), { waitUntil: "load" });
         await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready);
+        const shims = await keepTogether(page);
+        if (shims) console.log(`[tiles] moved ${shims} block(s) off a page seam`);
         const el = await page.$(".md-root");
         return el
             ? await el.screenshot({ type: "png" })
