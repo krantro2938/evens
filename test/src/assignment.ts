@@ -30,9 +30,15 @@
 // second copy of what the line underneath was saying. The footer is a whole
 // line wide, nothing can cover it, and it survives the tiles being on top.
 
-import { DOC_BASE_ASSIGNMENT, DOC_MENU_ID, GESTURE_EVENTS } from "./constants";
+import {
+    DOC_BASE_ASSIGNMENT,
+    DOC_MENU_ID,
+    GESTURE_EVENTS,
+    MARKDOWN_SERVER_URL,
+} from "./constants";
 import { GlobalState, type AssignmentStatus, type DocState } from "./state";
 import { createDocPage } from "./docPage";
+import { appLog } from "./debug";
 import { backdrop, createMenu, type MenuEntry } from "./menu";
 import { navigateBack } from "./main";
 import { ago } from "./utils";
@@ -60,6 +66,42 @@ function versions(): AssignmentStatus["versions"] {
 /** Whether the page is showing the live scan rather than an archived one. */
 function onLive(): boolean {
     return selectedVersion === null;
+}
+
+/**
+ * Which scan the solve button sends to the AI — null for the live one.
+ *
+ * A SEPARATE selection from `selectedVersion`, which is only what this page is
+ * drawing. Paging back through old scans to look at them should not change what
+ * the button does, so pointing the AI somewhere is its own deliberate act (see
+ * "Point the AI here" in the root menu). It lives on the server, because the
+ * button it governs is on a different page and the server is what reads it.
+ */
+function aiVersion(): number | null {
+    return status()?.active_version ?? null;
+}
+
+/** Whether the scan on screen is also the one the AI would be given. */
+function viewingAiScan(): boolean {
+    return aiVersion() === selectedVersion;
+}
+
+/**
+ * Point the solve button at a scan. Fire-and-forget: the server answers with the
+ * selection it settled on and the status stream carries it back to every page,
+ * so there is nothing to apply here that the next status event will not bring.
+ */
+async function pointAiAt(version: number | null): Promise<void> {
+    try {
+        const res = await fetch(`${MARKDOWN_SERVER_URL}${DOC_BASE_ASSIGNMENT}/active`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ version }),
+        });
+        if (!res.ok) appLog("Assignment", "could not point the AI", res.status);
+    } catch (err) {
+        appLog("Assignment", "could not point the AI", err);
+    }
 }
 
 /**
@@ -206,6 +248,17 @@ function buildRootMenu(): MenuEntry[] {
         items.push({ label: "Open a version...", run: () => openMenu("versions") });
     }
 
+    // The one place the AI's scan is chosen. Offered only when it would change
+    // something, so the menu doesn't carry an entry that already happened — and
+    // it reads both ways: on an archived scan it pins the AI there, on the live
+    // one it sends the AI back to following the camera.
+    if (!viewingAiScan()) {
+        items.push({
+            label: onLive() ? "Point the AI at live" : "Point the AI here",
+            run: () => void pointAiAt(selectedVersion),
+        });
+    }
+
     // Dismiss: createMenu closes before it runs an entry, so by this point
     // there is nothing left to do.
     items.push({ label: "Close", run: () => {} });
@@ -224,10 +277,15 @@ function buildVersionMenu(): MenuEntry[] {
     for (const entry of versions()) {
         const live = !entry.archived;
         const current = onLive() ? live : selectedVersion === entry.version;
+        // Two marks, because there are two selections and they move apart: `*`
+        // is the scan on screen, `AI` the one the solve button would send. Most
+        // of the time they are the same entry and it reads as one state.
+        const isAi = live ? aiVersion() === null : aiVersion() === entry.version;
         items.push({
             label:
                 `${current ? "*" : " "}v${entry.version} ${formatDate(entry.created_at)}` +
-                (live ? " live" : ` (${entry.problems}p)`),
+                (live ? " live" : ` (${entry.problems}p)`) +
+                (isAi ? " AI" : ""),
             run: () => {
                 menuMode = "root";
                 openVersion(live ? null : entry.version);

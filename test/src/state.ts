@@ -68,6 +68,11 @@ export type AssignmentStatus = {
     error: string | null;
     /** The reader's current attempt number; bumps on every reset. */
     version: number;
+    /** Which scan the solve button sends to the AI, null while it follows the
+     *  live one. Set from the version picker; a reset puts it back to null.
+     *  Optional: a server too old to send it leaves the page on live, which is
+     *  what it did before this existed. */
+    active_version?: number | null;
     /** Every scan the reader still holds, newest first, live one at the head.
      *  What the version picker is built from — the assignment page's answer to
      *  the AI page's `solution_history`. */
@@ -93,10 +98,15 @@ export type SolverStatus = {
     state: "no_assignment" | "idle" | "queued" | "solving" | "solved" | "failed";
     assignment: {
         available: boolean;
+        /** A content hash of the markdown being solved, NOT the reader's attempt
+         *  number — `active_version` is the one a person can act on. */
         version: number | null;
         problems: number;
         /** The reader believes it has the whole page. */
         done: boolean;
+        /** The scan the button would send, null while it follows the live one.
+         *  Chosen on the Assignment page's version picker. */
+        active_version?: number | null;
     };
     solution: {
         created_at: number;

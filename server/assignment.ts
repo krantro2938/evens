@@ -111,6 +111,20 @@ export interface Status {
     /** The reader's current attempt number; bumps on every reset. */
     version: number;
     /**
+     * Which scan the solve button sends to the AI, as a reader attempt number.
+     *
+     * `null` — the default, and where it returns on every reset — means whatever
+     * the camera is reading now. A number pins it to one filed-away scan, so you
+     * can solve the sheet you photographed an hour ago without pointing the
+     * camera back at it.
+     *
+     * Deliberately NOT the same selection as the one the picker uses to read an
+     * archived scan: paging back through old scans is looking, and looking
+     * should not quietly change what the button does. This only moves when
+     * something asks it to.
+     */
+    active_version: number | null;
+    /**
      * Every attempt the reader still holds, newest first, live one at the head.
      * The glasses' version picker is built from this — the same role
      * `solution_history` plays on the AI page.
@@ -135,6 +149,7 @@ const status: Status = {
     feedback: null,
     error: null,
     version: 0,
+    active_version: null,
     versions: [],
     last_capture_at: null,
 };
@@ -288,6 +303,92 @@ export function archivedSource(version: number): DocSource {
 /** The reader's archive listing, for the route that exposes it directly. */
 export function getArchive(): ArchiveEntry[] {
     return status.versions;
+}
+
+// ── which scan the solver works from ────────────────────────────────────────
+
+export interface ActiveAssignment {
+    /** Read this for the markdown the run will be built from. */
+    source: DocSource;
+    /** The pinned attempt number, or null while following the live scan. */
+    pinned: number | null;
+    /** The reader's count for whichever scan that is — live status or archive. */
+    problems: number;
+    done: boolean;
+}
+
+export function getActiveVersion(): number | null {
+    return status.active_version;
+}
+
+export interface SetActiveResult {
+    ok: boolean;
+    reason?: string;
+    active_version: number | null;
+}
+
+/**
+ * Choose the scan the solve button sends. `null` follows the live one.
+ *
+ * Pinning the *live* entry is stored as null rather than as its number, and the
+ * difference matters: the reader is still writing to that attempt, so holding
+ * its number would freeze the solver on a snapshot of a scan still being read —
+ * and `archivedSource()` would 404 on it, because it isn't a file yet.
+ */
+export function setActiveVersion(version: number | null): SetActiveResult {
+    if (version !== null) {
+        const entry = status.versions.find((v) => v.version === version);
+        if (!entry) {
+            return {
+                ok: false,
+                reason: `no scan v${version} in the archive`,
+                active_version: status.active_version,
+            };
+        }
+        if (!entry.archived) version = null; // the live one: follow it
+    }
+    if (status.active_version === version) {
+        return { ok: true, active_version: version };
+    }
+    status.active_version = version;
+    console.log(
+        `[assignment] solver now reads ${version === null ? "the live scan" : `v${version}`}`,
+    );
+    notifyStatus();
+    return { ok: true, active_version: version };
+}
+
+/**
+ * What the solver should read, resolved.
+ *
+ * Self-healing: a pin whose scan the reader no longer lists (it was pruned, or
+ * the reader was replaced) falls back to live rather than failing every solve
+ * from then on. A button that solves the wrong sheet is a bad outcome; a button
+ * that has been dead since a scan expired is a worse one.
+ */
+export function activeAssignment(): ActiveAssignment {
+    const live: ActiveAssignment = {
+        source: assignmentSource,
+        pinned: null,
+        problems: status.problems,
+        done: status.done,
+    };
+    const pinned = status.active_version;
+    if (pinned === null) return live;
+
+    const entry = status.versions.find((v) => v.version === pinned);
+    if (!entry || !entry.archived) {
+        console.warn(`[assignment] pinned scan v${pinned} is gone — following live again`);
+        status.active_version = null;
+        notifyStatus();
+        return live;
+    }
+    return {
+        source: archivedSource(pinned),
+        pinned,
+        problems: entry.problems,
+        done: entry.done,
+    };
 }
 
 // ── the camera itself ───────────────────────────────────────────────────────
@@ -455,6 +556,12 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.edges_unseen = [...SHEET_EDGES];
             status.next_target = "";
             status.version = Number(d.version ?? status.version + 1);
+            // A new sheet is in front of the camera, so it becomes what the
+            // button solves — holding an older pin here would mean photographing
+            // a new assignment and having the AI answer the previous one, which
+            // nobody would read as correct. Un-pinning rather than pinning the
+            // new number: this attempt is live, and live is what null means.
+            status.active_version = null;
             // The attempt that just ended is now a file; the picker gains an entry.
             void refreshArchive();
             scheduleDocumentRefresh();

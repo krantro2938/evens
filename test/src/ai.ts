@@ -312,10 +312,19 @@ function pagerLabel(state: DocState): string {
     switch (s.state) {
         case "no_assignment":
             return "Nothing to solve yet";
-        case "idle":
-            return s.assignment.done
-                ? "Tap to solve"
+        case "idle": {
+            // Which sheet the button would send, when it isn't the obvious one.
+            // The choice is made two pages away on the Assignment page, so
+            // without this you would tap "solve" on a live-looking page and get
+            // an answer to a sheet from an hour ago.
+            const aim = s.assignment.active_version;
+            const scan = aim === null || aim === undefined ? "" : ` scan v${aim}`;
+            if (s.assignment.done) return `Tap to solve${scan}`;
+            // Shorter wording when the scan is named: the strip is one line.
+            return scan
+                ? `Tap to solve${scan} (incomplete)`
                 : "Tap to solve (page incomplete)";
+        }
         case "queued":
         case "solving":
             return s.state === "queued" && s.run?.trigger !== "triggered"

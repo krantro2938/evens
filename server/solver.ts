@@ -43,8 +43,8 @@ import {
   type SolutionRow,
 } from "./db";
 import {
+  activeAssignment,
   assignmentSource,
-  getStatus as getAssignmentStatus,
   isConfigured as assignmentConfigured,
 } from "./assignment";
 import { isConfigured as triggerConfigured, runRoutine, triggerDescription } from "./trigger";
@@ -78,10 +78,21 @@ export interface SolverStatus {
   state: "no_assignment" | "idle" | "queued" | "solving" | "solved" | "failed";
   assignment: {
     available: boolean;
+    /**
+     * A CONTENT HASH of the markdown being solved, not the reader's attempt
+     * number — the two are different numbering systems and only this one decides
+     * whether a solution still answers what is on screen.
+     */
     version: number | null;
     /** From the reader: how much of the page it believes it has. */
     problems: number;
     done: boolean;
+    /**
+     * The reader attempt number the button is pointed at, null while it follows
+     * the live scan. This IS the picker's numbering — it is what the glasses
+     * label a scan with, and the one number a person can act on.
+     */
+    active_version: number | null;
   };
   solution: {
     created_at: number;
@@ -152,11 +163,18 @@ async function readAssignment(): Promise<{
   snapshot: Snapshot | null;
   problems: number;
   done: boolean;
+  /** The pinned scan this came from, or null when it came from the live one. */
+  pinned: number | null;
 }> {
-  const s = getAssignmentStatus();
-  if (!assignmentConfigured()) return { snapshot: null, problems: 0, done: false };
+  if (!assignmentConfigured()) {
+    return { snapshot: null, problems: 0, done: false, pinned: null };
+  }
+  // Not necessarily the live scan: see setActiveVersion(). Everything below is
+  // written against whichever one this resolves to, so a pinned run is built
+  // exactly the way a live one is.
+  const { source, pinned, problems, done } = activeAssignment();
   try {
-    const snapshot = await assignmentSource.read();
+    const snapshot = await source.read();
     // A reader with nothing transcribed still answers with a title-only stub;
     // treat "no problems yet" as nothing to solve.
     //
@@ -167,10 +185,10 @@ async function readAssignment(): Promise<{
     // second-guessing it with `full_page_seen` would now be wrong: a sheet read
     // correctly in two halves never has a frame holding all of it, and the
     // solver would be told a finished transcription was partial forever.
-    return { snapshot, problems: s.problems, done: s.done };
+    return { snapshot, problems, done, pinned };
   } catch (err) {
     console.error("[solver] assignment read failed:", err);
-    return { snapshot: null, problems: s.problems, done: s.done };
+    return { snapshot: null, problems, done, pinned };
   }
 }
 
@@ -205,7 +223,10 @@ let lastAssignmentVersion: number | null = null;
 export async function getSolverStatus(): Promise<SolverStatus> {
   expireStaleRun();
 
-  const { snapshot, problems, done } = await readAssignment();
+  const { snapshot, problems, done, pinned } = await readAssignment();
+  // The hash of the pinned scan when there is one, so `solvedThis` and `stale`
+  // below compare the solution against the sheet the button would actually send
+  // — pinning changes what "already solved" means, and it has to.
   const version = snapshot?.version ?? null;
   lastAssignmentVersion = version;
 
@@ -231,7 +252,13 @@ export async function getSolverStatus(): Promise<SolverStatus> {
 
   return {
     state,
-    assignment: { available: Boolean(snapshot), version, problems, done },
+    assignment: {
+      available: Boolean(snapshot),
+      version,
+      problems,
+      done,
+      active_version: pinned,
+    },
     solution: solution
       ? {
           created_at: solution.created_at,
@@ -357,7 +384,7 @@ export interface SolveResult {
  * paper. The glasses say the assignment is incomplete; the tap is still yours.
  */
 export async function startRun(): Promise<SolveResult> {
-  const { snapshot, problems, done } = await readAssignment();
+  const { snapshot, problems, done, pinned } = await readAssignment();
   if (!snapshot) {
     return {
       ok: false,
@@ -386,7 +413,11 @@ export async function startRun(): Promise<SolveResult> {
   const trigger = await runRoutine(
     `A solve was requested from the glasses: run ${run.id}, ` +
       `${problems} problem${problems === 1 ? "" : "s"}, ` +
-      `transcription ${done ? "complete" : "incomplete"}. Claim it.`,
+      `transcription ${done ? "complete" : "incomplete"}` +
+      // Only worth saying when it isn't the obvious one — a session reading this
+      // has no other way to know it is answering a sheet from an hour ago.
+      (pinned === null ? "" : `, from archived scan v${pinned}`) +
+      `. Claim it.`,
   );
   recordTrigger(run.id, trigger.state, trigger.detail);
   notifyStatus();

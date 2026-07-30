@@ -11,6 +11,7 @@
 //   POST /solution/solve                 POST /assignment/toggle
 //   POST /solution/cancel                POST /assignment/control
 //                                        GET  /assignment/archive
+//                                        POST /assignment/active
 //
 // Both documents take `?overlay=menu` (the same page with the action menu's
 // rectangle darkened, so the menu can open without hiding the document) and a
@@ -54,6 +55,7 @@ import {
   control,
   fetchFrame,
   getArchive,
+  setActiveVersion,
   getPublishedPhoto,
   getStatus,
   isConfigured as assignmentConfigured,
@@ -625,6 +627,28 @@ app.get("/assignment/status", (c) => c.json(getStatus()));
 
 /** The reader's scan history, as the glasses' version picker sees it. */
 app.get("/assignment/archive", (c) => c.json({ versions: getArchive() }));
+
+/**
+ * Point the solve button at one scan, or back at the live one.
+ *
+ * `{"version": null}` follows the camera — the default, and where a reset puts
+ * it back. `{"version": 7}` pins it to that filed-away scan, so the button
+ * solves a sheet you photographed earlier without pointing the camera at it
+ * again. Ungated like the rest of /assignment/*: it decides which of your own
+ * scans gets solved, not who may solve one.
+ */
+app.post("/assignment/active", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const raw = body.version;
+  if (raw !== null && typeof raw !== "number") {
+    return c.json(
+      { ok: false, reason: "version must be a number, or null to follow live" },
+      400,
+    );
+  }
+  const result = setActiveVersion(raw);
+  return c.json(result, result.ok ? 200 : 404);
+});
 
 app.get("/assignment/events", (c) =>
   documentStream(selectedAssignment(c).source, {
