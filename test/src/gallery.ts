@@ -180,13 +180,24 @@ export interface PublishResult {
 /**
  * Send a photo to the document server, which forwards it to the reader.
  *
- * THIS REPLACES THE ASSIGNMENT. The reader archives the current attempt and
- * reads the photo as a fresh one, because a photo is a different sheet — see
- * publishPhoto in server/assignment.ts. Every caller should have said so before
- * getting here; the glasses page makes you tap twice for exactly this reason.
+ * BY DEFAULT THIS ADDS TO THE ASSIGNMENT. A sheet no camera can frame in one
+ * shot is read as several photos of it — top, then bottom, then the corner in
+ * shadow — and each one is merged into the same transcription, exactly as a
+ * camera frame is. See publishPhoto in server/assignment.ts.
+ *
+ * `reset` is the other thing: a DIFFERENT sheet. It archives the current
+ * attempt and starts over, which is destructive, so every caller says so first
+ * — the glasses page makes you tap twice for exactly this reason.
  */
-export async function publishPhoto(photo: Blob, name?: string): Promise<PublishResult> {
-    const query = name ? `?name=${encodeURIComponent(name)}` : "";
+export async function publishPhoto(
+    photo: Blob,
+    name?: string,
+    opts: { reset?: boolean } = {},
+): Promise<PublishResult> {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    if (opts.reset) params.set("reset", "1");
+    const query = params.toString() ? `?${params}` : "";
     try {
         const res = await fetch(`${MARKDOWN_SERVER_URL}/assignment/photo${query}`, {
             method: "POST",
@@ -216,10 +227,13 @@ const PUBLISH_TIMEOUT_MS = 150_000;
  * the latest again would then publish a photo you were never shown, which is
  * the one mistake a confirmation step exists to make impossible.
  */
-export async function publishLatestFromGallery(known?: PhotoMeta): Promise<PublishResult> {
+export async function publishLatestFromGallery(
+    known?: PhotoMeta,
+    opts: { reset?: boolean } = {},
+): Promise<PublishResult> {
     try {
         const meta = known ?? (await latestPhoto());
-        return await publishPhoto(await photoBlob(meta.id), meta.name);
+        return await publishPhoto(await photoBlob(meta.id), meta.name, opts);
     } catch (err) {
         return { ok: false, detail: err instanceof Error ? err.message : String(err) };
     }

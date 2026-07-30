@@ -173,24 +173,28 @@ Both the Assignment and Camera pages add a bordered box in the bottom-right
 corner. It is always on screen (border width is part of the page definition, so
 a box that came and went would force a full page rebuild and a re-push of all
 four tiles). On the Camera page it carries the model's advice while a job runs —
-`Move camera DOWN`, `Cut off: bottom` — and otherwise what a tap will do
-(`Tap to start reading`). On the Assignment page it says what you are *reading*
-instead: `Done - 4 problems`, `3/5 read, partial`, or which archived scan is
-pinned. Repeating the advice there would invite you to act on it from the one
-screen that can't show you the result.
+`Move camera DOWN` over `Show the bottom of the page` — and otherwise what a tap
+will do (`Tap to start reading`). The sheet is read a piece at a time (see
+[the reader](../../lookcam/assignment)), so the box answers "where do I point
+next", not "is the whole page in shot": the second line is the part of the sheet
+still wanted, and it takes both lines when there is no direction to give. On the
+Assignment page it says what you are *reading* instead: `Done - 4 problems`,
+`3/5 read, need bottom`, or which archived scan is pinned. Repeating the advice
+there would invite you to act on it from the one screen that can't show you the
+result.
 
 ### The Setup page
 
-One action, one sentence, and no document. It publishes the phone's newest photo
-as the assignment — so the fast way to scan a sheet is no longer to aim a fixed
-camera at it, but to shoot it and look up:
+One action, one sentence, and no document. It reads the phone's newest photo
+into the assignment — so the fast way to scan a sheet is no longer to aim a
+fixed camera at it, but to shoot it and look up:
 
 ```
         ┌───────────────────────────────────────┐
         │ SETTINGS - publish a photo            │
         │                                       │
         │ Publish IMG_20260728_1200.jpg?        │
-        │ This REPLACES the current assignment. │
+        │ It is READ INTO the current assignment│
         │                                       │
         │ Tap again to confirm (7s)             │
         │ Double tap to go back                 │
@@ -200,13 +204,17 @@ camera at it, but to shoot it and look up:
 The photo comes from the [gallery bridge](../../lookcam/phone/gallery) on the phone — the same
 setting the companion app configures, because they are one web app on one phone.
 
-**A tap does not publish.** Publishing archives the current assignment and reads
-the photo as a new one (a photo is a different sheet; merging it into a
-half-built transcription would interleave two papers), so the first tap *arms*
-and names the photo it is about to use, and the second commits. The arming
-expires after ten seconds — a confirmation that never lapses just turns the next
-stray tap, minutes later, into the destructive one. Swipes do nothing here for
-the same reason.
+The photo is **merged into** the assignment, not published over it: a sheet too
+big to photograph legibly in one shot takes several, so shoot the top, publish,
+shoot the bottom, publish. (Starting a *new* assignment from a photo lives in
+the companion app, where there is a screen to warn on.)
+
+**A tap still does not publish.** The first tap *arms* and names the photo it is
+about to use; the second commits. Merging costs nothing but a model call and a
+slow round trip, which is exactly what a temple brushing something should not be
+able to start. The arming expires after ten seconds — a confirmation that never
+lapses just turns the next stray tap, minutes later, into the real one. Swipes
+do nothing here for the same reason.
 
 ## The companion app
 
@@ -216,7 +224,7 @@ screen is the phone. Same bundle, same backend, three tabs:
 
 | Tab | What |
 |---|---|
-| **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Publishing replaces the assignment, behind a confirmation |
+| **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Each photo is **read into** the assignment, so a sheet takes as many as it takes; a checkbox turns that into "different sheet, start over", behind a confirmation |
 | **Assignment** | the transcription as text you can scroll, select and **copy** — the same markdown the glasses render into tiles |
 | **Solution** | **your own answer**: write it, save it, read it back. One document — saving replaces it |
 

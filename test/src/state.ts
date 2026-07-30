@@ -45,15 +45,25 @@ export type AssignmentStatus = {
     problems: number;
     /** Of those, how many the model says it has in full. */
     problems_complete: number;
-    /** Whether any frame this attempt has shown the whole sheet — the gate the
-     *  reader puts on `done`, and the honest answer to "is this all of it". */
+    /** Whether any frame this attempt has shown the whole sheet. Rare and not
+     *  required: the camera reads a sheet a piece at a time. */
     full_page_seen: boolean;
+    /** Edges of the PAPER no frame has shown yet — the gate the reader puts on
+     *  `done`, and the honest answer to "is this all of it". Empty means the
+     *  scan has covered the sheet, however many frames that took. */
+    edges_unseen: string[];
+    /** Where the reader last asked the camera to point. */
+    next_target: string;
     feedback: {
         camera_advice: string;
         advice_detail: string;
         cut_off_edges: string[];
         frame_quality: string;
         confidence: number;
+        /** The part of the sheet still wanted, in the model's words. */
+        next_target: string;
+        region: string;
+        more_content_beyond: string[];
     } | null;
     error: string | null;
     /** The reader's current attempt number; bumps on every reset. */

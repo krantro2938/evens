@@ -646,6 +646,7 @@ const CONTROL_ACTIONS: ControlAction[] = [
   "reset",
   "restart",
   "extend",
+  "complete",
   "none",
   "toggle",
 ];
@@ -791,9 +792,10 @@ app.post("/assignment/photo", async (c) => {
   }
 
   const result = await publishPhoto(photo, mime, {
-    // Default true, and the glasses never send anything else: a photo is a new
-    // sheet. `?reset=0` is for the companion app's "add to the current one".
-    reset: c.req.query("reset") !== "0",
+    // Default FALSE: photos accumulate into the assignment the way camera
+    // frames do, because several photos of one sheet is how a sheet too big to
+    // frame gets read. `?reset=1` is "this is a different sheet, start over".
+    reset: c.req.query("reset") === "1",
     name: c.req.query("name") ?? c.req.header("x-photo-name") ?? null,
     note: c.req.query("note") ?? undefined,
   });

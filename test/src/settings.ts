@@ -9,13 +9,16 @@
 // is configured with its URL once, and this page uses the same setting, because
 // they are the same web app on the same phone.
 //
-// IT IS DESTRUCTIVE, AND THAT SHAPES THE WHOLE PAGE. Publishing archives the
-// current assignment and starts a new one from the photo — a photo is a
-// different sheet, and merging it into a half-built transcription would
-// interleave two papers. So a tap does not publish. The first tap ARMS, naming
-// the photo it is about to use and how old it is; the second commits. That is
-// the difference between "publish what I just shot" and "throw away a scan I
-// spent two minutes on because my temple brushed something".
+// IT ADDS TO THE ASSIGNMENT RATHER THAN REPLACING IT. A sheet too big to fit
+// one readable frame is read as several photos of it, and each one is merged
+// into the same transcription exactly as a camera frame is — so shoot the top,
+// publish, shoot the bottom, publish. (Starting a NEW assignment from a photo
+// is the companion app's Photo tab, where there is a screen to warn on.)
+//
+// A tap still does not publish. The first tap ARMS, naming the photo it is
+// about to use and how old it is; the second commits. Merging is not
+// destructive, but it does spend a model call on a slow round trip, and a
+// temple that brushes something should not be able to start one.
 
 import { TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 import { GESTURE_EVENTS, SETTINGS_ID } from "./constants";
@@ -76,13 +79,13 @@ function body(): string {
             lines.push(`Latest photo: ${photo?.name ?? "?"}`);
             lines.push(photo ? `Taken ${ago(photo.taken_at)}` : "");
             lines.push("");
-            lines.push("Tap to publish it as the assignment");
+            lines.push("Tap to add it to the assignment");
             break;
 
         case "armed": {
             const left = Math.max(0, Math.ceil((ARM_TIMEOUT_MS - (Date.now() - armedAt)) / 1000));
             lines.push(`Publish ${photo?.name ?? "this photo"}?`);
-            lines.push("This REPLACES the current assignment.");
+            lines.push("It is READ INTO the current assignment.");
             lines.push("");
             lines.push(`Tap again to confirm (${left}s)`);
             break;

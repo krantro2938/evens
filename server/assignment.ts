@@ -23,6 +23,9 @@ import { hashContent, type DocSource, type Snapshot } from "./doc";
 const BASE_URL = (process.env.ASSIGNMENT_URL ?? "").replace(/\/+$/, "");
 const TOKEN = process.env.ASSIGNMENT_TOKEN ?? "";
 
+/** The reader's unit of coverage — see `edges_unseen` on Status. */
+const SHEET_EDGES = ["top", "bottom", "left", "right"] as const;
+
 // A capture lands every few seconds and each one can rewrite the document. A
 // full re-render is ~1-2s of Chromium plus a 4-tile BLE push, so coalesce
 // bursts instead of chasing every event.
@@ -49,6 +52,17 @@ export interface Feedback {
     cut_off_edges: string[];
     frame_quality: string;
     confidence: number;
+    /**
+     * Where to point next, in the model's own words — the sheet is read a piece
+     * at a time and this names the piece it still needs ("show the bottom of
+     * the page, below problem 7"). `camera_advice` is the direction; this is
+     * the destination, and it is the thing worth reading on the glasses.
+     */
+    next_target: string;
+    /** Where the last frame sat on the sheet ("top third"). */
+    region: string;
+    /** Directions in which writing ran off the last frame. */
+    more_content_beyond: string[];
 }
 
 /** One scan attempt, live or filed away — see the reader's /archive. */
@@ -76,9 +90,21 @@ export interface Status {
     problems: number;
     /** Of those, how many the model says it has in full. */
     problems_complete: number;
-    /** Whether any frame this attempt has shown the whole sheet — the gate the
-     *  reader puts on `done`, and the honest answer to "is this all of it". */
+    /** Whether any frame this attempt has shown the whole sheet. Rare and not
+     *  required: the camera reads a sheet in pieces. See `edges_unseen`. */
     full_page_seen: boolean;
+    /**
+     * Edges of the PAPER no frame has shown yet, out of top/bottom/left/right.
+     *
+     * The reader's gate on `done`, and the honest answer to "is this all of
+     * it". Empty means the scan has been from edge to edge of the sheet — over
+     * however many partial frames it took, which is the only way it ever
+     * happens on a camera close enough to read handwriting.
+     */
+    edges_unseen: string[];
+    /** Where the reader last asked the operator to point. Mirrors
+     *  `feedback.next_target`, kept when the feedback is cleared. */
+    next_target: string;
     feedback: Feedback | null;
     /** Last capture failure, or the upstream connection error. */
     error: string | null;
@@ -104,12 +130,27 @@ const status: Status = {
     problems: 0,
     problems_complete: 0,
     full_page_seen: false,
+    edges_unseen: [...SHEET_EDGES],
+    next_target: "",
     feedback: null,
     error: null,
     version: 0,
     versions: [],
     last_capture_at: null,
 };
+
+/** What the reader reports coverage in. Nothing has been seen until it says so,
+ *  so a fresh status starts with all four outstanding. */
+function unseenFrom(d: Record<string, any>): string[] {
+    if (Array.isArray(d.edges_unseen)) return d.edges_unseen.map(String);
+    if (Array.isArray(d.edges_seen)) {
+        const seen = d.edges_seen.map(String);
+        return SHEET_EDGES.filter((e) => !seen.includes(e));
+    }
+    // A reader too old to report coverage: fall back to the gate it did have,
+    // so the glasses say "partial" rather than inventing four unseen edges.
+    return d.full_page_seen ? [] : [...SHEET_EDGES];
+}
 
 export function getStatus(): Status {
     return { ...status };
@@ -325,6 +366,8 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.version = Number(d.version ?? status.version);
             status.problems_complete = Number(d.problems_complete ?? 0);
             status.full_page_seen = Boolean(d.full_page_seen);
+            status.edges_unseen = unseenFrom(d);
+            status.next_target = String(d.next_target ?? "");
             scheduleDocumentRefresh();
             break;
 
@@ -349,7 +392,15 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
                 cut_off_edges: Array.isArray(d.cut_off_edges) ? d.cut_off_edges : [],
                 frame_quality: String(d.frame_quality ?? ""),
                 confidence: Number(d.confidence ?? 0),
+                next_target: String(d.next_target ?? ""),
+                region: String(d.region ?? ""),
+                more_content_beyond: Array.isArray(d.more_content_beyond)
+                    ? d.more_content_beyond.map(String)
+                    : [],
             };
+            if (status.feedback.next_target) {
+                status.next_target = status.feedback.next_target;
+            }
             status.error = null;
             break;
 
@@ -360,6 +411,11 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
                 d.problems_complete ?? status.problems_complete,
             );
             status.full_page_seen = Boolean(d.full_page_seen ?? status.full_page_seen);
+            // Only when the event carries coverage: this event also fires for a
+            // typed assignment and for POST /complete, and defaulting a missing
+            // field would walk the count backwards on either.
+            if (d.edges_seen || d.edges_unseen) status.edges_unseen = unseenFrom(d);
+            if (typeof d.next_target === "string") status.next_target = d.next_target;
             scheduleDocumentRefresh();
             break;
 
@@ -369,6 +425,10 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.problems_complete = Number(
                 d.problems_complete ?? status.problems,
             );
+            // Finished means covered, whether the reader worked that out or the
+            // operator said so — and there is nowhere left to point.
+            status.edges_unseen = [];
+            status.next_target = "";
             scheduleDocumentRefresh();
             break;
 
@@ -392,6 +452,8 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.last_capture_at = null;
             status.problems_complete = 0;
             status.full_page_seen = false;
+            status.edges_unseen = [...SHEET_EDGES];
+            status.next_target = "";
             status.version = Number(d.version ?? status.version + 1);
             // The attempt that just ended is now a file; the picker gains an entry.
             void refreshArchive();
@@ -528,12 +590,16 @@ export interface PublishResult {
 }
 
 /**
- * Send a photo upstream to be read as the whole assignment.
+ * Send a photo upstream to be read into the assignment.
  *
- * `reset` defaults to true and is the reason this is a different verb from a
- * capture: a photo is a different sheet, and merging it into the transcription
- * the camera has been building would interleave two assignments. The previous
- * attempt is archived rather than lost — the reader does that.
+ * `reset` defaults to FALSE, which is the opposite of what it used to be. A
+ * photo used to archive the current attempt on the reasoning that a photo is a
+ * different sheet — but the ordinary way to read a sheet the camera cannot
+ * frame in one shot is several photos OF THE SAME SHEET, and under that default
+ * each one threw away the last. So a photo now accumulates exactly as a camera
+ * frame does, and `reset: true` is how a caller says "this is a different
+ * sheet". The attempt it replaces is archived rather than lost — the reader
+ * does that.
  */
 export async function publishPhoto(
     photo: Buffer,
@@ -543,7 +609,9 @@ export async function publishPhoto(
     if (!isConfigured()) return { ok: false, detail: "no reader configured" };
 
     const query = new URLSearchParams();
-    if (opts.reset === false) query.set("reset", "0");
+    // Sent explicitly in both directions: a reader on the old default would
+    // otherwise reset every merge, which is the failure this changed to fix.
+    query.set("reset", opts.reset ? "1" : "0");
     if (opts.note) query.set("note", opts.note);
     const suffix = query.toString() ? `?${query}` : "";
 
@@ -659,6 +727,7 @@ const EXTEND_BY = 20;
  *   reset    archive the attempt and clear, without spending a capture
  *   restart  reset, then start — a rescan from scratch
  *   extend   raise the capture ceiling and carry on (the `max_captures` exit)
+ *   complete "that's all of it" — mark what has been read as final, no capture
  *   none     deliberately nothing; what a tap resolves to when the only thing
  *            left to do would destroy the transcription (see defaultAction)
  *   toggle   whichever of the above fits the current state (the tap gesture)
@@ -669,6 +738,7 @@ export type ControlAction =
     | "reset"
     | "restart"
     | "extend"
+    | "complete"
     | "none"
     | "toggle";
 
@@ -681,6 +751,7 @@ export interface ControlResult {
         | "reset"
         | "restarted"
         | "extended"
+        | "completed"
         | "nothing"
         | "failed";
     detail?: string;
@@ -765,6 +836,21 @@ export async function control(action: ControlAction): Promise<ControlResult> {
                     max_captures: status.captures + EXTEND_BY,
                 });
                 return afterStart(err, "extended");
+            }
+
+            // The operator overruling the coverage gate. Worth having on the
+            // glasses because they are where you find out it is stuck: the
+            // transcription reads complete, the footer still says an edge is
+            // unseen, and the person wearing them can see the paper ends there.
+            case "complete": {
+                const err = await call("/complete");
+                if (err) return fail(err);
+                status.running = false;
+                status.done = true;
+                status.edges_unseen = [];
+                status.next_target = "";
+                notifyStatus();
+                return { ok: true, action: "completed" };
             }
 
             case "start":
