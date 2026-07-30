@@ -18,16 +18,20 @@
 //
 // "Start a new assignment" is the other thing, and it is the destructive one:
 // it archives what has been read and begins again from this photo, for when it
-// really is a different sheet. It is a deliberate checkbox rather than the
-// default, the button renames itself when it is ticked, and the confirm step
-// is not skippable — this is the one control in the app that can throw away a
-// scan.
+// really is a different sheet. It is TICKED BY DEFAULT, because the common case
+// is arriving here with a sheet the reader has not seen — so the guards around
+// it carry the weight: the checkbox is a full-width control sitting under the
+// button, it turns red when armed, the button renames itself to say what it
+// will do, and the confirm step is not skippable. Untick it to add a second
+// photo of the sheet already being read. This is the one control in the app
+// that can throw away a scan.
 
 import {
     bridgeUrl,
     checkBridge,
     getBridge,
     latestPhoto,
+    loadBridge,
     photoBlob,
     publishPhoto,
     setBridge,
@@ -35,6 +39,15 @@ import {
 } from "../gallery";
 import { copyText, el, size, status } from "./dom";
 import { ago } from "../utils";
+
+/**
+ * How long after the last keystroke the bridge URL is committed.
+ *
+ * Short enough that no realistic gap between typing and tapping "Use latest"
+ * loses it, long enough that pasting a URL and correcting a character does not
+ * fire a health check per keystroke. `change` commits immediately regardless.
+ */
+const BRIDGE_SAVE_DEBOUNCE_MS = 400;
 
 export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: () => void } {
     const state = status();
@@ -45,6 +58,7 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
     let publishButton: HTMLButtonElement;
     let latestButton: HTMLButtonElement;
     let freshBox: HTMLInputElement;
+    let freshLabel: HTMLElement;
     let bridgeNote: HTMLElement;
     let refreshBridge: () => void = () => {};
 
@@ -55,6 +69,7 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
         publishButton.textContent = startingOver()
             ? "Publish as a NEW assignment"
             : "Add to the assignment";
+        freshLabel.className = startingOver() ? "check on" : "check";
         if (!chosen) {
             preview.hidden = true;
             previewNote.textContent = "Nothing chosen yet.";
@@ -79,7 +94,7 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
             const sure = confirm(
                 "Start a NEW assignment from this photo?\n\n" +
                     "The current assignment is archived and the reader begins again from this photo. " +
-                    "Leave the box unticked to add this photo to what has already been read.",
+                    "Untick “This is a different sheet” to add this photo to what has already been read instead.",
             );
             if (!sure) return;
         }
@@ -161,17 +176,30 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
         publishButton.disabled = true;
         publishButton.addEventListener("click", () => void doPublish());
 
-        freshBox = el("input", { type: "checkbox", id: "photo-fresh" }) as HTMLInputElement;
+        freshBox = el("input", {
+            type: "checkbox",
+            id: "photo-fresh",
+            // Ticked on arrival: most photographs taken here are of a sheet the
+            // reader has not seen. Untick it to add another photo of the sheet
+            // it is already reading.
+            checked: true,
+        }) as HTMLInputElement;
         // Relabels the button as it is ticked, so what the button does is never
-        // a thing you have to remember about a checkbox above it.
+        // a thing you have to remember about a checkbox below it.
         freshBox.addEventListener("change", describeChoice);
-        const freshLabel = el(
+        freshLabel = el(
             "label",
-            { class: "muted", for: "photo-fresh" },
+            { class: "check", for: "photo-fresh" },
             freshBox,
-            el("span", {
-                text: " This is a different sheet — start a new assignment (archives the current one)",
-            }),
+            el(
+                "span",
+                {},
+                el("span", { class: "title", text: "This is a different sheet" }),
+                el("span", {
+                    class: "why",
+                    text: "Starts a new assignment from this photo and archives the current one. Untick to add this photo to what has already been read.",
+                }),
+            ),
         );
 
         root.append(
@@ -197,6 +225,24 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
     // Lives on this tab rather than in a settings tab of its own because this
     // is the only feature that uses it, and a setting explained next to the
     // button it powers is a setting you can actually act on.
+    //
+    // CONFIGURED ONCE IS THE POINT, AND IT USED NOT TO BE. Two things were in
+    // the way, and only the second one was the real problem:
+    //
+    //   the Save button   the URL was committed by a tap on Save, in a section
+    //                     collapsed inside a <details> next to a button that
+    //                     works the moment a URL is in the field. Paste, tap
+    //                     "Use latest", walk away, and nothing was stored. It
+    //                     now saves as you type, and on blur.
+    //   localStorage      which the WebView does not keep across launches, so
+    //                     even a saved URL was gone on reopen. The setting now
+    //                     lives on the document server (see loadBridge in
+    //                     ../gallery.ts); storage is only a cache of it.
+    //
+    // The token survives Termux restarts too (the script keeps it in
+    // ~/.evens-gallery-token), so one paste really is meant to be the last one.
+    // Editing the field replaces it and emptying it forgets it, which is the
+    // whole of "still able to change it".
     function bridgeSection(): HTMLElement {
         const input = el("input", {
             type: "url",
@@ -211,13 +257,32 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
 
         bridgeNote = el("p", { class: "muted" });
 
-        const save = el("button", { class: "btn", type: "button", text: "Save" }) as HTMLButtonElement;
-        save.addEventListener("click", () => {
-            if (!setBridge(input.value)) {
-                bridgeNote.textContent = "That is not a URL. Paste the line the script printed.";
+        /** Commit what is in the field, and say what that did. */
+        function store(): void {
+            const raw = input.value.trim();
+            if (!setBridge(raw)) {
+                // Mid-paste on a phone keyboard is not a mistake worth a red
+                // line, so this says what is missing without claiming failure —
+                // and leaves whatever was stored before alone until this parses.
+                bridgeNote.textContent =
+                    "Not a URL yet — paste the whole line, including http:// and ?t=…";
                 return;
             }
             refreshBridge();
+        }
+
+        // Typing is the save. Debounced only so that a paste followed by more
+        // typing does not fire a health check per keystroke.
+        let pending: ReturnType<typeof setTimeout> | undefined;
+        input.addEventListener("input", () => {
+            clearTimeout(pending);
+            pending = setTimeout(store, BRIDGE_SAVE_DEBOUNCE_MS);
+        });
+        // Leaving the field, or the keyboard's Go key, commits immediately —
+        // the debounce must never be the reason a setting was lost.
+        input.addEventListener("change", () => {
+            clearTimeout(pending);
+            store();
         });
 
         const command = "bash ~/lookcam/phone/gallery/run.sh";
@@ -226,6 +291,19 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
             void copyText(command).then((done) => {
                 bridgeNote.textContent = done ? "Copied — run it in Termux." : "Copy failed.";
             });
+        });
+
+        // What used to be Save. The URL needs no button now, but "is it up?"
+        // does: Termux is usually started AFTER the app is already open, and
+        // until this the only way to re-test was to leave the tab and come back.
+        const check = el("button", {
+            class: "btn",
+            type: "button",
+            text: "Check",
+        }) as HTMLButtonElement;
+        check.addEventListener("click", () => {
+            clearTimeout(pending);
+            store();
         });
 
         refreshBridge = () => {
@@ -242,16 +320,25 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
             });
         };
 
+        // The server's copy, which is the one that survives a launch. Lands
+        // after the first paint, so the field is drawn from the local cache and
+        // then corrected — but never under your fingers: a value arriving while
+        // you are mid-paste would replace what you are typing.
+        void loadBridge().then((changed) => {
+            if (changed && document.activeElement !== input) input.value = bridgeUrl();
+            refreshBridge();
+        });
+
         return el(
             "details",
             { class: "card" },
             el("summary", { text: "Phone gallery bridge" }),
             el("p", {
                 class: "muted",
-                text: "A web page cannot read your camera roll, so a small script in Termux serves the newest photos on localhost. It lives with the other phone tooling in the lookcam repo. Run it, then paste the URL it prints.",
+                text: "A web page cannot read your camera roll, so a small script in Termux serves the newest photos on localhost. It lives with the other phone tooling in the lookcam repo. Run it, then paste the URL it prints — once. It saves as you type and is kept on the document server rather than on this phone, so reopening the app finds it already here and the glasses' Setup page gets it too; edit it to change it, clear it to forget it.",
             }),
             el("div", { class: "row" }, el("code", { class: "code", text: command }), copy),
-            el("div", { class: "row" }, input, save),
+            el("div", { class: "row" }, input, check),
             bridgeNote,
         );
     }

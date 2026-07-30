@@ -46,6 +46,59 @@ export type MenuItem = (typeof MENU_ITEMS)[number];
 export const DASHBOARD_ROWS = [4, 3] as const;
 /** Space between tiles, and between the tiles and the panel edge. */
 export const DASHBOARD_GAP = 6;
+/**
+ * The tile frame. Named because the label's centring subtracts it: the width a
+ * label has to sit in is the tile minus this and the padding on both sides, and
+ * a border that changed here while the arithmetic kept the old number would put
+ * every label slightly off centre. See createDashboardTiles in src/main.ts.
+ */
+export const DASHBOARD_BORDER = 2;
+/**
+ * A pixel tighter than CONTAINER_PAD everywhere else, and that pixel is the
+ * point: the text origin is border + padding, so this is the only sub-space
+ * knob the centring has. Spaces move a label in 5px steps (see PANEL_SPACE_W),
+ * which leaves labels sitting up to 3px right of centre with no smaller step
+ * available; one less pixel of padding takes the whole set 1px back left.
+ *
+ * It shifts the label DOWN-to-UP too — padding is uniform on four sides — which
+ * a tile 141px tall holding one line can afford.
+ *
+ * centreLabel() in src/main.ts must measure against this same number. Centring
+ * against a 10px window while the host lays out with 9 would put the label back
+ * where it started, since the extra pixel would land as one more space.
+ */
+export const DASHBOARD_PAD = CONTAINER_PAD - 1;
+
+/**
+ * The panel font, measured rather than estimated.
+ *
+ * textWidth() in messages.ts is a deliberate OVERestimate — it sizes message
+ * bubbles, where guessing small costs a line the box has no room for and the
+ * host attaches a scroller. Centring wants the opposite: the real number, since
+ * the error lands on screen as an off-centre label rather than as slack.
+ *
+ * Both figures come off a simulator screenshot, which maps the panel 1:1 (576
+ * ×288), by finding the lit pixels inside each dashboard tile: seven spaces
+ * before "AI" measured 35px, three before "Assign" 15px, five before "Adri"
+ * 25px — a space is 5px, not the 7 the estimator assumes. Against the same
+ * labels the estimator overshoots the drawn ink by 0.71–0.83; 0.78 is the
+ * middle of that, and half a space (2.5px) is the accuracy on offer anyway.
+ *
+ * Only the dashboard uses these, and only for centring. Anything SIZING a box
+ * should keep using textWidth() and its slack.
+ */
+export const PANEL_SPACE_W = 5;
+export const PANEL_INK_RATIO = 0.78;
+
+/**
+ * How long the dashboard sits there before it blanks itself.
+ *
+ * The dashboard is the page you are on whenever you are not doing anything, so
+ * it is the page that spends the most time lit in front of your eye for no
+ * reason. After this it draws nothing and waits for a double tap. See
+ * src/dashboard.ts — nothing is torn down, only the tiles stop being drawn.
+ */
+export const DASHBOARD_SLEEP_MS = 7_000;
 
 export interface TileRect {
     x: number;

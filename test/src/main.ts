@@ -13,6 +13,8 @@ import {
     BODY_RADIUS,
     BODY_W,
     CONTAINER_PAD,
+    DASHBOARD_BORDER,
+    DASHBOARD_PAD,
     dashboardRects,
     DEFAULT_COLOR,
     DOC_EVENT_LAYER_ID,
@@ -29,6 +31,8 @@ import {
     IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
+    PANEL_INK_RATIO,
+    PANEL_SPACE_W,
     SETTINGS_ID,
     SOLVE_RECT,
     TILE_H,
@@ -42,12 +46,18 @@ import {
     zOrder,
 } from "./constants";
 import { GlobalState } from "./state";
-import { handleDashboardEvent } from "./dashboard";
+import {
+    armDashboardSleep,
+    dashboardAsleep,
+    handleDashboardEvent,
+    leaveDashboardPage,
+} from "./dashboard";
 import {
     buildMessagesPage,
     handleMessagesPageEvent,
     leaveMessagesPage,
     startMessageStream,
+    textWidth,
 } from "./messages";
 import { stringToShortId } from "./utils";
 import { enterAiPage, handleAiPageEvent, leaveAiPage } from "./ai";
@@ -73,6 +83,7 @@ import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
 import { appLog } from "./debug";
 import { mountCompanion } from "./companion";
+import { loadBridge } from "./gallery";
 
 // The companion app goes up FIRST, before the bridge is waited on.
 //
@@ -109,6 +120,50 @@ const main = new TextContainerProperty({
     ...zOrder(Z_BACKDROP),
 });
 
+/**
+ * A tile label, nudged to the middle of its tile with spaces.
+ *
+ * A text container has no alignment — the SDK's TextContainerProperty is
+ * position, size, border, padding and content, and the content lands top-left
+ * inside the padding. The other pages get around that by shrinking a box to hug
+ * its text and centring the box (see bannerContainers in messages.ts); the
+ * dashboard cannot, because these borders ARE the grid.
+ *
+ * So it counts spaces. TWO different widths do that job, and they are not
+ * interchangeable:
+ *
+ *   where to put it   PANEL_INK_RATIO × textWidth, and PANEL_SPACE_W — the
+ *                     font as measured off the panel. The first version of this
+ *                     used textWidth() alone and every label sat ~15px left,
+ *                     because a space draws 5px wide and the estimator says 7.
+ *   what still fits   textWidth() raw, which overestimates. The cap has to be
+ *                     conservative in the direction that costs pixels.
+ *
+ * THE CAP IS NOT DEFENSIVE, it is load-bearing. A label padded past the inner
+ * width wraps, and a tile holding more than it can show gets a SCROLLER
+ * attached by the host (see constants.ts) — which would then eat the swipes
+ * that move the focus, on the page whose only gestures are swipes. So the
+ * measured half-slack is capped by the estimated whole slack, and a label
+ * already wider than its tile (the Msgs count is the one that grows) is
+ * returned untouched: no centring, rather than a broken dashboard.
+ *
+ * Only horizontal. Vertical moves in whole lines — a label sits 6px under the
+ * inner top today, and one newline is worth ~27px against the ~50px it needs —
+ * so it lands visibly high or visibly low but never in the middle.
+ */
+function centreLabel(label: string, tileWidth: number): string {
+    const inner = tileWidth - 2 * (DASHBOARD_BORDER + DASHBOARD_PAD);
+    const estimated = textWidth(label);
+    if (inner <= estimated) return label;
+
+    const drawn = estimated * PANEL_INK_RATIO;
+    const spaces = Math.min(
+        Math.round((inner - drawn) / (2 * PANEL_SPACE_W)),
+        Math.floor((inner - estimated) / PANEL_SPACE_W),
+    );
+    return " ".repeat(spaces) + label;
+}
+
 function createDashboardTiles() {
     const rects = dashboardRects();
     return MENU_ITEMS.map((item, index) => {
@@ -120,10 +175,10 @@ function createDashboardTiles() {
             yPosition: rect.y,
             width: rect.w,
             height: rect.h,
-            borderWidth: 2,
+            borderWidth: DASHBOARD_BORDER,
             borderColor: isItemFocused ? FOCUSED_COLOR : DEFAULT_COLOR,
             borderRadius: BODY_RADIUS,
-            paddingLength: CONTAINER_PAD,
+            paddingLength: DASHBOARD_PAD,
             containerID: stringToShortId(item),
             containerName: item,
             // The Msgs tile carries the unread count. This is the app's only
@@ -131,10 +186,16 @@ function createDashboardTiles() {
             // one on (see messages.ts), and a tile you already walk past on the
             // way to everything else is a better home for it than a permanent
             // hole in every rendered document.
-            content:
+            //
+            // Centred after the count is folded in, not before: "Msgs" and
+            // "Msgs 12" are different widths, and a tile whose label jumps left
+            // when a message lands would be a worse indicator than no centring.
+            content: centreLabel(
                 item === "Msgs" && GlobalState.unreadMessages > 0
                     ? `${item} ${GlobalState.unreadMessages}`
                     : item,
+                rect.w,
+            ),
             isEventCapture: 0,
             ...zOrder(Z_TILE_BASE + index),
         });
@@ -170,6 +231,18 @@ if (result !== 0) {
 // in the app that outlives navigation — everything else in docPage.ts is
 // deliberately torn down when you walk away from it.
 startMessageStream();
+
+// The gallery bridge, from the server rather than from this device's storage —
+// the WebView does not keep localStorage across launches, so on the glasses it
+// was never configured twice running. Nothing waits for it: the Settings page
+// is several gestures away, and its "publish the newest photo" button reads the
+// value when you press it.
+void loadBridge();
+
+// The start-up page above is the one dashboard this app draws without going
+// through buildPage(), so its countdown has to be started by hand — otherwise
+// the app boots to a dashboard that never sleeps until you touch it.
+armDashboardSleep();
 
 // Which build is on the glasses, in the log the glasses can actually send. The
 // z-order mode is the first thing to know when tiles stop arriving.
@@ -231,6 +304,15 @@ bridge.onEvenHubEvent((event) => {
                 break;
             }
 
+            // A dark dashboard is asleep, not on its way out: the gesture that
+            // quits the app is the one that turns the screen back on, so waking
+            // wins while it sleeps. Quitting from dark is two double taps —
+            // which is the right price for the irreversible one of the pair.
+            if (dashboardAsleep()) {
+                handleGestureEvent(GESTURE_EVENTS.DOUBLE_TAP);
+                break;
+            }
+
             appLog("Exit gesture");
             leaveCurrentPage();
             bridge.shutDownPageContainer(1);
@@ -286,6 +368,12 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
 // tearing those down leaks a live stream per visit.
 function leaveCurrentPage() {
     switch (GlobalState.currentPage) {
+        // Not a stream or a timer that costs anything — but a sleep timer that
+        // survives the walk to another page blanks that page's dashboard the
+        // moment you come back to it.
+        case PAGES.DASHBOARD:
+            leaveDashboardPage();
+            break;
         case PAGES.AI:
             leaveAiPage();
             break;
@@ -438,11 +526,19 @@ export async function buildPage(page: PAGES) {
     appLog("Render page", PAGES[page]);
     switch (page) {
         case PAGES.DASHBOARD:
+            // Asleep, this is the backdrop and nothing else: no tiles drawn, so
+            // nothing lit, and `main` still captures the double tap that brings
+            // them back. Checked here rather than in a render path of its own so
+            // that every caller — a swipe, an arriving message's unread count —
+            // repaints a dark dashboard dark instead of waking it. See
+            // src/dashboard.ts.
+            //
             // createDashboardTiles() rebuilds from focus state, so this carries
             // the same z-order the start-up page did — see Z_BACKDROP.
+            const sleeping = dashboardAsleep();
             const dashboard = new RebuildPageContainer({
-                containerTotalNum: dashboardTiles.length + 1,
-                textObject: [main, ...createDashboardTiles()],
+                containerTotalNum: sleeping ? 1 : dashboardTiles.length + 1,
+                textObject: sleeping ? [main] : [main, ...createDashboardTiles()],
             });
             const dashZ = validateEvenHubPageContainerZOrder(dashboard);
             if (!dashZ.valid) {
@@ -453,6 +549,11 @@ export async function buildPage(page: PAGES) {
             }
             const rebuilt = await bridge.rebuildPageContainer(dashboard);
             if (!rebuilt) appLog("Dashboard rebuild failed");
+            // Every repaint of a LIT dashboard restarts the countdown: a swipe
+            // that moves the focus, a message that changes the unread count, the
+            // double tap that woke it. Arming it while asleep would blank an
+            // already blank screen every seven seconds, forever.
+            if (!sleeping) armDashboardSleep();
             break;
 
         case PAGES.AI:

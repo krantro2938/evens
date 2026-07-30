@@ -88,7 +88,7 @@ import {
   subscribeSolver,
 } from "./solver";
 import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
-import { DB_PATH } from "./db";
+import { DB_PATH, getSetting, putSetting } from "./db";
 import {
   getMessageStatus,
   markSeen,
@@ -702,6 +702,54 @@ const adriSource = docSource("adri-solution");
 const adriTiles = createTileCache(adriSource);
 /** The overlay variant, for when the glasses open a menu over the document. */
 const adriMenuTiles = createTileCache(adriSource, { reserved: [HUD_MENU] });
+
+// ── settings ────────────────────────────────────────────────────────────────
+//
+// Small strings a device configures once and must find again on the next
+// launch. Today that is one: where the phone's gallery bridge is.
+//
+// It is here rather than in the client's localStorage because the WebView the
+// glasses app runs in does not keep localStorage across launches — the URL was
+// gone every reopen and had to be pasted again. Storing it server-side also
+// makes good on what the setup docs already claimed: the companion app and the
+// glasses' Settings page are one web app on one phone, so configuring the
+// bridge once configures both.
+//
+// A FIXED KEY LIST, not "any key you PUT", for the reason DOC_SLUGS is one: a
+// key nothing reads is a setting you can write and never see, and an open
+// endpoint turns a typo into a silent second setting.
+//
+// NOT SECRET-GRADE STORAGE. The bridge URL carries the gallery token, and this
+// server has no auth on ordinary routes, so treat it as readable by anything
+// that can reach the server. The token is only useful from that phone's own
+// loopback — it authorises 127.0.0.1:8790, which nothing else can route to —
+// so what leaks is the fact of the bridge, not access to the camera roll.
+const SETTING_KEYS = ["gallery-bridge"] as const;
+const isSettingKey = (key: string): boolean =>
+  (SETTING_KEYS as readonly string[]).includes(key);
+
+app.get("/settings/:key", (c) => {
+  const key = c.req.param("key");
+  if (!isSettingKey(key)) return c.json({ error: "unknown_setting", key }, 404);
+  return c.json({ key, value: getSetting(key) ?? "" });
+});
+
+app.put("/settings/:key", async (c) => {
+  const key = c.req.param("key");
+  if (!isSettingKey(key)) return c.json({ error: "unknown_setting", key }, 404);
+
+  const body = (await c.req.json().catch(() => ({}))) as { value?: unknown };
+  if (typeof body.value !== "string") {
+    return c.json({ ok: false, reason: "value must be a string" }, 400);
+  }
+  // Length-capped because nothing here should ever be long, and an endpoint
+  // that accepts a megabyte of anything is a place to park a megabyte.
+  const value = body.value.trim();
+  if (value.length > 2048) return c.json({ ok: false, reason: "value too long" }, 400);
+
+  putSetting(key, value);
+  return c.json({ ok: true, key, value });
+});
 
 app.get("/doc/:slug", (c) => {
   const slug = c.req.param("slug");

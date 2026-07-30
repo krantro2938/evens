@@ -72,6 +72,8 @@ AI page displays.
 | `GET /adri/markdown` | the `adri-solution` document, as the glasses read it |
 | `GET /adri/tiles[?overlay=menu]` | same tile shape as `/tiles` |
 | `GET /adri/events` | SSE — `event: markdown` when it is edited |
+| `GET /settings/:key` | `{ key, value }` — device settings that must outlive the device. Fixed key list; today only `gallery-bridge` |
+| `PUT /settings/:key` | `{"value"}` — an empty value forgets it. Where the phone's gallery-bridge URL lives, because the WebView does not keep localStorage across launches |
 | `GET /mine/markdown` | the `my-solution` document, as the glasses read it |
 | `GET /mine/tiles[?overlay=menu]` | same tile shape as `/tiles` |
 | `GET /mine/events` | SSE — `event: markdown` when it is edited |

@@ -61,7 +61,7 @@ wildcards) to `app.json` as well.
 
 | Page | Shows | Gestures |
 |---|---|---|
-| Dashboard | seven tiles, four then three | swipe to move focus, tap to open |
+| Dashboard | seven tiles, four then three — **blanks itself after 7s of no gestures** | swipe to move focus, tap to open, **double-tap to wake it once dark** (and, once lit, to exit the app) |
 | **AI** | the solution to the assignment on the paper, live — or a **trigger button** when there isn't one yet | swipe to page, **tap to page or to solve**, **double-tap for the action menu** |
 | **Assign** | what the [lookcam reader](../../lookcam/assignment) has transcribed off the paper, live | swipe or tap to page, **double-tap for the version menu** |
 | **Camera** | **what the camera sees, refreshed while you aim it** — plus every scan control | **tap to start/stop**, **swipe to rotate the view**, **double-tap for the action menu** |
@@ -74,6 +74,25 @@ paging, SSE-with-poll-fallback, per-tile dedup and text fallback. They differ
 only in which endpoint they read and what a tap does. The Camera page is not one
 of them: it has no document, only a picture it repaints on its own schedule, but
 it pushes tiles through the same `render/tilePush.ts` the document pages use.
+
+### The dashboard sleeps
+
+Seven seconds of no gestures and the dashboard draws **nothing** — the display
+is emissive, so an empty page is a dark one, and the dashboard is the page that
+otherwise sits lit in your eye whenever you are not doing anything. A **double
+tap** brings the tiles back.
+
+Nothing is torn down and nothing is navigated: the focused tile, the unread
+count and the message stream carry straight on, and this is not a page in
+`PAGES`. It is the same dashboard with the tiles left off, which is why
+`buildPage` checks it rather than owning a render path of its own — a swipe or
+an arriving message then repaints a dark dashboard dark instead of quietly
+lighting it up. While dark, **only** the double tap does anything; a tap would
+otherwise open whichever tile happened to be focused on a screen you cannot see.
+
+The cost is the exit gesture: a double tap on a *sleeping* dashboard wakes it
+rather than quitting, so leaving from dark takes two. That is the right way
+round — one of the two is irreversible.
 
 ### The Camera page
 
@@ -224,7 +243,7 @@ screen is the phone. Same bundle, same backend, three tabs:
 
 | Tab | What |
 |---|---|
-| **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Each photo is **read into** the assignment, so a sheet takes as many as it takes; a checkbox turns that into "different sheet, start over", behind a confirmation |
+| **Photo** | give the reader a sheet: pick one from the file picker, or pull the newest from the camera roll via the gallery bridge. Each photo is **read into** the assignment, so a sheet takes as many as it takes. The checkbox under the button — **ticked by default**, since you usually arrive with a new sheet — makes the publish "different sheet, start over", behind a confirmation; untick it to add a second photo of the sheet being read |
 | **Assignment** | the transcription as text you can scroll, select and **copy** — the same markdown the glasses render into tiles |
 | **Solution** | **your own answer**: write it, save it, read it back. One document — saving replaces it |
 

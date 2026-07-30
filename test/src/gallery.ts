@@ -21,6 +21,28 @@ import { MARKDOWN_SERVER_URL } from "./constants";
 /** Where the bridge is, as pasted from the script's own startup output. */
 const STORAGE_KEY = "evens.gallery.bridge";
 
+// WHERE THIS SETTING ACTUALLY LIVES: on the document server, not on the phone.
+//
+// It used to live in localStorage alone, and the WebView the glasses app runs
+// in does not keep localStorage across launches — so the URL you pasted was
+// gone every time the app reopened, and "Use latest from gallery" was off again
+// with nothing to show for the paste.
+//
+// So the server holds it (GET/PUT /settings/gallery-bridge) and localStorage is
+// demoted to a cache: it makes the first paint instant and it is what answers
+// while the phone has no signal, but it is no longer what the setting IS.
+//
+// The read stays SYNCHRONOUS because every caller here is (getBridge runs
+// inside bridgeFetch, and photoSrc has to return a string for an <img>). So the
+// cached value is what those see, and loadBridge() — called once at boot — is
+// what fills it from the server.
+
+/** Last known value, kept in step with localStorage. "" means not configured. */
+let cached: string | null = null;
+
+/** Resolved once loadBridge() has been through the server. */
+let loaded = false;
+
 export interface PhotoMeta {
     id: string;
     name: string;
@@ -56,16 +78,20 @@ export function getBridge(): Bridge | null {
 
 export function setBridge(raw: string): boolean {
     const trimmed = raw.trim();
-    if (!trimmed) {
-        writeStored("");
-        return true;
+    if (trimmed) {
+        try {
+            new URL(trimmed);
+        } catch {
+            return false;
+        }
     }
-    try {
-        new URL(trimmed);
-    } catch {
-        return false;
-    }
+    cached = trimmed;
     writeStored(trimmed);
+    // Fire and forget: the field is already usable, and a save that has to wait
+    // for a VPS round trip is a save that fails on the train. If this never
+    // lands the local copy still works today and loadBridge() will find the old
+    // value tomorrow — which is the failure the old code had permanently.
+    void pushBridge(trimmed);
     return true;
 }
 
@@ -73,14 +99,77 @@ export function bridgeUrl(): string {
     return readStored();
 }
 
+/**
+ * Fetch the setting from the server, once, at startup.
+ *
+ * Resolves to whether the value CHANGED, so a caller that has already drawn the
+ * field from the cache knows whether to redraw it.
+ *
+ * Three cases, and the third is the one that matters on a phone that has just
+ * reinstalled the app:
+ *
+ *   server has it    it wins, and is written to the cache — this is the fix
+ *   neither has it   nothing to do
+ *   only local has   the device is ahead of the server: push it up, so the one
+ *                    paste you did before this existed is not lost, and so a
+ *                    second device inherits it
+ */
+export async function loadBridge(): Promise<boolean> {
+    const before = readStored();
+    try {
+        const res = await fetch(`${MARKDOWN_SERVER_URL}/settings/gallery-bridge`, {
+            signal: AbortSignal.timeout(BRIDGE_TIMEOUT_MS),
+        });
+        if (!res.ok) return false;
+        const body = (await res.json()) as { value?: unknown };
+        const remote = typeof body.value === "string" ? body.value.trim() : "";
+
+        if (!remote) {
+            if (before) void pushBridge(before);
+            return false;
+        }
+        cached = remote;
+        writeStored(remote);
+        return remote !== before;
+    } catch {
+        // Offline, or no server. The cache is the answer, exactly as before.
+        return false;
+    } finally {
+        loaded = true;
+    }
+}
+
+/** Whether the server has been asked yet — the UI says "checking" until it has. */
+export function bridgeLoaded(): boolean {
+    return loaded;
+}
+
+async function pushBridge(value: string): Promise<void> {
+    try {
+        await fetch(`${MARKDOWN_SERVER_URL}/settings/gallery-bridge`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ value }),
+            signal: AbortSignal.timeout(BRIDGE_TIMEOUT_MS),
+        });
+    } catch {
+        /* see setBridge: the local copy is already correct */
+    }
+}
+
 // localStorage is unavailable in some WebViews (and throws rather than
 // returning null), and a settings field is not worth taking the app down for.
+// Hence `cached`: in a WebView that refuses storage this module still works for
+// as long as the app is open, and the server is what carries it to the next
+// launch.
 function readStored(): string {
+    if (cached !== null) return cached;
     try {
-        return localStorage.getItem(STORAGE_KEY) ?? "";
+        cached = localStorage.getItem(STORAGE_KEY) ?? "";
     } catch {
-        return "";
+        cached = "";
     }
+    return cached;
 }
 
 function writeStored(value: string): void {

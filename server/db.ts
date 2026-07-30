@@ -104,6 +104,15 @@ db.exec(`
     seen_at    INTEGER
   );
 
+  -- Settings a device must not be trusted to remember. See the note at
+  -- getSetting: the WebView does not keep localStorage across launches, so the
+  -- one setting there is (the gallery bridge) has to live off the device.
+  CREATE TABLE IF NOT EXISTS settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT    NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS runs_state_idx      ON runs(state);
   CREATE INDEX IF NOT EXISTS solutions_recent_idx ON solutions(created_at DESC);
   CREATE INDEX IF NOT EXISTS messages_recent_idx  ON messages(created_at DESC);
@@ -400,6 +409,47 @@ export function putDoc(slug: string, markdown: string): DocRow {
 
 export function getDoc(slug: string): DocRow | null {
   return db.query<DocRow, [string]>(`SELECT * FROM docs WHERE slug=?1`).get(slug) ?? null;
+}
+
+// ── settings ────────────────────────────────────────────────────────────────
+//
+// Device settings that must outlive the device's own storage.
+//
+// There is exactly one so far — the phone's gallery-bridge URL — and it is here
+// because the place it used to live does not hold. The clients keep it in
+// localStorage, and the WebView the glasses app runs in does not persist that
+// across launches, so the setting was gone every time the app reopened and had
+// to be pasted again.
+//
+// It belongs on this server for a second reason too: the companion app and the
+// glasses' Settings page are one web app on one phone that must agree on which
+// bridge "the latest photo" comes from. Configured once, configured for both —
+// which was already the documented promise (see lookcam/phone/gallery) and is
+// only now actually true.
+
+export interface SettingRow {
+  key: string;
+  value: string;
+  updated_at: number;
+}
+
+export function getSetting(key: string): string | null {
+  return (
+    db.query<SettingRow, [string]>(`SELECT * FROM settings WHERE key=?1`).get(key)?.value ??
+    null
+  );
+}
+
+/** An empty value deletes the row: "forget this" and "never set" are one state. */
+export function putSetting(key: string, value: string): void {
+  if (!value) {
+    db.query<unknown, [string]>(`DELETE FROM settings WHERE key=?1`).run(key);
+    return;
+  }
+  db.query<unknown, [string, string, number]>(
+    `INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+       ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3`,
+  ).run(key, value, Date.now());
 }
 
 // ── messages ────────────────────────────────────────────────────────────────

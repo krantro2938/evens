@@ -143,6 +143,34 @@
       .status.error { color: var(--danger); }
       .status.info { color: var(--muted); }
 
+      /* A checkbox that changes what the button above it does, so it is built
+         as a full-width tap target rather than a 13px box with a sentence
+         beside it: a bold title line you can read at a glance, the reason under
+         it, and a red border once it is ticked so the armed state is visible
+         from arm's length. */
+      .check {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin: 10px 0 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        cursor: pointer;
+      }
+      .check input {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        margin: 1px 0 0;
+        accent-color: var(--danger);
+      }
+      .check .title { font-weight: 600; }
+      .check .why { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
+      .check.on { border-color: var(--danger); }
+      .check.on .title { color: var(--danger); }
+
       /* The file input and the clipboard fallback: present, never seen. */
       .offscreen { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
     </style>
