@@ -2,19 +2,23 @@
 #
 # Drain the solve queue with the local `claude` CLI.
 #
-# WHY THIS EXISTS. The intended solver is a cloud routine (see solve.md), and it
-# cannot work: an Anthropic cloud session's egress goes through a proxy whose
-# allowlist covers anthropic.com and the package registries, nothing else. Its
-# first curl to the document server comes back
+# WHY THIS EXISTS. The intended solver is a cloud routine (see solve.md). When
+# this was written it could not work at all: an Anthropic cloud session's egress
+# goes through a proxy whose allowlist covers anthropic.com and the package
+# registries, nothing else, so its first curl to the document server came back
 #
 #   connect_rejected: gateway answered 403 to CONNECT   even.aansl.com:443
 #   curl: (56) CONNECT tunnel failed, response 403
 #
-# so the routine can neither claim work nor post an answer. Until that host is
-# allowlisted for the environment, something outside the sandbox has to do the
-# claiming — and a machine with `claude` already logged in is the cheapest such
-# thing. Nothing on the server changes: this speaks exactly the API the routine
-# would have.
+# and it could neither claim work nor post an answer. That is fixed — the
+# environment has even.aansl.com allowlisted now, and a fire on 2026-07-30
+# reached /solution/claim and read the queue — so the routine is the primary
+# path again and this is the fallback it was always meant to become.
+#
+# It stays useful, and not only as a spare: the queue and its one-time tokens are
+# transport-agnostic, so this speaks exactly the API the routine does. A machine
+# with `claude` already logged in can drain the queue when the routine is
+# misconfigured, rate-limited, or you would rather not spend a cloud session.
 #
 # The one real limitation: solving only happens while this is running. A tap on
 # the glasses with no runner up leaves the run queued and says so.

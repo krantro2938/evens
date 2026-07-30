@@ -6,6 +6,22 @@ alongside the server it talks to; the live copy lives in the routine itself at
 <https://claude.ai/code/routines>, with `<EVENS_URL>` and `<SOLVER_TOKEN>`
 substituted for real values.
 
+> **Do not paste this file into the routine. Paste
+> [`render-prompt.sh`](render-prompt.sh)'s output**, which is this prompt with
+> those two substitutions already made:
+>
+> ```sh
+> SOLVER_TOKEN=… ./routine/render-prompt.sh | xclip -selection clipboard
+> ```
+>
+> Pasting the file raw is not a hypothetical mistake. It happened on
+> **2026-07-30**, and the failure is a quiet one worth recognising: the routine
+> boots, finds `<SOLVER_TOKEN>` where a credential should be, correctly refuses
+> to guess, notifies, and exits *successfully*. Every fire then costs about fifty
+> cents and claims nothing, the backup solver answers each run at the 150s mark,
+> and the only visible symptom is a byline reading Gemini instead of Claude.
+> Three runs went that way before anyone looked.
+
 > **The routine needs its environment opened up, or it cannot do this job at
 > all.** A cloud environment defaults to *Trusted* network access: the package
 > registries are reachable and every other domain is refused at the egress proxy.
