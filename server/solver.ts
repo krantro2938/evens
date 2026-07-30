@@ -48,6 +48,10 @@ import {
   isConfigured as assignmentConfigured,
 } from "./assignment";
 import { isConfigured as triggerConfigured, runRoutine, triggerDescription } from "./trigger";
+import {
+  description as backupDescription,
+  isConfigured as backupConfigured,
+} from "./backup";
 
 /** A claimed run that never submits would otherwise show "solving" forever. */
 const CLAIMED_TIMEOUT_MS = Number(process.env.SOLVE_TIMEOUT_MS ?? 20 * 60_000);
@@ -101,6 +105,11 @@ export interface SolverStatus {
   } | null;
   /** Whether a tap starts the routine now or only queues it. */
   trigger: { configured: boolean; detail: string };
+  /**
+   * The server's own solver, which takes a run no agent claimed (see backup.ts).
+   * With this configured, `queued` is a stage rather than a dead end.
+   */
+  backup: { configured: boolean; detail: string };
   /** How many solutions are on disk, so the count survives a restart visibly. */
   solutions: number;
   /**
@@ -245,6 +254,7 @@ export async function getSolverStatus(): Promise<SolverStatus> {
         }
       : null,
     trigger: { configured: triggerConfigured(), detail: triggerDescription() },
+    backup: { configured: backupConfigured(), detail: backupDescription() },
     solutions: total,
     // Newest first, so the newest carries the highest ordinal.
     solution_history: history.map((item, i) => ({
@@ -283,15 +293,39 @@ assignmentSource.subscribe(() => {
  * the pager labels as belonging to a previous version — and the button is there
  * to solve the new one when you want it.
  */
+/**
+ * The line at the foot of a solution naming what produced it.
+ *
+ * There are now three things that can answer a tap — the cloud routine, the CLI
+ * runner, and the server's own backup solver — and they are not equally good.
+ * Whether the working you are checking came from an agent that could verify its
+ * own arithmetic or from one model call changes how hard you look at it, so it
+ * has to be on the page.
+ *
+ * On the page, specifically, rather than in the status feed: the glasses app is
+ * packed and installed separately from this server and the two drift for weeks,
+ * so anything that has to be *rendered* to be seen belongs in the markdown,
+ * where it reaches the glasses the moment the server has it.
+ */
+function withByline(solution: SolutionRow): string {
+  const who = solution.model?.trim();
+  if (!who) return solution.markdown;
+  // A rule then one italic line: enough to read as a footer and not as the last
+  // step of the working, at the cost of one row on the final page.
+  return `${solution.markdown.replace(/\s+$/, "")}\n\n---\n\n*Solved by ${who}*\n`;
+}
+
 export function createAiSource(fallback: DocSource, selectedId?: number): DocSource {
   return {
     name: "ai",
     async read(): Promise<Snapshot> {
       const solution = selectedId === undefined ? latestSolution() : solutionById(selectedId);
       if (!solution) return fallback.read();
-      // Hash the markdown rather than using the row id: a re-solve that
-      // produces identical text then costs no render and no BLE push.
-      return { content: solution.markdown, version: hashContent(solution.markdown) };
+      // Hash the rendered text, byline included, rather than the row id: a
+      // re-solve that produces identical text then costs no render and no BLE
+      // push, and a solution attributed to a different model does.
+      const content = withByline(solution);
+      return { content, version: hashContent(content) };
     },
     subscribe(onChange: () => void): () => void {
       docListeners.add(onChange);

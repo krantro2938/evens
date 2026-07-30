@@ -20,6 +20,10 @@ RUN bunx playwright install --with-deps chromium \
 WORKDIR /app
 COPY server ./server
 COPY solution.md ./solution.md
+# The backup solver reads routine/solve-local.md as its prompt, so the one the
+# CLI runner uses and the one the server uses cannot drift apart (see
+# server/backup.ts). Without this it falls back to a terser built-in copy.
+COPY routine ./routine
 
 WORKDIR /app/server
 ENV PORT=8787

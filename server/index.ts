@@ -100,6 +100,7 @@ import {
 } from "./messages";
 import { docSource, isDocSlug, readDoc, saveDoc } from "./docs";
 import { triggerDescription } from "./trigger";
+import { description as backupDescription } from "./backup";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // solution.md lives in the repo root, one level up from server/.
@@ -961,6 +962,7 @@ console.log(
     solverTokenRequired() ? "" : "  (SOLVER_TOKEN unset — /solution/claim is open)"
   }`,
 );
+console.log(`Backup solver: ${backupDescription()}`);
 console.log(
   MESSAGE_TOKEN
     ? "Messages: POST /messages requires MESSAGE_TOKEN"

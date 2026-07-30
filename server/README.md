@@ -146,6 +146,10 @@ displayed.
 | `SOLVE_TIMEOUT_MS` | `1200000` | a claimed run that never submits fails after this |
 | `SOLVE_QUEUE_TIMEOUT_MS` | `10800000` | a queued run nobody claims fails after this |
 | `SOLVE_MAX_CHARS` | `200000` | submissions larger than this are refused, not rendered |
+| `GEMINI_API_KEY` | — | enables the **backup solver**. Unset, only the routine and the CLI runner can answer a tap |
+| `BACKUP_SOLVER_MODEL` | `gemini-3.6-flash` | the backup's model. A 404 from Google means this id is the one thing to change |
+| `BACKUP_SOLVER_DELAY_MS` | `150000` | how long a *triggered* run stays unclaimed before the backup takes it |
+| `BACKUP_SOLVER_QUEUE_DELAY_MS` | `20000` | the same wait when the trigger is unconfigured or failed — nothing is coming but a runner someone may be watching |
 | `DOC_MAX_CHARS` | `200000` | the same ceiling for a hand-written document |
 
 CORS is open so the app (served from the Vite dev origin) can reach it.
@@ -268,7 +272,7 @@ earlier scan and offers to solve the current one.
 
 ### Who drains the queue
 
-Either of two solvers, and the server doesn't care which:
+Any of three solvers, and the server doesn't care which:
 
 - **the routine** — fired on the tap itself, via its API trigger (below).
 - **[`routine/runner.sh`](../routine/runner.sh)** — the same three endpoints from
@@ -279,6 +283,29 @@ Either of two solvers, and the server doesn't care which:
   SOLVER_TOKEN=… ./routine/runner.sh --watch    # keep draining
   SOLVER_TOKEN=… ./routine/runner.sh            # drain once
   ```
+
+- **[`backup.ts`](backup.ts)** — this server, with one Gemini call, for the run
+  neither of the above turns up for. It waits first (`BACKUP_SOLVER_DELAY_MS`,
+  150s, or 20s when the trigger isn't even configured), because an agent that can
+  check its own arithmetic is the better answer and cutting in front of it would
+  spend a call to produce the worse one. Then it claims the run through
+  `claimRun()` and submits through `submitSolution()` — the same functions over
+  the same token as any agent, so a tap during its work supersedes it and its
+  answer is refused on arrival. Unset `GEMINI_API_KEY` and the loop is exactly
+  what it was: two solvers, and QUEUED means waiting.
+
+  Its prompt is [`routine/solve-local.md`](../routine/solve-local.md), read from
+  disk — the same file the CLI runner uses, so there is one prompt to maintain
+  and a change to the figure spec reaches all of it. The image `COPY`s `routine/`
+  for that reason.
+
+**Which one answered is on the page.** Every solution's last line is
+`*Solved by <model>*`, from the `model` the submitter reported — `claude-sonnet-5`
+for the routine, `gemini-3.6-flash` for the backup. It is rendered into the
+markdown rather than shown by the app because the glasses client is packed and
+installed separately from this server and the two drift for weeks; anything that
+has to be rendered to be seen belongs in the document. `/solution/status` carries
+the same `model`, plus a `backup` block saying whether the backup exists.
 
 That the transport can be swapped at all is the point of separating "record the
 run" from "start the agent": it was swapped once already, under a live design,

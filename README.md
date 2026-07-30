@@ -40,7 +40,7 @@ panel, and makes sure a page boundary never lands in the middle of it. See
 [figures](server/README.md#figures).
 
 A tap always records the run server-side; **what picks it up is deliberately
-separate**, and there are two solvers:
+separate**, and there are three solvers:
 
 - the **routine** — a cloud session fired by the tap through its API trigger.
   It needs a repository selected and its environment's network access opened to

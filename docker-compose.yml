@@ -47,6 +47,18 @@ services:
       # than looking like a dead button.
       ROUTINE_ID: ${ROUTINE_ID:-}
       ROUTINE_TOKEN: ${ROUTINE_TOKEN:-}
+      # The BACKUP solver: when no agent claims a run, the server solves it
+      # itself with this key rather than leaving a tap saying QUEUED forever.
+      # Unset disables it and the loop behaves exactly as it did before — the
+      # routine and runner.sh stay the only solvers. Same key the lookcam
+      # stack's reader uses; it is one Google project either way.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      BACKUP_SOLVER_MODEL: ${BACKUP_SOLVER_MODEL:-gemini-3.6-flash}
+      # How long an unclaimed run waits first: longer when the routine was
+      # actually fired (a cloud session needs a minute or two to boot and claim)
+      # than when the trigger is unconfigured and nothing is coming.
+      BACKUP_SOLVER_DELAY_MS: ${BACKUP_SOLVER_DELAY_MS:-150000}
+      BACKUP_SOLVER_QUEUE_DELAY_MS: ${BACKUP_SOLVER_QUEUE_DELAY_MS:-20000}
     volumes:
       - solver_data:/app/data
     networks: [lookcam]
