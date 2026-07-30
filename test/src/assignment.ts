@@ -242,8 +242,8 @@ function buildVersionMenu(): MenuEntry[] {
  *
  * A bare problem count says nothing about whether the scan is finished: six
  * problems of which two are half-read is not six problems, and neither is six
- * problems on a sheet whose bottom third has never been in frame. The reader
- * gates `done` on exactly these two facts, so the footer shows them.
+ * problems on a sheet whose bottom third has never been shown to the camera.
+ * The reader gates `done` on exactly these two facts, so the footer shows them.
  */
 function readLabel(): string {
     const s = status();
@@ -252,9 +252,11 @@ function readLabel(): string {
         ? `${s.problems_complete}/${s.problems} read`
         : "nothing read yet";
     // The gate that is easiest to be surprised by: every problem complete and
-    // the job still going, because the page has never been seen end to end.
-    // Kept to one word: the footer is one line and this is the tail of it.
-    return s.full_page_seen ? whole : `${whole}, partial`;
+    // the job still going, because some edge of the paper has never been in
+    // any frame. Naming it is what turns "partial" into something to act on —
+    // the footer is one line, so it is the tail of it and nothing more.
+    const unseen = s.edges_unseen ?? [];
+    return unseen.length ? `${whole}, need ${unseen.join("/")}` : whole;
 }
 
 /** Open the menu, or move it between its two levels. */

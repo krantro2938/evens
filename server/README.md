@@ -89,8 +89,8 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 | `GET /assignment/status` | the `status` payload on demand (poll fallback) |
 | `GET /assignment/camera[?size=4\|1&rotate=0\|90\|180\|270&mode=ink\|photo&overlay=menu]` | **the live camera as tiles** — `{ tiles, size, rotate, mode, contrast, at }`, same tile shape as `/tiles`. Costs a frame grab, never a Gemini call. Renders are coalesced for `CAMERA_PREVIEW_TTL_MS`, so several viewers (and a poll that overlaps the last one) share one grab. |
 | `POST /assignment/toggle` | start / stop / reset+start, chosen from live job state → `{ ok, action, detail? }` |
-| `POST /assignment/control` | `{"action":"start\|stop\|reset\|restart\|extend\|toggle"}` — the same, named outright → `{ ok, action, detail? }` |
-| `POST /assignment/photo[?reset=0&name=]` | **publish a photo as the assignment** — the body IS the image (`image/jpeg\|png\|webp\|heic\|heif`). Forwards to the reader, which archives the current attempt and reads this photo as a new one. `?reset=0` merges into the current attempt instead → `{ ok, version, problems, done }` |
+| `POST /assignment/control` | `{"action":"start\|stop\|reset\|restart\|extend\|complete\|toggle"}` — the same, named outright → `{ ok, action, detail? }`. `complete` is the operator saying "that's all of it" when the reader is waiting on an edge of the paper that will never come |
+| `POST /assignment/photo[?reset=1&name=]` | **read a photo into the assignment** — the body IS the image (`image/jpeg\|png\|webp\|heic\|heif`). Forwards to the reader, which **merges** it into the current attempt exactly as it merges a camera frame, so several photos of one sheet build one transcription. `?reset=1` archives the current attempt and starts a new one from this photo instead → `{ ok, version, problems, done }` |
 | `GET /assignment/photo` | the photo last published, as bytes — for showing what you sent |
 | `GET /assignment/photo/meta` | the same as metadata, so a poll doesn't drag the bytes with it |
 
@@ -103,10 +103,16 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
   "done": false,             // the model says it has the whole assignment
   "captures": 3, "max_captures": 40,
   "reason": null,            // why the last job ended: done|stopped|max_captures|failed
-  "problems": 2,
-  "feedback": {              // last model_response — how to aim the camera
+  "problems": 2, "problems_complete": 1,
+  "edges_unseen": ["bottom"], // edges of the PAPER no frame has shown yet — the
+                              // reader's gate on `done`. Empty = the sheet has
+                              // been covered, over as many frames as it took
+  "next_target": "Show the bottom of the page, below problem 2",
+  "feedback": {              // last model_response — where to point the camera
+    "next_target": "Show the bottom of the page, below problem 2",
     "camera_advice": "move_down",
-    "advice_detail": "The lower third of the sheet is out of frame; tilt down.",
+    "advice_detail": "Problem 3 starts below the frame.",
+    "region": "top third", "more_content_beyond": ["bottom"],
     "cut_off_edges": ["bottom"], "frame_quality": "good", "confidence": 0.6
   },
   "error": null
@@ -206,7 +212,8 @@ reconnect + backoff), and keeps two views of it:
   hash. Deliberately *not* the reader's own `version` field, which only bumps on
   `/reset` and so would never signal a capture's edits. The hash also means a
   capture that refines nothing textual costs no render and no BLE push.
-- **the status** — job state plus the model's camera advice, pushed separately
+- **the status** — job state, coverage (`edges_unseen`, `next_target`) and the
+  model's camera advice, pushed separately
   because it changes several times per capture while the document often doesn't.
 
 Document refreshes are debounced by `ASSIGNMENT_DEBOUNCE_MS`: a capture lands

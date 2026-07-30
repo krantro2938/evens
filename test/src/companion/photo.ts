@@ -9,12 +9,19 @@
 //                   glasses' Settings page performs — so the workflow is:
 //                   shoot the sheet, then publish it from either device.
 //
-// PUBLISHING REPLACES THE ASSIGNMENT. The reader archives the current attempt
-// and reads the photo as a new one (see publishPhoto in server/assignment.ts),
-// because a photo is a different sheet and merging it into a half-built
-// transcription would interleave two papers. The button says so, and the
-// confirm step is not skippable — this is the one control in the app that can
-// throw away a scan.
+// PUBLISHING ADDS TO THE ASSIGNMENT. A sheet no camera can fit in one readable
+// frame is read as SEVERAL photos of it — top, then bottom, then the corner
+// that was in shadow — and each is merged into the same transcription (see
+// publishPhoto in server/assignment.ts), the way the fixed camera's frames are.
+// So the ordinary loop on this tab is: shoot a part, publish, shoot the next,
+// publish, and watch the Assignment tab fill in.
+//
+// "Start a new assignment" is the other thing, and it is the destructive one:
+// it archives what has been read and begins again from this photo, for when it
+// really is a different sheet. It is a deliberate checkbox rather than the
+// default, the button renames itself when it is ticked, and the confirm step
+// is not skippable — this is the one control in the app that can throw away a
+// scan.
 
 import {
     bridgeUrl,
@@ -37,10 +44,17 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
     let previewNote: HTMLElement;
     let publishButton: HTMLButtonElement;
     let latestButton: HTMLButtonElement;
+    let freshBox: HTMLInputElement;
     let bridgeNote: HTMLElement;
     let refreshBridge: () => void = () => {};
 
+    /** Whether this publish starts a new assignment instead of adding to one. */
+    const startingOver = (): boolean => freshBox.checked;
+
     function describeChoice(): void {
+        publishButton.textContent = startingOver()
+            ? "Publish as a NEW assignment"
+            : "Add to the assignment";
         if (!chosen) {
             preview.hidden = true;
             previewNote.textContent = "Nothing chosen yet.";
@@ -55,26 +69,37 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
 
     async function doPublish(): Promise<void> {
         if (!chosen) return;
-        // Confirmed rather than armed: unlike the glasses there is a screen
-        // here, so the warning can be a sentence instead of a second tap.
-        const sure = confirm(
-            "Publish this photo as the assignment?\n\n" +
-                "The current assignment is archived and the reader starts a new one from this photo.",
-        );
-        if (!sure) return;
+        const reset = startingOver();
+        // Only the destructive path asks. Adding a photo to a scan is the
+        // ordinary action here and is done several times in a row — putting a
+        // dialog in front of it would train the reflex that dismisses the one
+        // warning worth reading. Unlike the glasses there is a screen here, so
+        // that warning can be a sentence instead of a second tap.
+        if (reset) {
+            const sure = confirm(
+                "Start a NEW assignment from this photo?\n\n" +
+                    "The current assignment is archived and the reader begins again from this photo. " +
+                    "Leave the box unticked to add this photo to what has already been read.",
+            );
+            if (!sure) return;
+        }
 
         publishButton.disabled = true;
         latestButton.disabled = true;
         state.info("Uploading, then waiting for the reader to transcribe it...");
-        const result = await publishPhoto(chosen.blob, chosen.name);
+        const result = await publishPhoto(chosen.blob, chosen.name, { reset });
         publishButton.disabled = false;
         latestButton.disabled = false;
 
         if (!result.ok) return state.error(`Failed: ${result.detail ?? "unknown error"}`);
         const count = result.problems ?? 0;
         state.ok(
-            `Published — the reader found ${count} problem${count === 1 ? "" : "s"}` +
-                `${result.done ? " and says the sheet is complete" : ""}. See the Assignment tab.`,
+            `${reset ? "Published" : "Added"} — the reader now has ${count} problem${count === 1 ? "" : "s"}` +
+                `${
+                    result.done
+                        ? " and says the sheet is complete"
+                        : ". Photograph the part it hasn't read yet and add that too"
+                }. See the Assignment tab.`,
         );
     }
 
@@ -131,21 +156,35 @@ export function mountPhotoTab(): { mount: (root: HTMLElement) => void; refresh: 
         publishButton = el("button", {
             class: "btn primary",
             type: "button",
-            text: "Publish as the assignment",
+            text: "Add to the assignment",
         }) as HTMLButtonElement;
         publishButton.disabled = true;
         publishButton.addEventListener("click", () => void doPublish());
+
+        freshBox = el("input", { type: "checkbox", id: "photo-fresh" }) as HTMLInputElement;
+        // Relabels the button as it is ticked, so what the button does is never
+        // a thing you have to remember about a checkbox above it.
+        freshBox.addEventListener("change", describeChoice);
+        const freshLabel = el(
+            "label",
+            { class: "muted", for: "photo-fresh" },
+            freshBox,
+            el("span", {
+                text: " This is a different sheet — start a new assignment (archives the current one)",
+            }),
+        );
 
         root.append(
             el("h2", { text: "Assignment photo" }),
             el("p", {
                 class: "muted",
-                text: "Publishing replaces the current assignment — the old one is archived, and the reader transcribes this photo instead.",
+                text: "Each photo is read into the assignment the reader is building, the way the camera's frames are. A sheet too big to photograph legibly in one shot takes several: publish the top, then the bottom, then anything still missing.",
             }),
             el("div", { class: "row" }, pickButton, latestButton, file),
             preview,
             previewNote,
             publishButton,
+            freshLabel,
             state.node,
             bridgeSection(),
         );

@@ -48,7 +48,7 @@ import { base64ToBytes } from "./render/tiles";
 import { TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 
 /** Named actions the document server accepts (see server/assignment.ts). */
-type ControlAction = "start" | "stop" | "reset" | "restart" | "extend";
+type ControlAction = "start" | "stop" | "reset" | "restart" | "extend" | "complete";
 
 /** How the server draws a frame for the panel — see server/render/camera.ts. */
 type PreviewMode = "ink" | "photo";
@@ -166,6 +166,32 @@ function fitBox(lines: string[], rows = 2, cols = ADVICE_COLS): string {
 }
 
 /**
+ * A sentence across the whole box instead of one clipped line.
+ *
+ * `next_target` names the part of the sheet the reader still wants, and twenty
+ * characters of it is usually just the verb. When there is no direction to put
+ * on line one — the framing is fine and what's left is knowing where to go —
+ * the destination gets both rows and breaks on words.
+ */
+function wrapBox(text: string, rows = 2, cols = ADVICE_COLS): string {
+    const words = text.replace(/\s+/g, " ").trim().split(" ");
+    const lines: string[] = [];
+    let line = "";
+    for (const word of words) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (candidate.length <= cols) {
+            line = candidate;
+            continue;
+        }
+        if (line) lines.push(line);
+        if (lines.length === rows) break;
+        line = word;
+    }
+    if (line && lines.length < rows) lines.push(line);
+    return fitBox(lines, rows, cols);
+}
+
+/**
  * The camera instruction, from the model's ENUM rather than its prose —
  * `advice_detail` is a whole sentence into a box that holds about 40
  * characters, and it arrives in English whatever the paper's language.
@@ -182,6 +208,17 @@ const ADVICE: Record<string, string> = {
     reduce_glare: "Glare - shade it",
     reposition_paper: "Straighten paper",
 };
+
+/**
+ * Which edges of the paper still have to be shown to the camera, in a few
+ * words. Empty once the sheet has been covered — over as many partial frames
+ * as it took, which is the only way it happens at a readable distance.
+ */
+function needLabel(s: AssignmentStatus): string {
+    const unseen = s.edges_unseen ?? [];
+    if (!unseen.length) return "";
+    return `Still need: ${unseen.join(", ")}`;
+}
 
 /** "12s" / "3m 04s" — how long since something last happened. */
 function elapsed(ms: number): string {
@@ -207,14 +244,27 @@ function feedbackText(): string {
     if (s.running) {
         const f = s.feedback;
         if (!f) return fitBox([`Capture ${s.captures}...`, "Tap to stop"]);
-        // Line 1 is the instruction, because that is what you act on. Line 2 is
-        // why, in the fewest words that carry it.
-        const why = f.cut_off_edges.length
-            ? `Cut off: ${f.cut_off_edges.join(", ")}`
-            : f.frame_quality && f.frame_quality !== "good"
-              ? `Frame: ${f.frame_quality}`
-              : "Hold still";
-        return fitBox([ADVICE[f.camera_advice] ?? "Adjust the camera", why]);
+        // The sheet is read a piece at a time, so the question this box answers
+        // is "where do I point next", not "is the whole page in shot". When the
+        // model gives a direction that leads, because it is the thing you act
+        // on, and the destination follows it. When it doesn't, the destination
+        // takes both lines rather than being clipped to a verb.
+        const target = f.next_target;
+        if (f.camera_advice && f.camera_advice !== "ok") {
+            const why =
+                target ||
+                (f.cut_off_edges.length
+                    ? `Cut off: ${f.cut_off_edges.join(", ")}`
+                    : f.frame_quality && f.frame_quality !== "good"
+                      ? `Frame: ${f.frame_quality}`
+                      : "Hold still");
+            return fitBox([ADVICE[f.camera_advice] ?? "Adjust the camera", why]);
+        }
+        if (target) return wrapBox(target);
+        if (f.frame_quality && f.frame_quality !== "good") {
+            return fitBox(["Framing OK", `Frame: ${f.frame_quality}`]);
+        }
+        return fitBox([needLabel(s) || "Framing OK", "Hold still"]);
     }
 
     // Nothing is running: the box becomes the button's label. Rescanning is
@@ -222,8 +272,13 @@ function feedbackText(): string {
     // tap should be able to do (see primaryAction).
     if (s.done) return fitBox([`Done - ${s.problems} problems`, "2x = menu"]);
     if (s.error) return fitBox([`Failed: ${s.error}`, "Tap to retry"]);
-    if (s.reason === "max_captures") return fitBox(["Hit capture limit", "2x = menu"]);
-    if (s.captures > 0) return fitBox([`Stopped at ${s.captures}`, "Tap to resume"]);
+    // A scan that ran out of budget almost always did so one edge short — say
+    // which, because that is the difference between "point it lower and resume"
+    // and "the paper ends there, mark it read" (both are in the menu).
+    if (s.reason === "max_captures")
+        return fitBox(["Hit capture limit", needLabel(s) || "2x = menu"]);
+    if (s.captures > 0)
+        return fitBox([`Stopped at ${s.captures}`, needLabel(s) || "Tap to resume"]);
     return fitBox(["Tap to start reading", "2x = menu"]);
 }
 
@@ -463,6 +518,14 @@ function buildMenu(): MenuEntry[] {
         items.push(control("Rescan from scratch", "restart"));
     } else {
         items.push(control("Start reading", "start"));
+    }
+
+    // "That's all of it" — the way out when the reader is waiting for an edge
+    // of the paper that will never come (a sheet cut short, an edge it won't
+    // call an edge). You are the one looking at the paper; this believes you.
+    // Offered only when there is something to finish and it isn't finished.
+    if (captures > 0 && !s?.done && !s?.running) {
+        items.push(control("That's all of it", "complete"));
     }
 
     if (captures > 0) items.push(control("Clear", "reset"));

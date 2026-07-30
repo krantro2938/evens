@@ -161,12 +161,13 @@ async function readAssignment(): Promise<{
     // treat "no problems yet" as nothing to solve.
     //
     // `done` alone is not "we have the whole paper": every problem the reader
-    // holds can be complete while the bottom of the sheet was never in frame.
-    // The reader gates its own `done` on that now, so this only differs for a
-    // scan finished under the old rule — and there, telling the solver the
-    // transcription may be partial is exactly right. It solves what is there
-    // and notes the gap.
-    return { snapshot, problems: s.problems, done: s.done && s.full_page_seen };
+    // holds can be complete while the bottom of the sheet was never shown to
+    // the camera. The reader gates its own `done` on coverage — every edge of
+    // the paper seen by SOME frame — so its answer is the whole answer, and
+    // second-guessing it with `full_page_seen` would now be wrong: a sheet read
+    // correctly in two halves never has a frame holding all of it, and the
+    // solver would be told a finished transcription was partial forever.
+    return { snapshot, problems: s.problems, done: s.done };
   } catch (err) {
     console.error("[solver] assignment read failed:", err);
     return { snapshot: null, problems: s.problems, done: s.done };
