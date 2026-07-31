@@ -48,7 +48,7 @@ import {
     Z_FEEDBACK_LARGE,
 } from "./constants";
 import { GlobalState, type AssignmentStatus } from "./state";
-import { createMenu, type MenuEntry } from "./menu";
+import { backdrop, createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
 import { bridge, navigateBack } from "./main";
 import { appLog } from "./debug";
@@ -377,11 +377,15 @@ async function fetchPreview(): Promise<PreviewTile[]> {
 /** One frame: fetch, push, then schedule the next off what the push cost. */
 async function previewTick(): Promise<void> {
     if (!active) return;
+    // The menu owns all four image tiles while open. Do not let a queued camera
+    // preview put the live frame back underneath it.
+    if (menu.isOpen()) return;
 
     try {
         const frame = await fetchPreview();
         if (!active) return;
         await enqueue(async () => {
+            if (menu.isOpen()) return;
             tiles.beginBatch("preview");
             for (const tile of frame) {
                 await tiles.push(tile.index, base64ToBytes(tile.data));
@@ -631,15 +635,18 @@ const menu = createMenu({
     onPaint: async () => {
         await updatePager();
     },
-    // No backdrop images: the next preview frame carries the menu's dark box
-    // baked in (see previewQuery). Asking for one immediately means the panel
-    // has something to sit on within a frame rather than within a cycle.
+    // Replace all four camera tiles with the shared black menu backdrop. The
+    // menu remains readable even if the preview was stale or a frame lands late.
     backdrop: {
-        show: () => {
-            schedulePreview(0);
-            return Promise.resolve();
+        show: async (tilesForBackdrop) => {
+            tiles.beginBatch("camera menu backdrop");
+            for (let index = 0; index < tilesForBackdrop.length; index++) {
+                await tiles.push(index, tilesForBackdrop[index]!);
+            }
+            tiles.endBatch(tilesForBackdrop.length);
         },
         hide: () => {
+            tiles.reset();
             schedulePreview(0);
             return Promise.resolve();
         },
