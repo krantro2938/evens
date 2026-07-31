@@ -48,7 +48,7 @@ import {
     Z_FEEDBACK_LARGE,
 } from "./constants";
 import { GlobalState, type AssignmentStatus } from "./state";
-import { backdrop, createMenu, type MenuEntry } from "./menu";
+import { createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
 import { bridge, navigateBack } from "./main";
 import { appLog } from "./debug";

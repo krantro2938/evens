@@ -55,6 +55,12 @@ export type AssignmentStatus = {
     /** Where the reader last asked the camera to point. */
     next_target: string;
     next_target_short?: string;
+    batch: {
+        active: boolean;
+        processing: boolean;
+        snapshot_count: number;
+        max_snapshots: number;
+    };
     feedback: {
         camera_advice: string;
         advice_detail: string;
