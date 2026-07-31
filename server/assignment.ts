@@ -59,6 +59,8 @@ export interface Feedback {
      * the destination, and it is the thing worth reading on the glasses.
      */
     next_target: string;
+    /** Display-safe target, limited by the reader to the glasses HUD width. */
+    next_target_short: string;
     /** Where the last frame sat on the sheet ("top third"). */
     region: string;
     /** Directions in which writing ran off the last frame. */
@@ -105,6 +107,7 @@ export interface Status {
     /** Where the reader last asked the operator to point. Mirrors
      *  `feedback.next_target`, kept when the feedback is cleared. */
     next_target: string;
+    next_target_short: string;
     feedback: Feedback | null;
     /** Last capture failure, or the upstream connection error. */
     error: string | null;
@@ -146,6 +149,7 @@ const status: Status = {
     full_page_seen: false,
     edges_unseen: [...SHEET_EDGES],
     next_target: "",
+    next_target_short: "",
     feedback: null,
     error: null,
     version: 0,
@@ -469,6 +473,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.full_page_seen = Boolean(d.full_page_seen);
             status.edges_unseen = unseenFrom(d);
             status.next_target = String(d.next_target ?? "");
+            status.next_target_short = String(d.next_target_short ?? "");
             scheduleDocumentRefresh();
             break;
 
@@ -494,6 +499,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
                 frame_quality: String(d.frame_quality ?? ""),
                 confidence: Number(d.confidence ?? 0),
                 next_target: String(d.next_target ?? ""),
+                next_target_short: String(d.next_target_short ?? ""),
                 region: String(d.region ?? ""),
                 more_content_beyond: Array.isArray(d.more_content_beyond)
                     ? d.more_content_beyond.map(String)
@@ -501,6 +507,9 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             };
             if (status.feedback.next_target) {
                 status.next_target = status.feedback.next_target;
+            }
+            if (status.feedback.next_target_short) {
+                status.next_target_short = status.feedback.next_target_short;
             }
             status.error = null;
             break;
@@ -517,6 +526,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             // field would walk the count backwards on either.
             if (d.edges_seen || d.edges_unseen) status.edges_unseen = unseenFrom(d);
             if (typeof d.next_target === "string") status.next_target = d.next_target;
+            if (typeof d.next_target_short === "string") status.next_target_short = d.next_target_short;
             scheduleDocumentRefresh();
             break;
 
@@ -530,6 +540,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             // operator said so — and there is nowhere left to point.
             status.edges_unseen = [];
             status.next_target = "";
+            status.next_target_short = "";
             scheduleDocumentRefresh();
             break;
 
@@ -555,6 +566,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.full_page_seen = false;
             status.edges_unseen = [...SHEET_EDGES];
             status.next_target = "";
+            status.next_target_short = "";
             status.version = Number(d.version ?? status.version + 1);
             // A new sheet is in front of the camera, so it becomes what the
             // button solves — holding an older pin here would mean photographing

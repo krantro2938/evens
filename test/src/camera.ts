@@ -259,7 +259,10 @@ function feedbackText(): string {
         // model gives a direction that leads, because it is the thing you act
         // on, and the destination follows it. When it doesn't, the destination
         // takes both lines rather than being clipped to a verb.
-        const target = f.next_target;
+        // The reader supplies a <=20 character target specifically for this
+        // two-line HUD. Keep the full target in the API, but never put the
+        // long prose version in the box where it gets clipped mid-instruction.
+        const target = f.next_target_short || f.next_target;
         if (f.camera_advice && f.camera_advice !== "ok") {
             const why =
                 target ||

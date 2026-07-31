@@ -54,6 +54,7 @@ export type AssignmentStatus = {
     edges_unseen: string[];
     /** Where the reader last asked the camera to point. */
     next_target: string;
+    next_target_short?: string;
     feedback: {
         camera_advice: string;
         advice_detail: string;
@@ -62,6 +63,7 @@ export type AssignmentStatus = {
         confidence: number;
         /** The part of the sheet still wanted, in the model's words. */
         next_target: string;
+        next_target_short?: string;
         region: string;
         more_content_beyond: string[];
     } | null;
