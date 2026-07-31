@@ -257,7 +257,7 @@ function feedbackText(): string {
     if (s.upstream !== "open") return fitBox([`Reader ${s.upstream}`, s.error ?? ""]);
 
     if (s.batch?.active)
-        return fitBox([`Snapshots: ${s.batch.snapshot_count}`, "Menu = capture/send"]);
+        return fitBox([`Snapshots: ${s.batch.snapshot_count}`, "Tap=snap 2x=menu"]);
     if (s.batch?.processing)
         return fitBox([`Reading ${s.batch.snapshot_count} images`, "Please wait"]);
 
@@ -750,6 +750,14 @@ export function handleCameraPageEvent(gesture: GESTURE_EVENTS): void {
     if (gesture === GESTURE_EVENTS.SWIPE_DOWN) return turn(90);
 
     if (gesture === GESTURE_EVENTS.TAP) {
+        // Manual batch mode is deliberately the one exception to the
+        // "tap does nothing" rule: after starting a batch, each tap stores the
+        // current camera frame. The menu remains available via double-tap for
+        // sending or cancelling the batch.
+        if (status()?.batch?.active && !controlError) {
+            void send("/control", { action: "batch_snapshot" }, "take snapshot");
+            return;
+        }
         // A tap acknowledges the error it is retrying past, and does nothing
         // else. It used to toggle the scan, which meant a stray tap while you
         // were holding the paper steady stopped the reading mid-page — the one
