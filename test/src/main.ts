@@ -224,6 +224,19 @@ if (result !== 0) {
     console.error("createStartUpPageContainer failed:", result);
     appLog("createStartUpPageContainer failed:", result);
     // 1 = invalid params, 2 = oversize, 3 = out of memory
+
+    // A RELOAD lands here if the host refuses a second start-up page — the app
+    // is already launched as far as it is concerned, and Setup > Restart app
+    // reloads this WebView inside that same launch (see settings.ts).
+    // rebuildPageContainer is the call for a page that already exists, so try
+    // it rather than boot to a panel nobody can get off.
+    const recovered = await bridge.rebuildPageContainer(
+        new RebuildPageContainer({
+            containerTotalNum: dashboardTiles.length + 1,
+            textObject: [main, ...dashboardTiles],
+        }),
+    );
+    appLog("Dashboard rebuild after failed create:", recovered ? "ok" : "FAILED");
 }
 
 // Opened here rather than by the Messages page, and never closed. A message has
@@ -593,8 +606,8 @@ export async function buildPage(page: PAGES) {
             await enterCameraPage();
             break;
 
-        // One full-screen text container and nothing else: this page has a
-        // single sentence to say and a single (destructive) action, so there is
+        // One full-screen text container and nothing else: this page is a short
+        // list and a sentence about whichever row is focused, so there is
         // nothing to lay out and nothing to stack. See settings.ts.
         case PAGES.SETTINGS:
             await bridge.rebuildPageContainer(

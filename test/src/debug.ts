@@ -48,23 +48,48 @@ function rememberOpen(open: boolean): void {
 /** Distinguishes the glasses from the simulator in a shared log. */
 const SOURCE = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "device" : "sim";
 
+// Best effort by design: logging must never be the thing that breaks, so a
+// failed POST is dropped silently rather than retried or logged (which would
+// recurse). keepalive lets the last batch survive the page going away.
+function post(lines: string[]): Promise<unknown> {
+    return fetch(`${MARKDOWN_SERVER_URL}/log`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ source: SOURCE, lines }),
+        keepalive: true,
+    }).catch(() => {});
+}
+
 function ship(): void {
     shipTimer = null;
     if (!pending.length) return;
     const lines = pending.slice(0, SHIP_MAX_BATCH);
     pending = pending.slice(SHIP_MAX_BATCH);
 
-    // Best effort by design: logging must never be the thing that breaks, so a
-    // failed POST is dropped silently rather than retried or logged (which would
-    // recurse). keepalive lets the last batch survive the page going away.
-    void fetch(`${MARKDOWN_SERVER_URL}/log`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ source: SOURCE, lines }),
-        keepalive: true,
-    }).catch(() => {});
+    void post(lines);
 
     if (pending.length) shipTimer = setTimeout(ship, SHIP_INTERVAL_MS);
+}
+
+/**
+ * Send everything queued, now, and wait for it.
+ *
+ * For the paths that end the page: the Setup page's restart reloads the
+ * WebView, and the lines explaining why are written milliseconds before it —
+ * well inside the batch interval, so without this they are the ones that never
+ * arrive. Awaited rather than fired off because a reload cancels an in-flight
+ * request the same way it cancels a queued one.
+ */
+export async function flushLog(): Promise<void> {
+    if (shipTimer) {
+        clearTimeout(shipTimer);
+        shipTimer = null;
+    }
+    while (pending.length) {
+        const lines = pending.slice(0, SHIP_MAX_BATCH);
+        pending = pending.slice(SHIP_MAX_BATCH);
+        await post(lines);
+    }
 }
 
 function queueForShipping(line: string): void {
