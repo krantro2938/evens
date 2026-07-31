@@ -188,6 +188,7 @@ export const DOC_EVENT_LAYER_ID = 1; // full-screen text layer; receives gesture
 export const DOC_TILE_IDS = [2, 3, 4, 5] as const; // image tiles, row-major
 export const DOC_PAGER_ID = 6; // bottom text line
 export const DOC_FEEDBACK_ID = 7; // assignment only: camera advice / start-stop
+export const DOC_FEEDBACK_LARGE_ID = 10; // camera advice over the small preview
 export const DOC_MENU_ID = 8; // both document pages: the centred action menu
 export const DOC_SOLVE_ID = 9; // AI only: the trigger button / solve progress
 
@@ -397,7 +398,8 @@ export const Z_PAGER = 6;
 // per page — they must be unique on a page, not across the app.
 export const Z_FEEDBACK = 7; // over the tile it overlaps
 export const Z_SOLVE = 7; // AI page: the trigger button, over the backdrop
-export const Z_MENU = 8; // the action menu is the topmost thing on the page
+export const Z_FEEDBACK_LARGE = 8; // enlarged camera advice over the small preview
+export const Z_MENU = 9; // the action menu is the topmost thing on the page
 
 /**
  * Master switch. Set false to go back to declaration-order stacking everywhere
@@ -457,6 +459,15 @@ export const HUD_FEEDBACK_RECT = {
     y: FEEDBACK_Y,
     w: FEEDBACK_W,
     h: FEEDBACK_H,
+} as const;
+
+/** When the preview is one tile in the top-left, the rest of the page can
+ * carry a readable multi-line guidance panel. */
+export const HUD_FEEDBACK_LARGE_RECT = {
+    x: 0,
+    y: TILE_H,
+    w: BODY_W,
+    h: PAGE_H - TILE_H,
 } as const;
 
 // ── the action menu (src/menu.ts) ───────────────────────────────────────────

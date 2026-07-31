@@ -35,6 +35,8 @@ export interface Rect {
 // the panel is positioned there and painted here, and nothing checks that they
 // agree.
 export const HUD_FEEDBACK: Rect = { x: 288, y: 176, w: 288, h: 76 };
+/** Enlarged guidance panel when the camera preview uses only the top-left tile. */
+export const HUD_FEEDBACK_LARGE: Rect = { x: 0, y: 126, w: 576, h: 126 };
 
 /**
  * The AI page's action menu — reserved only in the `?overlay=menu` render, not

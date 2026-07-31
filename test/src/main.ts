@@ -19,6 +19,7 @@ import {
     DEFAULT_COLOR,
     DOC_EVENT_LAYER_ID,
     DOC_FEEDBACK_ID,
+    DOC_FEEDBACK_LARGE_ID,
     DOC_MENU_ID,
     DOC_PAGER_H,
     DOC_PAGER_ID,
@@ -28,6 +29,7 @@ import {
     FOCUSED_COLOR,
     GESTURE_EVENTS,
     HUD_FEEDBACK_RECT,
+    HUD_FEEDBACK_LARGE_RECT,
     IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
@@ -39,6 +41,7 @@ import {
     TILE_W,
     Z_BACKDROP,
     Z_FEEDBACK,
+    Z_FEEDBACK_LARGE,
     Z_PAGER,
     Z_SOLVE,
     Z_TILE_BASE,
@@ -469,6 +472,12 @@ async function buildDocumentPage(extras: DocumentPageExtras = {}) {
                 name: "feedback",
                 rect: HUD_FEEDBACK_RECT,
                 zOrderIndex: Z_FEEDBACK,
+            }),
+            panelContainer({
+                containerID: DOC_FEEDBACK_LARGE_ID,
+                name: "feedbackLarge",
+                rect: HUD_FEEDBACK_LARGE_RECT,
+                zOrderIndex: Z_FEEDBACK_LARGE,
             }),
         );
     }

@@ -87,7 +87,7 @@ import {
   submitSolution,
   subscribeSolver,
 } from "./solver";
-import { HUD_FEEDBACK, HUD_MENU, type Rect } from "./render/constants";
+import { HUD_FEEDBACK, HUD_FEEDBACK_LARGE, HUD_MENU, type Rect } from "./render/constants";
 import { DB_PATH, getSetting, putSetting } from "./db";
 import {
   getMessageStatus,
@@ -577,7 +577,10 @@ async function cameraPreview(
         // does on the assignment page, so it needs the same baked background.
         // With the action menu open its box is reserved too — that is what lets
         // the camera stay live and visible around a menu you are reading.
-        reserved: size === 4 ? (menu ? [HUD_FEEDBACK, HUD_MENU] : [HUD_FEEDBACK]) : [],
+        reserved:
+          size === 4
+            ? (menu ? [HUD_FEEDBACK, HUD_MENU] : [HUD_FEEDBACK])
+            : (menu ? [HUD_FEEDBACK_LARGE, HUD_MENU] : [HUD_FEEDBACK_LARGE]),
       });
       previewCache.set(key, { at: Date.now(), preview });
       return preview;

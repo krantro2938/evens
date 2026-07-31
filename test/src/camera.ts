@@ -36,13 +36,16 @@
 import {
     DOC_BASE_ASSIGNMENT,
     DOC_FEEDBACK_ID,
+    DOC_FEEDBACK_LARGE_ID,
     DOC_MENU_ID,
     DOC_PAGER_ID,
     GESTURE_EVENTS,
     HUD_FEEDBACK_RECT,
+    HUD_FEEDBACK_LARGE_RECT,
     MARKDOWN_SERVER_URL,
     POLL_INTERVAL_MS,
     Z_FEEDBACK,
+    Z_FEEDBACK_LARGE,
 } from "./constants";
 import { GlobalState, type AssignmentStatus } from "./state";
 import { createMenu, type MenuEntry } from "./menu";
@@ -470,6 +473,13 @@ const advice = createPanel({
     zOrderIndex: Z_FEEDBACK,
     enqueue,
 });
+const largeAdvice = createPanel({
+    containerID: DOC_FEEDBACK_LARGE_ID,
+    name: "feedbackLarge",
+    rect: HUD_FEEDBACK_LARGE_RECT,
+    zOrderIndex: Z_FEEDBACK_LARGE,
+    enqueue,
+});
 
 let shownPager: string | null = null;
 
@@ -487,7 +497,14 @@ async function updatePager(): Promise<void> {
 }
 
 function repaint(): void {
-    advice.set(feedbackText());
+    const text = feedbackText();
+    if (previewSize === 1) {
+        advice.clear();
+        largeAdvice.set(text);
+    } else {
+        largeAdvice.clear();
+        advice.set(text);
+    }
     void enqueue(updatePager);
 }
 
@@ -671,6 +688,7 @@ export async function enterCameraPage(): Promise<void> {
     // against what the last visit left on screen and write nothing.
     tiles.reset();
     advice.reset();
+    largeAdvice.reset();
 
     openStream();
     void pollStatus();
