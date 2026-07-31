@@ -135,6 +135,12 @@ export interface Status {
     versions: ArchiveEntry[];
     /** When the last capture landed, so the glasses can age it. */
     last_capture_at: number | null;
+    batch: {
+        active: boolean;
+        processing: boolean;
+        snapshot_count: number;
+        max_snapshots: number;
+    };
 }
 
 const status: Status = {
@@ -156,6 +162,7 @@ const status: Status = {
     active_version: null,
     versions: [],
     last_capture_at: null,
+    batch: { active: false, processing: false, snapshot_count: 0, max_snapshots: 40 },
 };
 
 /** What the reader reports coverage in. Nothing has been seen until it says so,
@@ -474,7 +481,30 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.edges_unseen = unseenFrom(d);
             status.next_target = String(d.next_target ?? "");
             status.next_target_short = String(d.next_target_short ?? "");
+            if (d.batch) status.batch = {
+                active: Boolean(d.batch.active),
+                processing: Boolean(d.batch.processing),
+                snapshot_count: Number(d.batch.snapshot_count ?? 0),
+                max_snapshots: Number(d.batch.max_snapshots ?? 40),
+            };
             scheduleDocumentRefresh();
+            break;
+
+        case "batch_started":
+        case "batch_processing":
+        case "batch_finished":
+        case "batch_failed":
+        case "batch_snapshot":
+            if (d.batch) status.batch = {
+                active: Boolean(d.batch.active),
+                processing: Boolean(d.batch.processing),
+                snapshot_count: Number(d.batch.snapshot_count ?? status.batch.snapshot_count),
+                max_snapshots: Number(d.batch.max_snapshots ?? status.batch.max_snapshots),
+            };
+            if (event === "batch_snapshot") status.batch.snapshot_count = Number(d.n ?? status.batch.snapshot_count);
+            if (event === "batch_processing") status.batch.processing = true;
+            if (event === "batch_finished" || event === "batch_failed") status.batch.processing = false;
+            notifyStatus();
             break;
 
         case "job_started":
@@ -541,6 +571,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.edges_unseen = [];
             status.next_target = "";
             status.next_target_short = "";
+            status.batch = { active: false, processing: false, snapshot_count: 0, max_snapshots: 40 };
             scheduleDocumentRefresh();
             break;
 
@@ -858,6 +889,9 @@ export type ControlAction =
     | "restart"
     | "extend"
     | "complete"
+    | "batch_start"
+    | "batch_snapshot"
+    | "batch_finish"
     | "none"
     | "toggle";
 
@@ -871,6 +905,9 @@ export interface ControlResult {
         | "restarted"
         | "extended"
         | "completed"
+        | "batch_started"
+        | "snapshot_taken"
+        | "batch_processing"
         | "nothing"
         | "failed";
     detail?: string;
@@ -970,6 +1007,31 @@ export async function control(action: ControlAction): Promise<ControlResult> {
                 status.next_target = "";
                 notifyStatus();
                 return { ok: true, action: "completed" };
+            }
+
+            case "batch_start": {
+                const err = await call("/batch/start", { max_snapshots: 40 });
+                if (err) return fail(err);
+                status.batch = { active: true, processing: false, snapshot_count: 0, max_snapshots: 40 };
+                notifyStatus();
+                return { ok: true, action: "batch_started" };
+            }
+
+            case "batch_snapshot": {
+                const err = await call("/batch/snapshot");
+                if (err) return fail(err);
+                status.batch.snapshot_count += 1;
+                notifyStatus();
+                return { ok: true, action: "snapshot_taken" };
+            }
+
+            case "batch_finish": {
+                const err = await call("/batch/finish");
+                if (err) return fail(err);
+                status.batch.active = false;
+                status.batch.processing = true;
+                notifyStatus();
+                return { ok: true, action: "batch_processing" };
             }
 
             case "start":

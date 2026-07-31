@@ -57,7 +57,9 @@ import { base64ToBytes } from "./render/tiles";
 import { TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 
 /** Named actions the document server accepts (see server/assignment.ts). */
-type ControlAction = "start" | "stop" | "reset" | "restart" | "extend" | "complete";
+type ControlAction =
+    | "start" | "stop" | "reset" | "restart" | "extend" | "complete"
+    | "batch_start" | "batch_snapshot" | "batch_finish";
 
 /** How the server draws a frame for the panel — see server/render/camera.ts. */
 type PreviewMode = "ink" | "photo";
@@ -253,6 +255,11 @@ function feedbackText(): string {
     if (!s) return "Connecting...";
     if (s.upstream === "disabled") return "No reader configured";
     if (s.upstream !== "open") return fitBox([`Reader ${s.upstream}`, s.error ?? ""]);
+
+    if (s.batch?.active)
+        return fitBox([`Snapshots: ${s.batch.snapshot_count}`, "Menu = capture/send"]);
+    if (s.batch?.processing)
+        return fitBox([`Reading ${s.batch.snapshot_count} images`, "Please wait"]);
 
     if (s.running) {
         const f = s.feedback;
@@ -533,6 +540,19 @@ function buildMenu(): MenuEntry[] {
     // what it meant before the menu took the gesture.
     const items: MenuEntry[] = [{ label: "Back", run: leavePage }];
 
+    if (s?.batch?.active) {
+        items.push(control(`Take snapshot ${s.batch.snapshot_count + 1}`, "batch_snapshot"));
+        if (s.batch.snapshot_count > 0) items.push(control("Send batch to AI", "batch_finish"));
+        items.push({ label: "Close", run: () => {} });
+        return items;
+    }
+    if (s?.batch?.processing) {
+        items.push({ label: `Reading ${s.batch.snapshot_count} snapshots`, run: () => {} });
+        items.push({ label: "Close", run: () => {} });
+        return items;
+    }
+    items.push(control("Batch snapshots", "batch_start"));
+
     if (s?.running) {
         items.push(control("Stop", "stop"));
         items.push(control("Rescan from scratch", "restart"));
@@ -593,6 +613,8 @@ function menuHeading(): string {
     const s = status();
     if (!s) return "CONNECTING";
     if (s.upstream !== "open") return `READER ${s.upstream.toUpperCase()}`;
+    if (s.batch?.active) return `BATCH - ${s.batch.snapshot_count} snapshots`;
+    if (s.batch?.processing) return `READING ${s.batch.snapshot_count} snapshots`;
     if (s.running) return `RUNNING - capture ${s.captures}`;
     if (s.done) return `DONE - ${s.problems} problems`;
     if (s.reason === "max_captures") return `LIMIT REACHED - ${s.captures} captures`;
