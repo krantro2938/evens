@@ -143,6 +143,14 @@ export interface Status {
     };
 }
 
+/** No batch in progress — the shape three different endings all reset to. */
+const idleBatch = (): Status["batch"] => ({
+    active: false,
+    processing: false,
+    snapshot_count: 0,
+    max_snapshots: 40,
+});
+
 const status: Status = {
     upstream: isConfigured() ? "connecting" : "disabled",
     running: false,
@@ -162,7 +170,7 @@ const status: Status = {
     active_version: null,
     versions: [],
     last_capture_at: null,
-    batch: { active: false, processing: false, snapshot_count: 0, max_snapshots: 40 },
+    batch: idleBatch(),
 };
 
 /** What the reader reports coverage in. Nothing has been seen until it says so,
@@ -571,7 +579,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.edges_unseen = [];
             status.next_target = "";
             status.next_target_short = "";
-            status.batch = { active: false, processing: false, snapshot_count: 0, max_snapshots: 40 };
+            status.batch = idleBatch();
             scheduleDocumentRefresh();
             break;
 
@@ -599,6 +607,13 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.next_target = "";
             status.next_target_short = "";
             status.version = Number(d.version ?? status.version + 1);
+            // The reader builds a whole new state on a reset, batch included, so
+            // a batch cannot survive one. Leaving it set here stranded the glasses
+            // in batch mode against a reader that had forgotten it: the menu kept
+            // offering "Take snapshot" instead of "Start reading" and every tap
+            // was still being read as a snapshot. `batch_started` arrives after
+            // the `reset` a new batch causes, so this can't clear a live one.
+            status.batch = idleBatch();
             // A new sheet is in front of the camera, so it becomes what the
             // button solves — holding an older pin here would mean photographing
             // a new assignment and having the AI answer the previous one, which
