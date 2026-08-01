@@ -65,6 +65,7 @@ import {
   startUpstream,
   subscribeStatus,
   toggle,
+  CONTROL_ACTIONS,
   type ControlAction,
 } from "./assignment";
 import {
@@ -666,18 +667,9 @@ app.post("/assignment/toggle", async (c) => {
   return c.json(result, result.ok ? 200 : 502);
 });
 
-// The menu: the glasses name the action outright.
-const CONTROL_ACTIONS: ControlAction[] = [
-  "start",
-  "stop",
-  "reset",
-  "restart",
-  "extend",
-  "complete",
-  "none",
-  "toggle",
-];
-
+// The menu: the glasses name the action outright. The list of what's allowed
+// comes from assignment.ts so adding an action there is enough to make it
+// reachable.
 app.post("/assignment/control", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const action = (body as { action?: string }).action;

@@ -878,22 +878,31 @@ const EXTEND_BY = 20;
  *   restart  reset, then start — a rescan from scratch
  *   extend   raise the capture ceiling and carry on (the `max_captures` exit)
  *   complete "that's all of it" — mark what has been read as final, no capture
+ *   batch_*  manual snapshot mode: start it, store the current frame, then send
+ *            every stored frame to the model as one reading
  *   none     deliberately nothing; what a tap resolves to when the only thing
  *            left to do would destroy the transcription (see defaultAction)
  *   toggle   whichever of the above fits the current state (the tap gesture)
+ *
+ * A runtime list, not a bare type: the HTTP route has to check what the glasses
+ * asked for against something, and a second hand-written copy of this union
+ * only has to be forgotten once for a whole feature to answer "unknown action".
  */
-export type ControlAction =
-    | "start"
-    | "stop"
-    | "reset"
-    | "restart"
-    | "extend"
-    | "complete"
-    | "batch_start"
-    | "batch_snapshot"
-    | "batch_finish"
-    | "none"
-    | "toggle";
+export const CONTROL_ACTIONS = [
+    "start",
+    "stop",
+    "reset",
+    "restart",
+    "extend",
+    "complete",
+    "batch_start",
+    "batch_snapshot",
+    "batch_finish",
+    "none",
+    "toggle",
+] as const;
+
+export type ControlAction = (typeof CONTROL_ACTIONS)[number];
 
 export interface ControlResult {
     ok: boolean;
