@@ -59,7 +59,7 @@ import { TextContainerUpgrade } from "@evenrealities/even_hub_sdk";
 /** Named actions the document server accepts (see server/assignment.ts). */
 type ControlAction =
     | "start" | "stop" | "reset" | "restart" | "extend" | "complete"
-    | "batch_start" | "batch_snapshot" | "batch_finish";
+    | "batch_start" | "batch_snapshot" | "batch_finish" | "batch_cancel";
 
 /** How the server draws a frame for the panel — see server/render/camera.ts. */
 type PreviewMode = "ink" | "photo";
@@ -545,8 +545,21 @@ function buildMenu(): MenuEntry[] {
     const items: MenuEntry[] = [{ label: "Back", run: leavePage }];
 
     if (s?.batch?.active) {
-        items.push(control(`Take snapshot ${s.batch.snapshot_count + 1}`, "batch_snapshot"));
-        if (s.batch.snapshot_count > 0) items.push(control("Send batch to AI", "batch_finish"));
+        const shots = s.batch.snapshot_count;
+        items.push(control(`Take snapshot ${shots + 1}`, "batch_snapshot"));
+        if (shots > 0) items.push(control("Send batch to AI", "batch_finish"));
+        // The way out. Below the send entry because it throws the snapshots
+        // away, and named after what it costs you rather than after itself: a
+        // batch you started by mistake reads as "Stop batch", and one with
+        // pictures in it says how many you are about to lose.
+        items.push(
+            control(
+                shots === 0
+                    ? "Stop batch"
+                    : `Stop batch, drop ${shots} ${shots === 1 ? "snapshot" : "snapshots"}`,
+                "batch_cancel",
+            ),
+        );
         items.push({ label: "Close", run: () => {} });
         return items;
     }

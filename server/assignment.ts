@@ -502,6 +502,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
         case "batch_processing":
         case "batch_finished":
         case "batch_failed":
+        case "batch_cancelled":
         case "batch_snapshot":
             if (d.batch) status.batch = {
                 active: Boolean(d.batch.active),
@@ -894,7 +895,8 @@ const EXTEND_BY = 20;
  *   extend   raise the capture ceiling and carry on (the `max_captures` exit)
  *   complete "that's all of it" — mark what has been read as final, no capture
  *   batch_*  manual snapshot mode: start it, store the current frame, then send
- *            every stored frame to the model as one reading
+ *            every stored frame to the model as one reading — or cancel, which
+ *            throws the stored frames away without spending a model call
  *   none     deliberately nothing; what a tap resolves to when the only thing
  *            left to do would destroy the transcription (see defaultAction)
  *   toggle   whichever of the above fits the current state (the tap gesture)
@@ -913,6 +915,7 @@ export const CONTROL_ACTIONS = [
     "batch_start",
     "batch_snapshot",
     "batch_finish",
+    "batch_cancel",
     "none",
     "toggle",
 ] as const;
@@ -932,6 +935,7 @@ export interface ControlResult {
         | "batch_started"
         | "snapshot_taken"
         | "batch_processing"
+        | "batch_cancelled"
         | "nothing"
         | "failed";
     detail?: string;
@@ -1047,6 +1051,14 @@ export async function control(action: ControlAction): Promise<ControlResult> {
                 status.batch.snapshot_count += 1;
                 notifyStatus();
                 return { ok: true, action: "snapshot_taken" };
+            }
+
+            case "batch_cancel": {
+                const err = await call("/batch/cancel");
+                if (err) return fail(err);
+                status.batch = idleBatch();
+                notifyStatus();
+                return { ok: true, action: "batch_cancelled" };
             }
 
             case "batch_finish": {
