@@ -12,7 +12,10 @@
         "simulate": "evenhub-simulator http://localhost:5173"
     },
     "dependencies": {
-        "@evenrealities/even_hub_sdk": "^0.0.12"
+        "@evenrealities/even_hub_sdk": "^0.0.12",
+        "html2canvas": "^1.4.1",
+        "katex": "^0.18.1",
+        "marked": "^18.0.7"
     },
     "devDependencies": {
         "@evenrealities/evenhub-cli": "^0.1.12",
