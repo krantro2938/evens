@@ -3,7 +3,8 @@
 // them, and hand geometry to the page builder. No marked/MathJax/html2canvas
 // on-device anymore.
 
-import { MARKDOWN_SERVER_URL, TILE_H, TILES_X, TILES_Y, TILE_W } from "../constants";
+import { TILE_H, TILES_X, TILES_Y, TILE_W } from "../constants";
+import { serverUrl } from "../services/backend";
 import { appLog } from "../debug";
 import { recall, recallNewest, remember } from "./tileCache";
 
@@ -65,7 +66,7 @@ export function base64ToBytes(b64: string): Uint8Array {
  */
 export async function fetchTiles(base = "", query = ""): Promise<TilesResult> {
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/tiles${query}`);
+        const res = await fetch(`${serverUrl()}${base}/tiles${query}`);
         if (!res.ok) throw new Error(`tiles HTTP ${res.status}`);
         const json = (await res.json()) as TilesResponse;
         const pages: TilePage[] = json.pages.map((p) => ({

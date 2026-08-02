@@ -18,7 +18,8 @@
 // is lost to a dropped connection, and nothing on screen is a blank pane with
 // an error over it while a perfectly good copy exists on the phone.
 
-import { MARKDOWN_SERVER_URL, POLL_INTERVAL_MS } from "../constants";
+import { POLL_INTERVAL_MS } from "../constants";
+import { serverUrl } from "../services/backend";
 import { ago } from "../utils";
 import { offline, readCache, writeCache } from "./cache";
 import { copyText, el, status } from "./dom";
@@ -30,7 +31,7 @@ const PENDING_KEY = "evens.companion.pending";
 /** The last copy the server confirmed. */
 const CACHE_KEY = "my-solution";
 
-const DOC_URL = `${MARKDOWN_SERVER_URL}/doc/my-solution`;
+const docUrl = () => `${serverUrl()}/doc/my-solution`;
 
 interface StoredDoc {
     slug: string;
@@ -129,7 +130,7 @@ export function mountSolutionTab(): {
         }
 
         try {
-            const res = await fetch(DOC_URL);
+            const res = await fetch(docUrl());
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const doc = (await res.json()) as StoredDoc;
             writeCache(CACHE_KEY, doc);
@@ -207,7 +208,7 @@ export function mountSolutionTab(): {
     }
 
     async function put(markdown: string): Promise<boolean> {
-        const res = await fetch(DOC_URL, {
+        const res = await fetch(docUrl(), {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ markdown }),

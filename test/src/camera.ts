@@ -42,11 +42,11 @@ import {
     GESTURE_EVENTS,
     HUD_FEEDBACK_RECT,
     HUD_FEEDBACK_LARGE_RECT,
-    MARKDOWN_SERVER_URL,
     POLL_INTERVAL_MS,
     Z_FEEDBACK,
     Z_FEEDBACK_LARGE,
 } from "./constants";
+import { serverUrl } from "./services/backend";
 import { GlobalState, type AssignmentStatus } from "./state";
 import { createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
@@ -360,7 +360,7 @@ function previewQuery(): string {
 
 async function fetchPreview(): Promise<PreviewTile[]> {
     const res = await fetch(
-        `${MARKDOWN_SERVER_URL}${DOC_BASE_ASSIGNMENT}/camera${previewQuery()}`,
+        `${serverUrl()}${DOC_BASE_ASSIGNMENT}/camera${previewQuery()}`,
     );
     if (!res.ok) {
         // The reader says why in `detail` — "stream not publishing" is a
@@ -432,7 +432,7 @@ function openStream(): void {
     closeStream();
     try {
         const source = new EventSource(
-            `${MARKDOWN_SERVER_URL}${DOC_BASE_ASSIGNMENT}/events`,
+            `${serverUrl()}${DOC_BASE_ASSIGNMENT}/events`,
         );
         source.addEventListener("status", (e) => {
             try {
@@ -459,7 +459,7 @@ function openStream(): void {
 async function pollStatus(): Promise<void> {
     if (!active) return;
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${DOC_BASE_ASSIGNMENT}/status`);
+        const res = await fetch(`${serverUrl()}${DOC_BASE_ASSIGNMENT}/status`);
         if (res.ok) applyStatus(await res.json());
     } catch {
         // The preview's own error line already says the server is unreachable.
@@ -687,7 +687,7 @@ async function send(path: string, body: unknown, label: string): Promise<void> {
     working = label;
     repaint();
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${DOC_BASE_ASSIGNMENT}${path}`, {
+        const res = await fetch(`${serverUrl()}${DOC_BASE_ASSIGNMENT}${path}`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: body === undefined ? undefined : JSON.stringify(body),

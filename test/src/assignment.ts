@@ -34,14 +34,14 @@ import {
     DOC_BASE_ASSIGNMENT,
     DOC_MENU_ID,
     GESTURE_EVENTS,
-    MARKDOWN_SERVER_URL,
 } from "./constants";
+import { serverUrl } from "./services/backend";
 import { GlobalState, type AssignmentStatus, type DocState } from "./state";
 import { createDocPage } from "./docPage";
 import { appLog } from "./debug";
 import { backdrop, createMenu, type MenuEntry } from "./menu";
 import { navigateBack } from "./main";
-import { ago } from "./utils";
+import { ago, clockStr } from "./utils";
 
 /** Where the menu is: its top level, or the version picker it opens. */
 let menuMode: "root" | "versions" = "root";
@@ -93,7 +93,7 @@ function viewingAiScan(): boolean {
  */
 async function pointAiAt(version: number | null): Promise<void> {
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${DOC_BASE_ASSIGNMENT}/active`, {
+        const res = await fetch(`${serverUrl()}${DOC_BASE_ASSIGNMENT}/active`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ version }),
@@ -182,7 +182,9 @@ function pagerLabel(state: DocState): string {
     if (!state.pages.length) return s?.running ? "Reading the page..." : state.status;
 
     const pages = `${state.currentPage + 1} / ${state.pages.length}`;
-    return clip(`${pages}${progressLabel()}`, FOOTER_COLS);
+    const progress = progressLabel();
+    const clock = `  ${clockStr()}`;
+    return clip(`${pages}${progress}${clock}`, FOOTER_COLS);
 }
 
 /**

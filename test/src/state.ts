@@ -137,6 +137,7 @@ export type SolverStatus = {
         error: string | null;
     } | null;
     trigger: { configured: boolean; detail: string };
+    mode?: "online" | "offline" | "auto";
     solutions: number;
     /** The version picker's list, newest first. `version` counts from the
      *  first solution ever submitted, so it doesn't shift as new ones land. */

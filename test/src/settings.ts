@@ -40,13 +40,17 @@ import {
     type PhotoMeta,
 } from "./gallery";
 import { ago } from "./utils";
+import { serverUrl, getMode, setMode, type Mode } from "./services/backend";
 
 /** The actions, in the order the list draws them. */
-const ACTIONS = ["photo", "restart"] as const;
+const ACTIONS = ["photo", "mode", "restart"] as const;
 type Action = (typeof ACTIONS)[number];
+
+const MODE_CYCLE: Mode[] = ["auto", "online", "offline"];
 
 const LABELS: Record<Action, string> = {
     photo: "Publish photo",
+    mode: "Mode: auto",
     restart: "Restart app",
 };
 
@@ -136,6 +140,15 @@ function detail(): string[] {
                 : "For tiles that stopped arriving.",
             "Tap to restart",
         ];
+    }
+
+    if (focused() === "mode") {
+        const descriptions: Record<Mode, string> = {
+            auto: "Cloud when online, local when not.",
+            online: "Always use the cloud solver.",
+            offline: "Always use the local solver.",
+        };
+        return [descriptions[getMode()], "Tap to cycle modes"];
     }
 
     switch (phase) {
@@ -337,6 +350,7 @@ export async function enterSettingsPage(): Promise<void> {
     syncTicker();
     await repaint();
     void findPhoto();
+    void loadModeFromServer();
 }
 
 export function leaveSettingsPage(): void {
@@ -381,6 +395,8 @@ export function handleSettingsPageEvent(gesture: GESTURE_EVENTS): void {
 
     if (focused() === "restart") return arm("restart");
 
+    if (focused() === "mode") return void cycleMode();
+
     switch (phase) {
         case "working":
             return; // a second tap must not start a second upload
@@ -393,4 +409,25 @@ export function handleSettingsPageEvent(gesture: GESTURE_EVENTS): void {
         default:
             void findPhoto();
     }
+}
+
+async function cycleMode(): Promise<void> {
+    const idx = MODE_CYCLE.indexOf(getMode());
+    const next = MODE_CYCLE[(idx + 1) % MODE_CYCLE.length];
+    setMode(next);
+    LABELS.mode = `Mode: ${next}`;
+    void repaint();
+}
+
+async function loadModeFromServer(): Promise<void> {
+    LABELS.mode = `Mode: ${getMode()}`;
+    try {
+        const res = await fetch(`${serverUrl()}/settings/mode`);
+        const data = await res.json();
+        const v = data?.value;
+        if (v === "online" || v === "offline" || v === "auto") {
+            setMode(v);
+            LABELS.mode = `Mode: ${v}`;
+        }
+    } catch {}
 }

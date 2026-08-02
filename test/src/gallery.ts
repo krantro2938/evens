@@ -16,7 +16,7 @@
 // latest" is — they are the same web app on the same phone, so they share the
 // configured bridge and this module's idea of what it returns.
 
-import { MARKDOWN_SERVER_URL } from "./constants";
+import { serverUrl } from "./services/backend";
 
 /** Where the bridge is, as pasted from the script's own startup output. */
 const STORAGE_KEY = "evens.gallery.bridge";
@@ -117,7 +117,7 @@ export function bridgeUrl(): string {
 export async function loadBridge(): Promise<boolean> {
     const before = readStored();
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}/settings/gallery-bridge`, {
+        const res = await fetch(`${serverUrl()}/settings/gallery-bridge`, {
             signal: AbortSignal.timeout(BRIDGE_TIMEOUT_MS),
         });
         if (!res.ok) return false;
@@ -146,7 +146,7 @@ export function bridgeLoaded(): boolean {
 
 async function pushBridge(value: string): Promise<void> {
     try {
-        await fetch(`${MARKDOWN_SERVER_URL}/settings/gallery-bridge`, {
+        await fetch(`${serverUrl()}/settings/gallery-bridge`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ value }),
@@ -288,7 +288,7 @@ export async function publishPhoto(
     if (opts.reset) params.set("reset", "1");
     const query = params.toString() ? `?${params}` : "";
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}/assignment/photo${query}`, {
+        const res = await fetch(`${serverUrl()}/assignment/photo${query}`, {
             method: "POST",
             // The body IS the image: the server reads the type from this header.
             headers: { "content-type": photo.type || "image/jpeg" },

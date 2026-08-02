@@ -333,6 +333,12 @@ function documentStream(source: DocSource, statusFeed?: StatusFeed) {
 //
 // In memory and bounded: this is a debug aid, not a record. It resets on restart.
 
+// ── health ──────────────────────────────────────────────────────────────────
+
+app.get("/health", (c) => c.json({ ok: true, backend: "online" }));
+
+// ── logging ─────────────────────────────────────────────────────────────────
+
 const LOG_CAPACITY = 500;
 const appLogLines: string[] = [];
 
@@ -719,7 +725,7 @@ const adriMenuTiles = createTileCache(adriSource, { reserved: [HUD_MENU] });
 // that can reach the server. The token is only useful from that phone's own
 // loopback — it authorises 127.0.0.1:8790, which nothing else can route to —
 // so what leaks is the fact of the bridge, not access to the camera roll.
-const SETTING_KEYS = ["gallery-bridge"] as const;
+const SETTING_KEYS = ["gallery-bridge", "mode"] as const;
 const isSettingKey = (key: string): boolean =>
   (SETTING_KEYS as readonly string[]).includes(key);
 

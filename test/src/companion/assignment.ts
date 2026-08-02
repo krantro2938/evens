@@ -11,7 +11,8 @@
 // transcription itself is mirrored to localStorage on every successful load, so
 // the paper is still readable on a phone that has lost the server.
 
-import { MARKDOWN_SERVER_URL, POLL_INTERVAL_MS } from "../constants";
+import { POLL_INTERVAL_MS } from "../constants";
+import { serverUrl } from "../services/backend";
 import { ago } from "../utils";
 import { offline, readCache, writeCache } from "./cache";
 import { copyText, el, status } from "./dom";
@@ -48,8 +49,8 @@ export function mountAssignmentTab(): {
     async function load(): Promise<void> {
         try {
             const [docRes, statusRes] = await Promise.all([
-                fetch(`${MARKDOWN_SERVER_URL}/assignment/markdown`),
-                fetch(`${MARKDOWN_SERVER_URL}/assignment/status`),
+                fetch(`${serverUrl()}/assignment/markdown`),
+                fetch(`${serverUrl()}/assignment/status`),
             ]);
             if (!docRes.ok) throw new Error(`markdown HTTP ${docRes.status}`);
 

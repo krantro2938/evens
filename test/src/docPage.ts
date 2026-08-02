@@ -13,9 +13,9 @@ import {
     DOC_PAGER_ID,
     DOC_TILE_IDS,
     GESTURE_EVENTS,
-    MARKDOWN_SERVER_URL,
     POLL_INTERVAL_MS,
 } from "./constants";
+import { serverUrl } from "./services/backend";
 import type { DocState } from "./state";
 import { bridge, navigateBack } from "./main";
 import { appLog } from "./debug";
@@ -363,7 +363,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
     }
 
     async function fetchSnapshot(): Promise<Snapshot> {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${base}/markdown${config.query?.() ?? ""}`);
+        const res = await fetch(`${serverUrl()}${base}/markdown${config.query?.() ?? ""}`);
         if (!res.ok) throw new Error(`markdown HTTP ${res.status}`);
         return (await res.json()) as Snapshot;
     }
@@ -437,7 +437,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
         const handler = config.events?.status;
         if (!config.statusPath || !handler || !active) return;
         try {
-            const res = await fetch(`${MARKDOWN_SERVER_URL}${config.statusPath}`);
+            const res = await fetch(`${serverUrl()}${config.statusPath}`);
             if (res.ok) handler(await res.json());
         } catch (err) {
             appLog(name, "status poll failed", err);
@@ -470,7 +470,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
 
     function subscribeLive(): void {
         try {
-            eventSource = new EventSource(`${MARKDOWN_SERVER_URL}${base}/events${config.query?.() ?? ""}`);
+            eventSource = new EventSource(`${serverUrl()}${base}/events${config.query?.() ?? ""}`);
             eventSource.addEventListener("markdown", (ev) => {
                 try {
                     const { version } = JSON.parse((ev as MessageEvent).data);

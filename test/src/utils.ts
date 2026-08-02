@@ -18,6 +18,12 @@ export function stringToShortId(str: string): number {
  * companion app both age-stamp things, and a phone screen and a 576px panel
  * agreeing on the wording is the point.
  */
+/** "14:30" — the wall clock, for footers. */
+export function clockStr(): string {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export function ago(at: number): string {
     const secs = Math.max(0, Math.round((Date.now() - at) / 1000));
     if (secs < 60) return `${secs}s ago`;

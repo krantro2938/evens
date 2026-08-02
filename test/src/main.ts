@@ -62,7 +62,7 @@ import {
     startMessageStream,
     textWidth,
 } from "./messages";
-import { stringToShortId } from "./utils";
+import { clockStr, stringToShortId } from "./utils";
 import { enterAiPage, handleAiPageEvent, leaveAiPage } from "./ai";
 import {
     enterAssignmentPage,
@@ -87,6 +87,9 @@ import { panelContainer } from "./panel";
 import { appLog } from "./debug";
 import { mountCompanion } from "./companion";
 import { loadBridge } from "./gallery";
+import { getMode, initBackend, remoteReachable } from "./services/backend";
+
+initBackend();
 
 // The companion app goes up FIRST, before the bridge is waited on.
 //
@@ -167,6 +170,15 @@ function centreLabel(label: string, tileWidth: number): string {
     return " ".repeat(spaces) + label;
 }
 
+function dashboardSetupLabel(): string {
+    const mode = getMode();
+    const online = remoteReachable();
+    if (mode === "offline") return `Setup [off]`;
+    if (mode === "auto" && !online) return `Setup [auto/off]`;
+    if (!online) return `Setup [no srv]`;
+    return `Setup ${clockStr()}`;
+}
+
 function createDashboardTiles() {
     const rects = dashboardRects();
     return MENU_ITEMS.map((item, index) => {
@@ -196,7 +208,9 @@ function createDashboardTiles() {
             content: centreLabel(
                 item === "Msgs" && GlobalState.unreadMessages > 0
                     ? `${item} ${GlobalState.unreadMessages}`
-                    : item,
+                    : item === "Setup"
+                      ? dashboardSetupLabel()
+                      : item,
                 rect.w,
             ),
             isEventCapture: 0,

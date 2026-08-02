@@ -66,7 +66,6 @@ import {
     DEFAULT_COLOR,
     FOCUSED_COLOR,
     GESTURE_EVENTS,
-    MARKDOWN_SERVER_URL,
     MENU_W,
     MENU_X,
     MSG_BANNER_IDS,
@@ -92,6 +91,7 @@ import { bridge, buildPage, navigate, navigateBack } from "./main";
 import { anyMenuOpen, subscribeMenusClosed } from "./menu";
 import { GlobalState } from "./state";
 import { appLog } from "./debug";
+import { remoteUrl } from "./services/backend";
 
 export interface Message {
     id: number;
@@ -160,7 +160,7 @@ let pollEvery = 0;
 export function startMessageStream(): void {
     if (source) return;
     try {
-        source = new EventSource(`${MARKDOWN_SERVER_URL}/messages/events`);
+        source = new EventSource(`${remoteUrl()}/messages/events`);
     } catch (err) {
         appLog("Messages", "stream failed to open", err);
         return;
@@ -211,7 +211,7 @@ function setPoll(every: number): void {
 
 async function refresh(): Promise<void> {
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}/messages`);
+        const res = await fetch(`${remoteUrl()}/messages`);
         if (!res.ok) return;
         const data = (await res.json()) as { messages: Message[]; status: MessageStatus };
         apply(data.messages, data.status);
@@ -390,7 +390,7 @@ function dismissBanner(): void {
 
 async function ackSeen(id: number): Promise<void> {
     try {
-        await fetch(`${MARKDOWN_SERVER_URL}/messages/seen`, {
+        await fetch(`${remoteUrl()}/messages/seen`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ id }),
@@ -406,7 +406,7 @@ async function sendReply(text: string): Promise<void> {
     note = `Sending ${text}...`;
     void paintHint();
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}/messages/reply`, {
+        const res = await fetch(`${remoteUrl()}/messages/reply`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ text }),

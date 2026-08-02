@@ -30,6 +30,7 @@ import {
   claimNextRun,
   createRun,
   finishRun,
+  getSetting,
   insertSolution,
   latestRun,
   latestSolution,
@@ -121,6 +122,8 @@ export interface SolverStatus {
    * With this configured, `queued` is a stage rather than a dead end.
    */
   backup: { configured: boolean; detail: string };
+  /** online | offline | auto — what the glasses showed and the solver reads. */
+  mode: "online" | "offline" | "auto";
   /** How many solutions are on disk, so the count survives a restart visibly. */
   solutions: number;
   /**
@@ -283,6 +286,7 @@ export async function getSolverStatus(): Promise<SolverStatus> {
       : null,
     trigger: { configured: triggerConfigured(), detail: triggerDescription() },
     backup: { configured: backupConfigured(), detail: backupDescription() },
+    mode: (getSetting("mode") as SolverStatus["mode"]) || "auto",
     solutions: total,
     // Newest first, so the newest carries the highest ordinal.
     solution_history: history.map((item, i) => ({

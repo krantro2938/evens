@@ -40,20 +40,32 @@ import {
     DOC_MENU_ID,
     DOC_SOLVE_ID,
     GESTURE_EVENTS,
-    MARKDOWN_SERVER_URL,
     SOLVE_RECT,
     Z_SOLVE,
 } from "./constants";
+import { serverUrl } from "./services/backend";
 import { GlobalState, type DocState, type SolverStatus } from "./state";
 import { createDocPage } from "./docPage";
 import { backdrop, createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
 import { navigateBack } from "./main";
 import { appLog } from "./debug";
-import { ago } from "./utils";
+import { ago, clockStr } from "./utils";
 
 /** Where the solve loop lives on the document server. */
 const SOLVE_BASE = "/solution";
+
+/** Compact mode tag: nothing for auto/online (the normal case). */
+function modeTag(): string {
+    const m = status()?.mode;
+    if (m === "offline") return " [off]";
+    return "";
+}
+
+/** Append clock + mode to a reading-state footer. */
+function withClock(label: string): string {
+    return `${label}  ${clockStr()}${modeTag()}`;
+}
 
 // A solve request is a round trip that ends in a cloud session being started;
 // ignore gestures until it lands so an impatient double-press can't queue two.
@@ -303,7 +315,7 @@ function pagerLabel(state: DocState): string {
     // opened deliberately — and there is no longer a button to tap.
     if (selectedSolutionId !== null) {
         if (!state.pages.length) return state.status;
-        return `${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`;
+        return withClock(`${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`);
     }
 
     const s = status();
@@ -334,7 +346,7 @@ function pagerLabel(state: DocState): string {
             return "Solve failed - tap to retry";
         case "solved":
             if (!state.pages.length) return state.status;
-            return `${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`;
+            return withClock(`${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`);
     }
 }
 
@@ -690,7 +702,7 @@ async function post(path: string, working: string): Promise<void> {
     // No "Solving..." placeholder here: the callers have already put the right
     // thing on screen, and this used to overwrite it with a worse one.
     try {
-        const res = await fetch(`${MARKDOWN_SERVER_URL}${SOLVE_BASE}${path}`, {
+        const res = await fetch(`${serverUrl()}${SOLVE_BASE}${path}`, {
             method: "POST",
             headers: { "content-type": "application/json" },
         });

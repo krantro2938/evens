@@ -6,7 +6,7 @@
 // that didn't land) is exactly what you most need to see and can't. So every line
 // also goes to POST /log, and `curl <server>/log` reads it back.
 
-import { MARKDOWN_SERVER_URL } from "./constants";
+import { remoteUrl } from "./services/backend";
 
 const MAX_LOG_LINES = 80;
 
@@ -52,7 +52,7 @@ const SOURCE = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "device" : "si
 // failed POST is dropped silently rather than retried or logged (which would
 // recurse). keepalive lets the last batch survive the page going away.
 function post(lines: string[]): Promise<unknown> {
-    return fetch(`${MARKDOWN_SERVER_URL}/log`, {
+    return fetch(`${remoteUrl()}/log`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ source: SOURCE, lines }),
