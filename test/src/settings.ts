@@ -40,7 +40,7 @@ import {
     type PhotoMeta,
 } from "./gallery";
 import { ago } from "./utils";
-import { serverUrl, getMode, setMode, type Mode } from "./services/backend";
+import { serverUrl, getMode, setMode, isOffline, type Mode } from "./services/backend";
 
 /** The actions, in the order the list draws them. */
 const ACTIONS = ["photo", "mode", "restart"] as const;
@@ -75,6 +75,9 @@ let phase: PhotoPhase = "checking";
 let photo: PhotoMeta | null = null;
 let message = "";
 let ticker: ReturnType<typeof setInterval> | null = null;
+
+let modelStatus = "";
+let modelPollTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Set once the reload is committed to, so the last repaint says why. */
 let restarting = false;
@@ -148,7 +151,10 @@ function detail(): string[] {
             online: "Always use the cloud solver.",
             offline: "Always use the local solver.",
         };
-        return [descriptions[getMode()], "Tap to cycle modes"];
+        const lines = [descriptions[getMode()]];
+        if (modelStatus) lines.push(modelStatus);
+        lines.push("Tap to cycle modes");
+        return lines;
     }
 
     switch (phase) {
@@ -351,6 +357,7 @@ export async function enterSettingsPage(): Promise<void> {
     await repaint();
     void findPhoto();
     void loadModeFromServer();
+    startModelPolling();
 }
 
 export function leaveSettingsPage(): void {
@@ -359,6 +366,7 @@ export function leaveSettingsPage(): void {
     armed = null;
     armedAt = 0;
     syncTicker();
+    stopModelPolling();
 }
 
 export function handleSettingsPageEvent(gesture: GESTURE_EVENTS): void {
@@ -416,6 +424,7 @@ async function cycleMode(): Promise<void> {
     const next = MODE_CYCLE[(idx + 1) % MODE_CYCLE.length];
     setMode(next);
     LABELS.mode = `Mode: ${next}`;
+    void pollModels();
     void repaint();
 }
 
@@ -430,4 +439,43 @@ async function loadModeFromServer(): Promise<void> {
             LABELS.mode = `Mode: ${v}`;
         }
     } catch {}
+}
+
+async function pollModels(): Promise<void> {
+    if (!isOffline()) {
+        modelStatus = "";
+        return;
+    }
+    try {
+        const res = await fetch(`${serverUrl()}/ollama/status`, {
+            signal: AbortSignal.timeout(3_000),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+            modelStatus = "Ollama: not running";
+        } else if (!data.models?.length) {
+            modelStatus = "Models: none loaded";
+        } else {
+            modelStatus = data.models
+                .map((m: { name: string; size_mb: number }) => `${m.name} (${m.size_mb}MB)`)
+                .join(", ");
+        }
+    } catch {
+        modelStatus = "Ollama: unreachable";
+    }
+    void repaint();
+}
+
+function startModelPolling(): void {
+    if (modelPollTimer) return;
+    void pollModels();
+    modelPollTimer = setInterval(() => void pollModels(), 5_000);
+}
+
+function stopModelPolling(): void {
+    if (modelPollTimer) {
+        clearInterval(modelPollTimer);
+        modelPollTimer = null;
+    }
+    modelStatus = "";
 }
