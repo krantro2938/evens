@@ -31,8 +31,9 @@ import { appLog } from "../debug";
 import type { TilePage } from "./tiles";
 
 const DB_NAME = "evens-tiles";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "tiles";
+const MD_STORE = "markdown";
 
 /**
  * How long a cached document stays usable.
@@ -92,9 +93,10 @@ function openDb(): Promise<IDBDatabase | null> {
                 const db = request.result;
                 if (!db.objectStoreNames.contains(STORE)) {
                     const store = db.createObjectStore(STORE, { keyPath: "key" });
-                    // Newest-first lookup within one document, which is what an
-                    // offline open needs: "whatever you last had for this page".
                     store.createIndex("doc_at", ["doc", "at"]);
+                }
+                if (!db.objectStoreNames.contains(MD_STORE)) {
+                    db.createObjectStore(MD_STORE, { keyPath: "doc" });
                 }
             };
             request.onsuccess = () => resolve(request.result);
@@ -247,6 +249,58 @@ async function prune(db: IDBDatabase): Promise<void> {
     }
 }
 
+// ── markdown cache ────────────────────────────────────────────────────────
+//
+// Every solution/assignment markdown is stashed alongside its tiles so the
+// client-side renderer can rebuild tiles when the server is unreachable and
+// the tile cache has expired or was never populated for this version.
+
+interface MdRow {
+    doc: string;
+    markdown: string;
+    version: number;
+    at: number;
+}
+
+function mdTx(db: IDBDatabase, mode: IDBTransactionMode): IDBObjectStore {
+    return db.transaction(MD_STORE, mode).objectStore(MD_STORE);
+}
+
+export async function rememberMarkdown(
+    base: string,
+    query: string,
+    version: number,
+    markdown: string,
+): Promise<void> {
+    if (!markdown.trim()) return;
+    const doc = docKey(base, query);
+    const db = await openDb();
+    if (!db) return;
+    try {
+        mdTx(db, "readwrite").put({ doc, markdown, version, at: Date.now() } satisfies MdRow);
+    } catch (err) {
+        appLog("TileCache", "rememberMarkdown failed", err);
+    }
+}
+
+export async function recallMarkdown(
+    base: string,
+    query: string,
+): Promise<{ markdown: string; version: number; at: number } | null> {
+    const doc = docKey(base, query);
+    const db = await openDb();
+    if (!db) return null;
+    try {
+        const row = await promisify<MdRow>(mdTx(db, "readonly").get(doc) as IDBRequest<MdRow>);
+        if (!row || !row.markdown.trim()) return null;
+        if (Date.now() - row.at > TILE_TTL_MS) return null;
+        return { markdown: row.markdown, version: row.version, at: row.at };
+    } catch (err) {
+        appLog("TileCache", "recallMarkdown failed", err);
+        return null;
+    }
+}
+
 /** For the Setup page's "clear cached pages", and for tests. */
 export async function clearTileCache(): Promise<void> {
     memory.clear();
@@ -254,6 +308,7 @@ export async function clearTileCache(): Promise<void> {
     if (!db) return;
     try {
         tx(db, "readwrite").clear();
+        mdTx(db, "readwrite").clear();
     } catch (err) {
         appLog("TileCache", "clear failed", err);
     }

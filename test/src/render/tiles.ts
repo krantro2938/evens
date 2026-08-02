@@ -8,7 +8,7 @@
 import { TILE_H, TILES_X, TILES_Y, TILE_W } from "../constants";
 import { serverUrl } from "../services/backend";
 import { appLog } from "../debug";
-import { recall, recallNewest, remember } from "./tileCache";
+import { recall, recallNewest, remember, rememberMarkdown, recallMarkdown } from "./tileCache";
 import { renderMarkdownToHtml } from "./markdown";
 import { renderToPages } from "./rasterize";
 
@@ -60,23 +60,17 @@ export function base64ToBytes(b64: string): Uint8Array {
 
 /**
  * Render markdown client-side: marked + KaTeX → HTML, html2canvas → tiles.
- * Used as a fallback when the server can't render (offline mode).
+ * Used when the server can't render (offline mode) or when we need to
+ * rebuild from cached markdown after the server goes away.
  */
-async function renderLocal(base: string): Promise<TilesResult | null> {
+async function renderFromMarkdown(
+    md: string,
+    base: string,
+    cachedAt: number | null = null,
+): Promise<TilesResult | null> {
+    if (!md.trim()) return null;
     try {
-        const res = await fetch(`${serverUrl()}${base}/markdown`);
-        if (!res.ok) return null;
-        const contentType = res.headers.get("content-type") || "";
-        let md: string;
-        if (contentType.includes("json")) {
-            const json = await res.json();
-            md = json.content ?? json.markdown ?? "";
-        } else {
-            md = await res.text();
-        }
-        if (!md.trim()) return null;
-
-        appLog("Tiles", "rendering client-side (offline fallback)");
+        appLog("Tiles", "rendering client-side", cachedAt ? "(from cached markdown)" : "(live)");
         const html = await renderMarkdownToHtml(md);
         const rasterPages = await renderToPages(html);
         const pages: TilePage[] = rasterPages.map((p) => ({
@@ -84,9 +78,24 @@ async function renderLocal(base: string): Promise<TilesResult | null> {
         }));
         const version = Date.now();
         void remember(base, "", version, pages);
-        return { version, pages, overlay: null, cachedAt: null };
+        return { version, pages, overlay: null, cachedAt };
     } catch (err) {
         appLog("Tiles", "client-side render failed", err);
+        return null;
+    }
+}
+
+async function fetchMarkdownFromServer(base: string): Promise<string | null> {
+    try {
+        const res = await fetch(`${serverUrl()}${base}/markdown`);
+        if (!res.ok) return null;
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("json")) {
+            const json = await res.json();
+            return json.content ?? json.markdown ?? null;
+        }
+        return await res.text();
+    } catch {
         return null;
     }
 }
@@ -110,27 +119,45 @@ export async function fetchTiles(base = "", query = ""): Promise<TilesResult> {
         if (!res.ok) throw new Error(`tiles HTTP ${res.status}`);
         const json = (await res.json()) as TilesResponse;
 
-        // Offline server returns empty pages — fall back to client-side render
+        // Offline server returns empty pages — fetch markdown and render locally
         if (!json.pages.length) {
-            const local = await renderLocal(base);
-            if (local) return local;
+            const md = await fetchMarkdownFromServer(base);
+            if (md) {
+                void rememberMarkdown(base, query, json.version, md);
+                const local = await renderFromMarkdown(md, base);
+                if (local) return local;
+            }
         }
 
         const pages: TilePage[] = json.pages.map((p) => ({
             tiles: p.tiles.map((t) => ({ index: t.index, bytes: base64ToBytes(t.data) })),
         }));
-        // Not awaited: the tiles are ready to push now, and a slow write must
-        // not sit between the document arriving and it reaching the panel.
         void remember(base, query, json.version, pages);
+
+        // Stash the markdown too so we can rebuild tiles if the server goes away.
+        // Fire-and-forget: don't block tile delivery on a second fetch.
+        fetchMarkdownFromServer(base).then((md) => {
+            if (md) void rememberMarkdown(base, query, json.version, md);
+        });
+
         return { version: json.version, pages, overlay: json.overlay ?? null, cachedAt: null };
     } catch (err) {
+        // Try cached tiles first
         const cached = await recallNewest(base, query);
-        if (!cached) throw err;
-        appLog("Tiles", "fetch failed, using cached tiles from", new Date(cached.at).toISOString());
-        // No overlay: the cache holds the plain document, and claiming a
-        // reserved rect we haven't got would leave the menu unreadable over the
-        // text it failed to cover.
-        return { version: cached.version, pages: cached.pages, overlay: null, cachedAt: cached.at };
+        if (cached) {
+            appLog("Tiles", "fetch failed, using cached tiles from", new Date(cached.at).toISOString());
+            return { version: cached.version, pages: cached.pages, overlay: null, cachedAt: cached.at };
+        }
+
+        // No cached tiles — try rendering from cached markdown
+        const cachedMd = await recallMarkdown(base, query);
+        if (cachedMd) {
+            appLog("Tiles", "no cached tiles, rendering from cached markdown");
+            const local = await renderFromMarkdown(cachedMd.markdown, base, cachedMd.at);
+            if (local) return local;
+        }
+
+        throw err;
     }
 }
 
