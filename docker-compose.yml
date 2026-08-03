@@ -18,6 +18,14 @@ services:
     build:
       context: .
     restart: unless-stopped
+    # The largest container on the box (~325MB steady) and the one that took the
+    # host down on 2026-07-30: Bun buffers a whole proxied response in memory, so
+    # a big body can balloon this to ~1GB. With no swap and no cap, the kernel
+    # OOM-killer picked a victim and the machine went with it. Inside a limit only
+    # this dies, and `restart: unless-stopped` brings it straight back. 1g is
+    # above any legitimate peak and below the pathological one, so it fires
+    # exactly on the runaway case.
+    mem_limit: 1g
     environment:
       PORT: 8787
       # Same compose network, so this is the container, not the public vhost —
