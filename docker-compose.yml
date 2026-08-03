@@ -59,6 +59,38 @@ services:
       # than when the trigger is unconfigured and nothing is coming.
       BACKUP_SOLVER_DELAY_MS: ${BACKUP_SOLVER_DELAY_MS:-150000}
       BACKUP_SOLVER_QUEUE_DELAY_MS: ${BACKUP_SOLVER_QUEUE_DELAY_MS:-20000}
+
+      # ── the review loop (server/review.ts) ────────────────────────────────
+      # The SECOND routine: it grades what the solver wrote and the problems
+      # that fall short come back to the solve queue as revision runs. Absent,
+      # nothing is graded and this server behaves exactly as it did before.
+      #
+      # NOTE THAT EVERY VAR HAS TO BE LISTED HERE. This file enumerates the
+      # environment rather than using `env_file`, so a name that is only in
+      # .env reaches the substitution above and never the container — which
+      # looks exactly like a misconfigured routine: the server boots fine and
+      # says "Reviewer: no REVIEW_ROUTINE_ID" over a .env that plainly has one.
+      REVIEW_ROUTINE_ID: ${REVIEW_ROUTINE_ID:-}
+      # Defaults to the solver's: one API trigger can serve two routines in the
+      # same account.
+      REVIEW_ROUTINE_TOKEN: ${REVIEW_ROUTINE_TOKEN:-${ROUTINE_TOKEN:-}}
+      # Grades nothing while leaving the routine configured.
+      REVIEW_ENABLED: ${REVIEW_ENABLED:-1}
+      # The rubric. Here so it can be tuned in .env and restarted rather than
+      # rebuilt — the defaults are the ones review.ts documents.
+      REVIEW_ANSWER_BAND: ${REVIEW_ANSWER_BAND:-3}
+      REVIEW_ANSWER_MAX: ${REVIEW_ANSWER_MAX:-15}
+      REVIEW_METHOD_MAX: ${REVIEW_METHOD_MAX:-18}
+      REVIEW_METHOD_ANSWER_POINTS: ${REVIEW_METHOD_ANSWER_POINTS:-5}
+      REVIEW_METHOD_PASS: ${REVIEW_METHOD_PASS:-13}
+      # Total attempts at a problem, first included. The only thing bounding
+      # what the loop spends.
+      REVIEW_MAX_ROUNDS: ${REVIEW_MAX_ROUNDS:-3}
+      REVIEW_TIMEOUT_MS: ${REVIEW_TIMEOUT_MS:-1200000}
+
+      # How much denser /assignment/sheet.png is than the panel, for the camera
+      # site's Assignment tab. Page images are always 1:1 and unaffected.
+      SHEET_SCALE: ${SHEET_SCALE:-2}
     volumes:
       - solver_data:/app/data
     networks: [lookcam]
