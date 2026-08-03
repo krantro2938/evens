@@ -18,14 +18,21 @@ services:
     build:
       context: .
     restart: unless-stopped
-    # The largest container on the box (~325MB steady) and the one that took the
-    # host down on 2026-07-30: Bun buffers a whole proxied response in memory, so
-    # a big body can balloon this to ~1GB. With no swap and no cap, the kernel
-    # OOM-killer picked a victim and the machine went with it. Inside a limit only
-    # this dies, and `restart: unless-stopped` brings it straight back. 1g is
-    # above any legitimate peak and below the pathological one, so it fires
-    # exactly on the runaway case.
+    # The largest container on the box (~325MB steady, vs ~90MB for the next
+    # one), and the only unbounded one left after the lookcam stack was capped.
+    # It runs Bun, whose response writer is eager — the same property that let
+    # the camera gateway buffer ~1GB and trip the kernel OOM-killer on
+    # 2026-07-30, taking every other service on the machine with it. Inside a
+    # limit only this dies, and `restart: unless-stopped` puts it straight back.
+    # 1g is above any legitimate peak and below that pathological one.
+    #
+    # mem_swappiness: 0 is what makes the cap real. This kernel is cgroup v1
+    # WITHOUT swap accounting (no memory.memsw.limit_in_bytes), so mem_limit
+    # bounds RAM only — without this, a runaway would spill into the host's
+    # swapfile unbounded and still reach a global OOM, just slowly. At 0 the
+    # cgroup refuses to swap, hits its ceiling, and is killed on its own.
     mem_limit: 1g
+    mem_swappiness: 0
     environment:
       PORT: 8787
       # Same compose network, so this is the container, not the public vhost —
