@@ -26,13 +26,18 @@ services:
     # limit only this dies, and `restart: unless-stopped` puts it straight back.
     # 1g is above any legitimate peak and below that pathological one.
     #
-    # mem_swappiness: 0 is what makes the cap real. This kernel is cgroup v1
+    # mem_swappiness is what makes the cap real. This kernel is cgroup v1
     # WITHOUT swap accounting (no memory.memsw.limit_in_bytes), so mem_limit
     # bounds RAM only — without this, a runaway would spill into the host's
-    # swapfile unbounded and still reach a global OOM, just slowly. At 0 the
-    # cgroup refuses to swap, hits its ceiling, and is killed on its own.
+    # swapfile unbounded and still reach a global OOM, just slowly. Near 0 the
+    # cgroup won't swap, hits its ceiling, and is killed on its own.
+    #
+    # 1 rather than 0: Compose drops this field on omitempty, so a literal 0 is
+    # Go's zero value and never reaches the daemon — the container then runs at
+    # the host default of 60 while the file claims otherwise. See the lookcam
+    # stack's compose header for the full note and how to verify it.
     mem_limit: 1g
-    mem_swappiness: 0
+    mem_swappiness: 1
     environment:
       PORT: 8787
       # Same compose network, so this is the container, not the public vhost —
