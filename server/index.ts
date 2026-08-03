@@ -71,6 +71,10 @@ import {
   PHOTO_TYPES,
   publishPhoto,
   publishText,
+  readClaim,
+  readFail,
+  readFrameImage,
+  readSubmit,
   startUpstream,
   subscribeStatus,
   toggle,
@@ -590,6 +594,84 @@ app.use("/assignment/*", async (c, next) => {
     );
   }
   await next();
+});
+
+// ── the batch-read loop ─────────────────────────────────────────────────────
+//
+// The reading routine's four calls, proxied to the reader (assignment.ts).
+// Gated with SOLVER_TOKEN — the same secret the solve routine already carries,
+// because it is the same kind of caller and a second one would be a second
+// thing to rotate. This is the ONE part of /assignment/* that isn't for the
+// glasses, so the gate sits here rather than on the family.
+//
+// Ordered before the glasses' routes only for readability; Hono matches on the
+// exact path either way.
+app.use("/assignment/read/*", async (c, next) => {
+  if (!solverAuthorized(c)) return c.json({ ok: false, reason: "unauthorized" }, 401);
+  await next();
+  console.log(
+    `[read] ${c.req.method} ${c.req.path} -> ${c.res.status}` +
+      ` (${c.req.header("x-forwarded-for") ?? "direct"})`,
+  );
+});
+
+/** 200 with `ok: false` when no batch is waiting — a routine that fires on a
+ *  schedule, or for a read that has since timed out, must exit cheaply. */
+app.get("/assignment/read/claim", async (c) => {
+  try {
+    return c.json((await readClaim()) as object);
+  } catch (err) {
+    console.error("read claim failed:", err);
+    return c.json({ ok: false, reason: "reader_unavailable" }, 502);
+  }
+});
+
+/** One snapshot, streamed through as-is. The agent saves it to a file and reads
+ *  it as an image — this is the only reason the routine needs network at all. */
+app.get("/assignment/read/frame/:n", async (c) => {
+  const n = Number(c.req.param("n"));
+  if (!Number.isInteger(n) || n < 1) {
+    return c.json({ ok: false, error: "frame must be a positive integer" }, 400);
+  }
+  try {
+    const res = await readFrameImage(n);
+    if (!res.ok) return c.json((await res.json().catch(() => ({}))) as object, res.status as 400);
+    return new Response(res.body, {
+      status: 200,
+      headers: {
+        "content-type": res.headers.get("content-type") ?? "image/jpeg",
+        "cache-control": "no-store",
+      },
+    });
+  } catch (err) {
+    console.error("read frame failed:", err);
+    return c.json({ ok: false, error: "reader_unavailable" }, 502);
+  }
+});
+
+// 409 rather than 401 on a stale token, for the reason /solution/submit says:
+// losing a race is not a bad credential. Here the race is against the deadline —
+// the model chain has already read the batch this answer is for.
+app.post("/assignment/read/submit", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  try {
+    const res = await readSubmit(body);
+    return c.json((await res.json().catch(() => ({}))) as object, res.status as 200);
+  } catch (err) {
+    console.error("read submit failed:", err);
+    return c.json({ ok: false, error: "reader_unavailable" }, 502);
+  }
+});
+
+app.post("/assignment/read/fail", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  try {
+    const res = await readFail(body);
+    return c.json((await res.json().catch(() => ({}))) as object, res.status as 200);
+  } catch (err) {
+    console.error("read fail failed:", err);
+    return c.json({ ok: false, error: "reader_unavailable" }, 502);
+  }
 });
 
 app.get("/assignment/markdown", async (c) => {

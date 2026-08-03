@@ -3,7 +3,7 @@
 # Print a routine prompt with its placeholders filled in, ready to paste into
 # the routine at <https://claude.ai/code/routines>.
 #
-#   ./routine/render-prompt.sh [solve|review]      (default: solve)
+#   ./routine/render-prompt.sh [solve|review|read]      (default: solve)
 #
 # WHY THIS EXISTS. solve.md and review.md are templates: the prompts in them say
 # `<EVENS_URL>` and `<SOLVER_TOKEN>` because those are a deployment's secrets and
@@ -20,9 +20,14 @@
 #   SOLVER_TOKEN=... ./routine/render-prompt.sh        | xclip -selection clipboard
 #   SOLVER_TOKEN=... ./routine/render-prompt.sh review | xclip -selection clipboard
 #
-# THERE ARE TWO ROUTINES and they are not interchangeable: `solve` writes the
-# answer, `review` grades it and decides what goes back. Each is pasted into its
-# own routine, with its own model — see the setup notes at the top of review.md.
+# THERE ARE THREE ROUTINES and they are not interchangeable: `read` turns a batch
+# of photographs into the assignment text, `solve` writes the answer, `review`
+# grades it and decides what goes back. Each is pasted into its own routine, with
+# its own model — see the setup notes at the top of review.md and read.md.
+#
+# `read` is also the only one whose server half lives in the OTHER repository
+# (lookcam/assignment/server.ts, which owns the frames); it is proxied through
+# <EVENS_URL>/assignment/read/* so the prompt only ever needs one host.
 #
 # Configuration, by environment — the same names runner.sh uses:
 #   SOLVER_TOKEN   required; must match the server's
@@ -36,9 +41,9 @@ set -euo pipefail
 
 WHICH="${1:-solve}"
 case "$WHICH" in
-    solve|review) ;;
+    solve|review|read) ;;
     *)
-        echo "render-prompt: unknown prompt \"$WHICH\" — use 'solve' or 'review'" >&2
+        echo "render-prompt: unknown prompt \"$WHICH\" — use 'solve', 'review' or 'read'" >&2
         exit 2
         ;;
 esac

@@ -229,6 +229,28 @@ const ADVICE: Record<string, string> = {
  * words. Empty once the sheet has been covered — over as many partial frames
  * as it took, which is the only way it happens at a readable distance.
  */
+/**
+ * The second line while a batch is being read: WHO is reading it.
+ *
+ * A batch goes to a Claude routine first and to the model chain when that
+ * doesn't turn up, and the two take very different amounts of time — a couple of
+ * minutes against a few seconds. Without this the wait is unexplained and
+ * identical either way, which is exactly when a person starts pressing things.
+ */
+function readerLine(s: AssignmentStatus): string {
+    switch (s.batch?.read_state) {
+        case "queued":
+            return "Waiting for Claude";
+        case "claimed":
+            return "Claude is reading";
+        case "unclaimed":
+        case "failed":
+            return "Claude passed - AI";
+        default:
+            return "Please wait";
+    }
+}
+
 function needLabel(s: AssignmentStatus): string {
     const unseen = s.edges_unseen ?? [];
     if (!unseen.length) return "";
@@ -259,7 +281,7 @@ function feedbackText(): string {
     if (s.batch?.active)
         return fitBox([`Snapshots: ${s.batch.snapshot_count}`, "Tap=snap 2x=menu"]);
     if (s.batch?.processing)
-        return fitBox([`Reading ${s.batch.snapshot_count} images`, "Please wait"]);
+        return fitBox([`Reading ${s.batch.snapshot_count} images`, readerLine(s)]);
 
     if (s.running) {
         const f = s.feedback;
@@ -565,6 +587,7 @@ function buildMenu(): MenuEntry[] {
     }
     if (s?.batch?.processing) {
         items.push({ label: `Reading ${s.batch.snapshot_count} snapshots`, run: () => {} });
+        items.push({ label: readerLine(s), run: () => {} });
         items.push({ label: "Close", run: () => {} });
         return items;
     }

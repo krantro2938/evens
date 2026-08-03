@@ -60,6 +60,12 @@ export type AssignmentStatus = {
         processing: boolean;
         snapshot_count: number;
         max_snapshots: number;
+        /** Who is reading the batch: "claude-routine" while an agent has it,
+         *  then whoever answered ("anthropic/claude-routine", "gemini/…").
+         *  Optional — a server older than the read loop omits it. */
+        reader?: string | null;
+        /** queued | claimed | submitted | unclaimed | failed | interrupted. */
+        read_state?: string | null;
     };
     feedback: {
         camera_advice: string;

@@ -140,6 +140,12 @@ export interface Status {
         processing: boolean;
         snapshot_count: number;
         max_snapshots: number;
+        /** Who read it: "claude-routine" while an agent holds it, then whoever
+         *  answered. Null until a batch has been sent. */
+        reader: string | null;
+        /** queued | claimed | submitted | unclaimed | failed | interrupted —
+         *  how the routine attempt went, so a fallback is legible. */
+        read_state: string | null;
     };
 }
 
@@ -149,6 +155,8 @@ const idleBatch = (): Status["batch"] => ({
     processing: false,
     snapshot_count: 0,
     max_snapshots: 40,
+    reader: null,
+    read_state: null,
 });
 
 const status: Status = {
@@ -172,6 +180,18 @@ const status: Status = {
     last_capture_at: null,
     batch: idleBatch(),
 };
+
+/** The reader's batch blob, with anything it left out taken from `fallback`. */
+function batchFrom(d: Record<string, any>, fallback: Status["batch"]): Status["batch"] {
+    return {
+        active: Boolean(d.active),
+        processing: Boolean(d.processing),
+        snapshot_count: Number(d.snapshot_count ?? fallback.snapshot_count),
+        max_snapshots: Number(d.max_snapshots ?? fallback.max_snapshots),
+        reader: d.reader === undefined ? fallback.reader : d.reader ?? null,
+        read_state: d.read_state === undefined ? fallback.read_state : d.read_state ?? null,
+    };
+}
 
 /** What the reader reports coverage in. Nothing has been seen until it says so,
  *  so a fresh status starts with all four outstanding. */
@@ -489,12 +509,7 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             status.edges_unseen = unseenFrom(d);
             status.next_target = String(d.next_target ?? "");
             status.next_target_short = String(d.next_target_short ?? "");
-            if (d.batch) status.batch = {
-                active: Boolean(d.batch.active),
-                processing: Boolean(d.batch.processing),
-                snapshot_count: Number(d.batch.snapshot_count ?? 0),
-                max_snapshots: Number(d.batch.max_snapshots ?? 40),
-            };
+            if (d.batch) status.batch = batchFrom(d.batch, idleBatch());
             scheduleDocumentRefresh();
             break;
 
@@ -504,16 +519,39 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
         case "batch_failed":
         case "batch_cancelled":
         case "batch_snapshot":
-            if (d.batch) status.batch = {
-                active: Boolean(d.batch.active),
-                processing: Boolean(d.batch.processing),
-                snapshot_count: Number(d.batch.snapshot_count ?? status.batch.snapshot_count),
-                max_snapshots: Number(d.batch.max_snapshots ?? status.batch.max_snapshots),
-            };
+            if (d.batch) status.batch = batchFrom(d.batch, status.batch);
             if (event === "batch_snapshot") status.batch.snapshot_count = Number(d.n ?? status.batch.snapshot_count);
             if (event === "batch_processing") status.batch.processing = true;
-            if (event === "batch_finished" || event === "batch_failed") status.batch.processing = false;
+            if (event === "batch_finished" || event === "batch_failed") {
+                status.batch.processing = false;
+                status.batch.read_state = null;
+                // Camera advice belongs to a live scan — it tells you where to
+                // point next. A batch read is over by the time you could act on
+                // it, and the stopped HUD doesn't show it, so leaving it set only
+                // meant that resuming a scan later flashed the last batch's
+                // "Move CLOSER" until the first fresh model_response replaced it.
+                status.feedback = null;
+            }
             notifyStatus();
+            break;
+
+        // The routine's progress through a batch read. Worth surfacing rather
+        // than collapsing into "processing": the glasses say who is reading, and
+        // "Claude didn't claim it, Gemini is reading" is the single most useful
+        // thing to know about a batch that took longer than you expected.
+        case "batch_read_queued":
+            status.batch.reader = "claude-routine";
+            status.batch.read_state = "queued";
+            break;
+
+        case "batch_read_claimed":
+            status.batch.reader = "claude-routine";
+            status.batch.read_state = "claimed";
+            break;
+
+        case "batch_read_failed":
+            status.batch.read_state = "unclaimed";
+            status.batch.reader = null;
             break;
 
         case "job_started":
@@ -525,7 +563,17 @@ function handleUpstream({ event, data }: UpstreamEvent): void {
             break;
 
         case "capture_started":
-            status.running = true;
+            // A capture is NOT a job. Three of the reader's four capture paths —
+            // a batch read, a gallery upload, a one-shot POST /capture — emit
+            // exactly these events with no job behind them, so taking this as
+            // "the scan is running" flipped the glasses into the scanning HUD
+            // the moment you pressed "Send batch to AI": the batch box vanished,
+            // the menu offered "Stop", and it stayed that way, because with no
+            // job there is no `job_finished` to turn it off again.
+            //
+            // `running` is owned by the job events (job_started/job_resumed,
+            // job_finished) and by the `snapshot` the SSE opens with, which
+            // between them cover the live scan from any starting point.
             status.captures = Number(d.n ?? status.captures);
             status.last_capture_at = Date.now();
             break;
@@ -1040,7 +1088,7 @@ export async function control(action: ControlAction): Promise<ControlResult> {
             case "batch_start": {
                 const err = await call("/batch/start", { max_snapshots: 40 });
                 if (err) return fail(err);
-                status.batch = { active: true, processing: false, snapshot_count: 0, max_snapshots: 40 };
+                status.batch = { ...idleBatch(), active: true };
                 notifyStatus();
                 return { ok: true, action: "batch_started" };
             }
@@ -1100,6 +1148,11 @@ function afterStart(err: string | null, action: ControlResult["action"]): Contro
  * The remaining tap actions all preserve work: start, resume, stop.
  */
 export function defaultAction(): Exclude<ControlAction, "toggle"> {
+    // A batch owns the tap while it is open — the glasses turn one into a
+    // snapshot locally, and nothing else may start a live scan underneath it.
+    // Without this a tap during a batch read "start"s the reader, which then
+    // fights the batch for the camera.
+    if (status.batch.active || status.batch.processing) return "none";
     if (status.running) return "stop";
     if (status.done || status.reason === "max_captures") return "none";
     return "start";
@@ -1107,3 +1160,42 @@ export function defaultAction(): Exclude<ControlAction, "toggle"> {
 
 /** The tap gesture: one call, no knowledge of the reader's state machine. */
 export const toggle = (): Promise<ControlResult> => control("toggle");
+
+// ── the reading agent's proxy ────────────────────────────────────────────────
+//
+// The reader is not on the internet: it answers only inside the compose network
+// and only to something holding ASSIGNMENT_TOKEN, which this server has and a
+// cloud routine never will. So the agent that reads a snapshot batch talks to
+// THIS host, and these four functions carry it the last hop.
+//
+// They are deliberately thin — no interpretation, no state of our own. What the
+// reader says about a read is what the agent gets, because the two halves of
+// that conversation (the one-time token, the deadlines, the merge) all live over
+// there with the frames. Adding an opinion here would just be a second place for
+// the protocol to drift.
+//
+// Gating is index.ts's job, and it is the SOLVER_TOKEN gate the solve routine
+// already uses: these hand out photographs of someone's homework and accept a
+// document into it, so they are never open the way /assignment/status is.
+
+/** The claim, verbatim: `{ok: false, reason: "no_pending_read"}` when idle. */
+export async function readClaim(): Promise<unknown> {
+    const res = await fetch(`${BASE_URL}/batch/claim`, { headers: authHeaders() });
+    return res.json();
+}
+
+/** One snapshot, as bytes. The agent saves it and reads it as an image. */
+export async function readFrameImage(n: number): Promise<Response> {
+    return fetch(`${BASE_URL}/batch/frame/${n}`, { headers: authHeaders() });
+}
+
+/** The finished transcription, or the agent giving up. Both carry the token the
+ *  claim handed out, and both may legitimately be refused — a read that has
+ *  already timed out into the model chain is gone, and says so. */
+export async function readSubmit(body: unknown): Promise<Response> {
+    return post("/batch/submit", body);
+}
+
+export async function readFail(body: unknown): Promise<Response> {
+    return post("/batch/fail", body);
+}
