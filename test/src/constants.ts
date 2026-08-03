@@ -47,6 +47,20 @@ export const DASHBOARD_ROWS = [4, 3] as const;
 /** Space between tiles, and between the tiles and the panel edge. */
 export const DASHBOARD_GAP = 6;
 /**
+ * Strip left under the grid for the dashboard's footer (online status, mode,
+ * clock — see dashboardFooterLabel in src/main.ts), sized the same as a
+ * document page's DOC_PAGER_H. Without it the grid filled the full BODY_H and
+ * the footer had nowhere to draw at all.
+ *
+ * It isn't a dedicated container: the SDK caps a page at 8 text containers
+ * and main + 7 tiles already uses all 8, so the footer text is drawn by the
+ * backdrop container (id 1) shrunk down to this strip while the dashboard is
+ * awake. See createDashboardBackdrop in src/main.ts.
+ */
+export const DASHBOARD_FOOTER_H = 36;
+/** Where that strip starts. */
+export const DASHBOARD_PAGER_Y = BODY_H - DASHBOARD_FOOTER_H;
+/**
  * The tile frame. Named because the label's centring subtracts it: the width a
  * label has to sit in is the tile minus this and the padding on both sides, and
  * a border that changed here while the arithmetic kept the old number would put
@@ -117,7 +131,9 @@ export interface TileRect {
  */
 export function dashboardRects(): TileRect[] {
     const rows = DASHBOARD_ROWS.length;
-    const h = Math.floor((BODY_H - DASHBOARD_GAP * (rows - 1)) / rows);
+    const h = Math.floor(
+        (BODY_H - DASHBOARD_FOOTER_H - DASHBOARD_GAP * (rows - 1)) / rows,
+    );
     const rects: TileRect[] = [];
 
     DASHBOARD_ROWS.forEach((count, row) => {

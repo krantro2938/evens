@@ -35,7 +35,7 @@ import {
     DOC_MENU_ID,
     GESTURE_EVENTS,
 } from "./constants";
-import { serverUrl } from "./services/backend";
+import { docFetch } from "./services/backend";
 import { GlobalState, type AssignmentStatus, type DocState } from "./state";
 import { createDocPage } from "./docPage";
 import { appLog } from "./debug";
@@ -93,7 +93,7 @@ function viewingAiScan(): boolean {
  */
 async function pointAiAt(version: number | null): Promise<void> {
     try {
-        const res = await fetch(`${serverUrl()}${DOC_BASE_ASSIGNMENT}/active`, {
+        const res = await docFetch(`${DOC_BASE_ASSIGNMENT}/active`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ version }),

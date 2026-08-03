@@ -46,7 +46,7 @@ import {
     Z_FEEDBACK,
     Z_FEEDBACK_LARGE,
 } from "./constants";
-import { serverUrl } from "./services/backend";
+import { docFetch, serverUrl } from "./services/backend";
 import { GlobalState, type AssignmentStatus } from "./state";
 import { createMenu, type MenuEntry } from "./menu";
 import { createPanel } from "./panel";
@@ -381,8 +381,8 @@ function previewQuery(): string {
 }
 
 async function fetchPreview(): Promise<PreviewTile[]> {
-    const res = await fetch(
-        `${serverUrl()}${DOC_BASE_ASSIGNMENT}/camera${previewQuery()}`,
+    const res = await docFetch(
+        `${DOC_BASE_ASSIGNMENT}/camera${previewQuery()}`,
     );
     if (!res.ok) {
         // The reader says why in `detail` — "stream not publishing" is a
@@ -481,7 +481,7 @@ function openStream(): void {
 async function pollStatus(): Promise<void> {
     if (!active) return;
     try {
-        const res = await fetch(`${serverUrl()}${DOC_BASE_ASSIGNMENT}/status`);
+        const res = await docFetch(`${DOC_BASE_ASSIGNMENT}/status`);
         if (res.ok) applyStatus(await res.json());
     } catch {
         // The preview's own error line already says the server is unreachable.
@@ -710,7 +710,10 @@ async function send(path: string, body: unknown, label: string): Promise<void> {
     working = label;
     repaint();
     try {
-        const res = await fetch(`${serverUrl()}${DOC_BASE_ASSIGNMENT}${path}`, {
+        // Deadlined: `controlInFlight` above refuses every later control
+        // until this one lands, so a request with no answer coming doesn't
+        // just fail — it makes the menu stop working for as long as it hangs.
+        const res = await docFetch(`${DOC_BASE_ASSIGNMENT}${path}`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: body === undefined ? undefined : JSON.stringify(body),

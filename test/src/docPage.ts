@@ -15,12 +15,14 @@ import {
     GESTURE_EVENTS,
     POLL_INTERVAL_MS,
 } from "./constants";
-import { serverUrl } from "./services/backend";
+import { docFetch, ensureConnectivity, serverUrl } from "./services/backend";
 import type { DocState } from "./state";
 import { bridge, navigateBack } from "./main";
 import { appLog } from "./debug";
-import { cachedTiles, fetchTiles, type TilePage } from "./render/tiles";
+import { cachedTiles, fetchTiles, type TilePage, type TilesResult } from "./render/tiles";
 import { createTilePusher } from "./render/tilePush";
+import { recallMarkdown, rememberMarkdown } from "./render/tileCache";
+import { renderMarkdownToText } from "./render/plainText";
 
 export interface DocPageConfig {
     /** Shown in log lines. */
@@ -138,6 +140,9 @@ export function createDocPage(config: DocPageConfig): DocPage {
     let eventSource: EventSource | null = null;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let active = false;
+    // Polls in the air, so the interval never stacks a second one on top.
+    let statusPollInFlight = false;
+    let docPollInFlight = false;
 
     // Which page's tiles are currently on the panel — avoids re-pushing over the
     // slow BLE link when a gesture lands on the same page.
@@ -176,10 +181,44 @@ export function createDocPage(config: DocPageConfig): DocPage {
 
     // All bridge writes (tile pushes, pager updates, overlays) run through this
     // chain so nothing overlaps — updateImageRawData must be strictly serial.
+    //
+    // NOTHING THAT TOUCHES THE NETWORK MAY RUN IN HERE. The chain is the only
+    // route to the screen: the pager, the AI page's solve button, the action
+    // menu and its backdrop all queue on it. Put a fetch on it and a server
+    // that never answers doesn't just fail to deliver a document, it freezes
+    // the page — the footer stays on whatever it last said ("Loading..."), the
+    // button never paints, and a double tap opens a menu that cannot draw, so
+    // there is no way off the page either. That is one hung request presenting
+    // as an app that has locked up.
+    //
+    // So loaders fetch first, off the chain, and enqueue only the drawing.
     let chain: Promise<unknown> = Promise.resolve();
     function enqueue<T>(task: () => Promise<T>): Promise<T | void> {
         chain = chain.then(task).catch((err) => appLog(name, "task failed", err));
         return chain as Promise<T | void>;
+    }
+
+    // Which load is the current one. Fetches now overlap — they are no longer
+    // serialized by the chain — so every loader takes a ticket before it starts
+    // and checks it before it draws. A reload (the AI page pinning an older
+    // solution), a second poll, or walking off the page entirely all leave an
+    // earlier fetch in the air, and the document it eventually returns with
+    // must not land on top of the one that replaced it.
+    let loadSeq = 0;
+
+    /** Whether the load holding `seq` has been superseded or abandoned. */
+    function stale(seq: number): boolean {
+        return seq !== loadSeq || !active;
+    }
+
+    /**
+     * Start a loader nobody is waiting on. The counterpart to `enqueue` for the
+     * off-chain half: these used to be enqueued and so were caught by the
+     * chain, and a fire-and-forget promise that rejects is an unhandled
+     * rejection in the WebView rather than a line in the app log.
+     */
+    function detach(work: Promise<void>): void {
+        void work.catch((err) => appLog(name, "load failed", err));
     }
 
     // What the footer is showing. The pager is repainted on every status event,
@@ -363,35 +402,76 @@ export function createDocPage(config: DocPageConfig): DocPage {
     }
 
     async function fetchSnapshot(): Promise<Snapshot> {
-        const res = await fetch(`${serverUrl()}${base}/markdown${config.query?.() ?? ""}`);
+        const res = await docFetch(`${base}/markdown${config.query?.() ?? ""}`);
         if (!res.ok) throw new Error(`markdown HTTP ${res.status}`);
         return (await res.json()) as Snapshot;
     }
 
-    // Tiles unavailable (server down, render failed): show the raw markdown as
-    // text in the full-screen event layer so the page is at least readable.
-    async function showTextFallback(): Promise<void> {
+    /**
+     * Tiles, with one retry when the failure changed which server answers.
+     *
+     * `fetchTiles` reports a network-level failure to the router (see
+     * tiles.ts), so a request that timed out against an unreachable VPS may
+     * have moved the app to the local server on its way out. The document it
+     * gave up on was then never actually asked of the server that can answer
+     * it, and waiting for the next poll to notice wastes the very seconds this
+     * is trying to save.
+     */
+    async function fetchTilesFollowingBackend(query: string): Promise<TilesResult> {
+        const before = serverUrl();
         try {
-            const { content, version } = await fetchSnapshot();
-            state.pages = [];
-            state.version = version;
-            state.status = "Text mode (tiles unavailable)";
-            displayedPage = -1;
-            tiles.reset();
-            await bridge.textContainerUpgrade(
-                new TextContainerUpgrade({
-                    containerID: DOC_EVENT_LAYER_ID,
-                    containerName: "docEvent",
-                    content,
-                }),
-            );
-            await updatePager();
+            return await fetchTiles(base, query);
+        } catch (err) {
+            if (serverUrl() === before) throw err;
+            appLog(name, "backend changed after a failed fetch - retrying against", serverUrl());
+            return await fetchTiles(base, query);
+        }
+    }
+
+    // Tiles unavailable (server down, no tiles cached either): show the
+    // markdown as plain text in the full-screen event layer instead, math
+    // spans converted to readable unicode (see render/plainText.ts) rather
+    // than left as raw `\frac{...}{...}` source. Cached markdown is tried
+    // first — it needs no network, so this still works with the server fully
+    // unreachable — and only falls through to a live fetch if nothing was
+    // ever cached for this document.
+    async function showTextFallback(seq: number): Promise<void> {
+        try {
+            const query = config.query?.() ?? "";
+            const cached = await recallMarkdown(base, query);
+            const { content, version } = cached
+                ? { content: cached.markdown, version: cached.version }
+                : await fetchSnapshot();
+            if (!cached) void rememberMarkdown(base, query, version, content);
+            if (stale(seq)) return;
+
+            const text = renderMarkdownToText(content);
+            await enqueue(async () => {
+                state.pages = [];
+                state.version = version;
+                state.status = "Text mode (tiles unavailable)";
+                displayedPage = -1;
+                tiles.reset();
+                await bridge.textContainerUpgrade(
+                    new TextContainerUpgrade({
+                        containerID: DOC_EVENT_LAYER_ID,
+                        containerName: "docEvent",
+                        content: text,
+                    }),
+                );
+                await updatePager();
+            });
         } catch (err) {
             appLog(name, "text fallback failed", err);
-            state.status = `Load failed: ${
-                err instanceof Error ? err.message : String(err)
-            }`;
-            await updatePager();
+            if (stale(seq)) return;
+            // The end of the line: no tiles, no cache, no markdown. Say which
+            // failure it was — "Loading..." forever is the thing this whole
+            // path exists to stop.
+            const detail = err instanceof Error ? err.message : String(err);
+            await enqueue(async () => {
+                state.status = `Load failed: ${detail}`;
+                await updatePager();
+            });
         }
     }
 
@@ -401,46 +481,77 @@ export function createDocPage(config: DocPageConfig): DocPage {
     // document is as likely to hash lower as higher.
     async function refresh(version: number): Promise<void> {
         if (version === state.version && state.pages.length) return;
+        const seq = ++loadSeq;
 
         // Already rendered this exact document, on this device, before. The
         // version is the server's content hash, so a hit is the same bytes it
         // would send — and the fetch, the render and the wait are all skipped.
         const query = config.query?.() ?? "";
         const known = await cachedTiles(base, query, version);
+        if (stale(seq)) return;
         if (known) {
             appLog(name, "tiles from cache, version", version);
-            await applyTiles(known.pages, known.version, known.cachedAt);
+            await enqueue(() => applyTiles(known.pages, known.version, known.cachedAt));
             return;
         }
 
         try {
-            const { pages, version: tileVersion, cachedAt } = await fetchTiles(base, query);
-            await applyTiles(pages, tileVersion, cachedAt);
+            const result = await fetchTilesFollowingBackend(query);
+            if (stale(seq)) return;
+            await enqueue(() => applyTiles(result.pages, result.version, result.cachedAt));
         } catch (err) {
             appLog(name, "tiles fetch failed → text fallback", err);
-            await showTextFallback();
+            if (stale(seq)) return;
+            await showTextFallback(seq);
         }
     }
 
     async function loadInitial(): Promise<void> {
+        const seq = ++loadSeq;
+        // Before the first request, and only when nobody has established which
+        // server answers yet: in auto mode that default is the VPS, and asking
+        // an unreachable VPS is how this page used to hang. See
+        // ensureConnectivity — it costs at most one 5s probe, and only once.
+        await ensureConnectivity();
+        if (stale(seq)) return;
+
         try {
-            const { pages, version, cachedAt } = await fetchTiles(base, config.query?.());
-            await applyTiles(pages, version, cachedAt);
+            const result = await fetchTilesFollowingBackend(config.query?.() ?? "");
+            if (stale(seq)) return;
+            await enqueue(() => applyTiles(result.pages, result.version, result.cachedAt));
         } catch (err) {
             appLog(name, "initial tiles failed → text fallback", err);
-            await showTextFallback();
+            if (stale(seq)) return;
+            await showTextFallback(seq);
         }
     }
 
     /** The status the stream would have pushed, fetched the slow way. */
     async function pollStatus(): Promise<void> {
         const handler = config.events?.status;
-        if (!config.statusPath || !handler || !active) return;
+        if (!config.statusPath || !handler || !active || statusPollInFlight) return;
+        statusPollInFlight = true;
         try {
-            const res = await fetch(`${serverUrl()}${config.statusPath}`);
+            const res = await docFetch(config.statusPath);
             if (res.ok) handler(await res.json());
         } catch (err) {
             appLog(name, "status poll failed", err);
+        } finally {
+            statusPollInFlight = false;
+        }
+    }
+
+    /** The document version the stream would have announced. */
+    async function pollDocument(): Promise<void> {
+        if (!active || docPollInFlight) return;
+        docPollInFlight = true;
+        try {
+            const { version } = await fetchSnapshot();
+            if (active) await refresh(version);
+        } catch (err) {
+            appLog(name, "document poll failed", err);
+        } finally {
+            docPollInFlight = false;
         }
     }
 
@@ -449,14 +560,15 @@ export function createDocPage(config: DocPageConfig): DocPage {
         appLog(name, "polling every", POLL_INTERVAL_MS, "ms");
         // Immediately, not in POLL_INTERVAL_MS: the stream just dropped, and
         // whatever it failed to deliver is already stale.
-        void pollStatus();
+        detach(pollStatus());
         pollTimer = setInterval(() => {
             if (!active) return;
-            enqueue(async () => {
-                const { version } = await fetchSnapshot();
-                await refresh(version);
-            });
-            void pollStatus();
+            // Both guard themselves against overlapping: a request can now
+            // outlive the interval that started it (10s poll, 10s deadline),
+            // and stacking retries on a server that isn't answering is how a
+            // dropped link turns into a queue of doomed requests.
+            detach(pollDocument());
+            detach(pollStatus());
         }, POLL_INTERVAL_MS);
     }
 
@@ -474,7 +586,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             eventSource.addEventListener("markdown", (ev) => {
                 try {
                     const { version } = JSON.parse((ev as MessageEvent).data);
-                    enqueue(() => refresh(version));
+                    detach(refresh(version));
                 } catch (err) {
                     appLog(name, "SSE parse failed", err);
                 }
@@ -527,7 +639,7 @@ export function createDocPage(config: DocPageConfig): DocPage {
             // loadInitial draws what actually replaces it.
             masked = false;
             tiles.reset();
-            await enqueue(loadInitial);
+            await loadInitial();
             subscribeLive();
         },
 
@@ -551,7 +663,8 @@ export function createDocPage(config: DocPageConfig): DocPage {
             shownPager = null;
             state.status = "Loading...";
             await updatePager();
-            enqueue(loadInitial);
+            // Not enqueued: it fetches, and the chain is for drawing only.
+            detach(loadInitial());
             subscribeLive();
         },
 

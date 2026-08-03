@@ -14,7 +14,9 @@ import {
     BODY_W,
     CONTAINER_PAD,
     DASHBOARD_BORDER,
+    DASHBOARD_FOOTER_H,
     DASHBOARD_PAD,
+    DASHBOARD_PAGER_Y,
     dashboardRects,
     DEFAULT_COLOR,
     DOC_EVENT_LAYER_ID,
@@ -109,22 +111,46 @@ if (companionHost) mountCompanion(companionHost);
 // for the WebView to initialize the SDK bridge.
 export const bridge = await waitForEvenAppBridge();
 
-// Keep one full-screen event target behind the visual dashboard tiles.
-const main = new TextContainerProperty({
-    xPosition: 0,
-    yPosition: 0,
-    width: 576,
-    height: 288,
-    borderWidth: 0,
-    borderColor: 5,
-    // borderRadius: 20,
-    // paddingLength: 4,
-    containerID: 1,
-    containerName: "main",
-    content: " ",
-    isEventCapture: 1, // ← receive click events on this container
-    ...zOrder(Z_BACKDROP),
-});
+/**
+ * The dashboard's footer, awake — a status line, not a gesture target.
+ *
+ * The tile grid only fills DASHBOARD_ROWS worth of the panel now (see
+ * DASHBOARD_FOOTER_H), which leaves a blank strip under it. That matters
+ * because the SDK caps a page at 8 text containers and main + 7 tiles is
+ * already there (see DASHBOARD_ROWS in constants.ts) — a dedicated ninth
+ * container for the footer would not fit, so this reuses container 1, which
+ * used to be nothing but a full-screen blank event catcher.
+ *
+ * It does NOT carry isEventCapture anymore (see createDashboardTiles): a
+ * container the host is told to capture gestures on is also one it will
+ * attach its own native scroll/bounce to once it holds real text, the same
+ * way a page's SCROLLER attaches once a TextContainer overflows (see the
+ * line-budget note in settings.ts). The blank full-screen version of this
+ * container never showed that because it never had real content; the first
+ * real text put in here (the online/mode/clock line) did. Every OTHER page
+ * keeps those two jobs on separate containers — the doc page's blank
+ * `eventLayer` versus its text-bearing `pager` — this is the one page where
+ * they can't be, so the capture moved to the first tile instead, which only
+ * ever holds a short label and never overflows.
+ *
+ * Full-screen and blank while asleep: sleeping draws NOTHING (see
+ * dashboard.ts), and a footer that kept ticking would defeat that.
+ */
+function createDashboardBackdrop(sleeping: boolean): TextContainerProperty {
+    return new TextContainerProperty({
+        xPosition: 0,
+        yPosition: sleeping ? 0 : DASHBOARD_PAGER_Y,
+        width: BODY_W,
+        height: sleeping ? BODY_H : DASHBOARD_FOOTER_H,
+        borderWidth: 0,
+        borderColor: 5,
+        containerID: 1,
+        containerName: "main",
+        content: sleeping ? " " : dashboardFooterLabel(),
+        isEventCapture: sleeping ? 1 : 0,
+        ...zOrder(Z_BACKDROP),
+    });
+}
 
 /**
  * A tile label, nudged to the middle of its tile with spaces.
@@ -170,13 +196,39 @@ function centreLabel(label: string, tileWidth: number): string {
     return " ".repeat(spaces) + label;
 }
 
-function dashboardSetupLabel(): string {
+/** How much text the footer strip holds — see FOOTER_COLS in assignment.ts. */
+const DASHBOARD_FOOTER_COLS = 40;
+
+/** Hard-clip one line to what the footer strip can draw. */
+function clipFooter(text: string): string {
+    return text.length <= DASHBOARD_FOOTER_COLS
+        ? text
+        : `${text.slice(0, DASHBOARD_FOOTER_COLS - 1)}…`;
+}
+
+/**
+ * Online status, mode and the wall clock — the dashboard's one status line.
+ *
+ * Status (reachability, derived) sits on the left; the raw mode — what
+ * Setup actually has selected, auto/online/offline — sits on the right so
+ * the two don't get confused: "Auto/offline" on the left is a status, not a
+ * mode, and this line makes clear which one you're looking at.
+ */
+function dashboardFooterLabel(): string {
     const mode = getMode();
     const online = remoteReachable();
-    if (mode === "offline") return `Setup [off]`;
-    if (mode === "auto" && !online) return `Setup [auto/off]`;
-    if (!online) return `Setup [no srv]`;
-    return `Setup ${clockStr()}`;
+    const status =
+        mode === "offline"
+            ? "Offline"
+            : mode === "auto" && !online
+              ? "Auto/offline"
+              : !online
+                ? "No server"
+                : "Online";
+    const left = `${status}  ${clockStr()}`;
+    const right = `[${mode}]`;
+    const gap = Math.max(2, DASHBOARD_FOOTER_COLS - left.length - right.length);
+    return clipFooter(`${left}${" ".repeat(gap)}${right}`);
 }
 
 function createDashboardTiles() {
@@ -208,12 +260,14 @@ function createDashboardTiles() {
             content: centreLabel(
                 item === "Msgs" && GlobalState.unreadMessages > 0
                     ? `${item} ${GlobalState.unreadMessages}`
-                    : item === "Setup"
-                      ? dashboardSetupLabel()
-                      : item,
+                    : item,
                 rect.w,
             ),
-            isEventCapture: 0,
+            // The first tile carries the page's one isEventCapture instead of
+            // the footer container — see createDashboardBackdrop. Its label
+            // is a few characters, never enough to overflow and invite the
+            // host's own scroller the way the footer's status line did.
+            isEventCapture: index === 0 ? 1 : 0,
             ...zOrder(Z_TILE_BASE + index),
         });
     });
@@ -224,7 +278,7 @@ const dashboardTiles = createDashboardTiles();
 // Render the page. `result` is 0 on success.
 const startUpPage = new CreateStartUpPageContainer({
     containerTotalNum: dashboardTiles.length + 1,
-    textObject: [main, ...dashboardTiles],
+    textObject: [createDashboardBackdrop(false), ...dashboardTiles],
 });
 
 // The dashboard's containers don't overlap, so their order is irrelevant — but
@@ -250,7 +304,7 @@ if (result !== 0) {
     const recovered = await bridge.rebuildPageContainer(
         new RebuildPageContainer({
             containerTotalNum: dashboardTiles.length + 1,
-            textObject: [main, ...dashboardTiles],
+            textObject: [createDashboardBackdrop(false), ...dashboardTiles],
         }),
     );
     appLog("Dashboard rebuild after failed create:", recovered ? "ok" : "FAILED");
@@ -574,7 +628,9 @@ export async function buildPage(page: PAGES) {
             const sleeping = dashboardAsleep();
             const dashboard = new RebuildPageContainer({
                 containerTotalNum: sleeping ? 1 : dashboardTiles.length + 1,
-                textObject: sleeping ? [main] : [main, ...createDashboardTiles()],
+                textObject: sleeping
+                    ? [createDashboardBackdrop(true)]
+                    : [createDashboardBackdrop(false), ...createDashboardTiles()],
             });
             const dashZ = validateEvenHubPageContainerZOrder(dashboard);
             if (!dashZ.valid) {

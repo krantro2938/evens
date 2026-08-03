@@ -8,6 +8,7 @@ import {
 import { buildPage, navigate } from "./main";
 import { GlobalState } from "./state";
 import { appLog } from "./debug";
+import { probeNow } from "./services/backend";
 
 /**
  * Where each tile goes. A map rather than a switch so adding a tile to
@@ -51,6 +52,38 @@ export function dashboardAsleep(): boolean {
     return asleep;
 }
 
+// ── live connectivity probe ─────────────────────────────────────────────────
+//
+// The footer's status line goes stale otherwise: services/backend.ts only
+// probes on its own timer in "auto" mode (it's what picks a server there), so
+// standing on the dashboard in explicit online/offline mode would show
+// whatever remoteReachable() last happened to be — possibly from app boot.
+// This runs regardless of mode, but only while there's a footer on screen to
+// update: paused rather than ticking uselessly against a dark or absent
+// dashboard.
+const DASHBOARD_PROBE_MS = 20_000;
+let probeTimer: ReturnType<typeof setInterval> | null = null;
+
+function startDashboardProbing(): void {
+    if (probeTimer !== null) return;
+    probeTimer = setInterval(() => void probeAndRefresh(), DASHBOARD_PROBE_MS);
+}
+
+function stopDashboardProbing(): void {
+    if (probeTimer !== null) clearInterval(probeTimer);
+    probeTimer = null;
+}
+
+async function probeAndRefresh(): Promise<void> {
+    if (asleep || GlobalState.currentPage !== PAGES.DASHBOARD) return;
+    const changed = await probeNow();
+    // Re-check: the probe is a network round trip, and the dashboard could
+    // have slept or been navigated away from while it was in flight.
+    if (changed && !asleep && GlobalState.currentPage === PAGES.DASHBOARD) {
+        await buildPage(PAGES.DASHBOARD);
+    }
+}
+
 /** (Re)start the countdown. Called on every repaint of a lit dashboard. */
 export function armDashboardSleep(): void {
     if (sleepTimer !== null) clearTimeout(sleepTimer);
@@ -58,12 +91,14 @@ export function armDashboardSleep(): void {
         sleepTimer = null;
         void sleepDashboard();
     }, DASHBOARD_SLEEP_MS);
+    startDashboardProbing();
 }
 
-/** Leaving the dashboard: stop the timer, and come back lit. */
+/** Leaving the dashboard: stop the timers, and come back lit. */
 export function leaveDashboardPage(): void {
     if (sleepTimer !== null) clearTimeout(sleepTimer);
     sleepTimer = null;
+    stopDashboardProbing();
     asleep = false;
 }
 
@@ -73,6 +108,7 @@ async function sleepDashboard(): Promise<void> {
     // actually are rather than trusting the timer.
     if (asleep || GlobalState.currentPage !== PAGES.DASHBOARD) return;
     asleep = true;
+    stopDashboardProbing();
     appLog("Dashboard sleep");
     await buildPage(PAGES.DASHBOARD);
 }

@@ -151,9 +151,11 @@ function detail(): string[] {
             online: "Always use the cloud solver.",
             offline: "Always use the local solver.",
         };
+        // One line, not two: modelStatus is the tenth line the container
+        // won't fit (see the line-budget note above), same as the two hints
+        // sharing HINTS's row.
         const lines = [descriptions[getMode()]];
-        if (modelStatus) lines.push(modelStatus);
-        lines.push("Tap to cycle modes");
+        lines.push(modelStatus ? `${clamp(modelStatus)} - tap to cycle` : "Tap to cycle modes");
         return lines;
     }
 

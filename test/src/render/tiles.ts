@@ -1,16 +1,14 @@
-// Tile rendering: server-side by default, client-side fallback for offline.
+// Tile rendering: fetched from the server (VPS or, offline, the local Termux
+// server — both now render real tiles server-side, see offline/render.py).
 //
-// When the server returns pre-rendered tiles we use them directly. When it
-// returns empty pages (the local offline server can't render) we fall back to
-// on-device rendering: marked + mathjax-full → HTML, html2canvas → canvas,
-// then sliced into the 2×2 tile grid the glasses expect.
+// When the server can't be reached at all, or returns no tiles, the caller
+// (docPage.ts) falls back to a plain-text rendering of the document instead
+// of image tiles — see render/plainText.ts and showTextFallback().
 
 import { TILE_H, TILES_X, TILES_Y, TILE_W } from "../constants";
-import { serverUrl } from "../services/backend";
+import { docFetch, isNetworkError, noteRemoteFailure } from "../services/backend";
 import { appLog } from "../debug";
-import { recall, recallNewest, remember, rememberMarkdown, recallMarkdown } from "./tileCache";
-import { renderMarkdownToHtml } from "./markdown";
-import { renderToPages } from "./rasterize";
+import { recall, recallNewest, remember, rememberMarkdown } from "./tileCache";
 
 export interface Tile {
     /** Index 0..3, row-major: matches DOC_TILE_IDS ordering. */
@@ -58,36 +56,9 @@ export function base64ToBytes(b64: string): Uint8Array {
     return bytes;
 }
 
-/**
- * Render markdown client-side: marked + KaTeX → HTML, html2canvas → tiles.
- * Used when the server can't render (offline mode) or when we need to
- * rebuild from cached markdown after the server goes away.
- */
-async function renderFromMarkdown(
-    md: string,
-    base: string,
-    cachedAt: number | null = null,
-): Promise<TilesResult | null> {
-    if (!md.trim()) return null;
-    try {
-        appLog("Tiles", "rendering client-side", cachedAt ? "(from cached markdown)" : "(live)");
-        const html = await renderMarkdownToHtml(md);
-        const rasterPages = await renderToPages(html);
-        const pages: TilePage[] = rasterPages.map((p) => ({
-            tiles: p.tiles.map((t) => ({ index: t.index, bytes: t.bytes })),
-        }));
-        const version = Date.now();
-        void remember(base, "", version, pages);
-        return { version, pages, overlay: null, cachedAt };
-    } catch (err) {
-        appLog("Tiles", "client-side render failed", err);
-        return null;
-    }
-}
-
 async function fetchMarkdownFromServer(base: string): Promise<string | null> {
     try {
-        const res = await fetch(`${serverUrl()}${base}/markdown`);
+        const res = await docFetch(`${base}/markdown`);
         if (!res.ok) return null;
         const contentType = res.headers.get("content-type") || "";
         if (contentType.includes("json")) {
@@ -110,53 +81,43 @@ async function fetchMarkdownFromServer(base: string): Promise<string | null> {
  * when that happened, so the caller can say how old they are instead of
  * presenting them as live. See render/tileCache.ts.
  *
- * When the server returns empty pages (the local offline server can't render),
- * we fall back to on-device rendering with marked + KaTeX + html2canvas.
+ * An empty `pages` array is treated the same as a failed fetch — both mean
+ * "no image tiles available" — so there is one place (docPage.ts's
+ * showTextFallback) that decides what to show instead, rather than two.
  */
 export async function fetchTiles(base = "", query = ""): Promise<TilesResult> {
     try {
-        const res = await fetch(`${serverUrl()}${base}/tiles${query}`);
+        const res = await docFetch(`${base}/tiles${query}`);
         if (!res.ok) throw new Error(`tiles HTTP ${res.status}`);
         const json = (await res.json()) as TilesResponse;
-
-        // Offline server returns empty pages — fetch markdown and render locally
-        if (!json.pages.length) {
-            const md = await fetchMarkdownFromServer(base);
-            if (md) {
-                void rememberMarkdown(base, query, json.version, md);
-                const local = await renderFromMarkdown(md, base);
-                if (local) return local;
-            }
-        }
+        if (!json.pages.length) throw new Error("server returned no tiles");
 
         const pages: TilePage[] = json.pages.map((p) => ({
             tiles: p.tiles.map((t) => ({ index: t.index, bytes: base64ToBytes(t.data) })),
         }));
         void remember(base, query, json.version, pages);
 
-        // Stash the markdown too so we can rebuild tiles if the server goes away.
-        // Fire-and-forget: don't block tile delivery on a second fetch.
+        // Stash the markdown too, so the text fallback has something to show
+        // if the server goes away entirely later. Fire-and-forget: don't block
+        // tile delivery on a second fetch.
         fetchMarkdownFromServer(base).then((md) => {
             if (md) void rememberMarkdown(base, query, json.version, md);
         });
 
         return { version: json.version, pages, overlay: json.overlay ?? null, cachedAt: null };
     } catch (err) {
-        // Try cached tiles first
+        // Tell the router before consulting the cache. This is the strongest
+        // evidence anything has that the server it picked is not there — a
+        // request somebody is waiting on, which never got an answer — and the
+        // cache answering next must not swallow it: the tiles would come back
+        // and the status stream would go on talking to a dead host.
+        if (isNetworkError(err)) noteRemoteFailure();
+
         const cached = await recallNewest(base, query);
         if (cached) {
             appLog("Tiles", "fetch failed, using cached tiles from", new Date(cached.at).toISOString());
             return { version: cached.version, pages: cached.pages, overlay: null, cachedAt: cached.at };
         }
-
-        // No cached tiles — try rendering from cached markdown
-        const cachedMd = await recallMarkdown(base, query);
-        if (cachedMd) {
-            appLog("Tiles", "no cached tiles, rendering from cached markdown");
-            const local = await renderFromMarkdown(cachedMd.markdown, base, cachedMd.at);
-            if (local) return local;
-        }
-
         throw err;
     }
 }
