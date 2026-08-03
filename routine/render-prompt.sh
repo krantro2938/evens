@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 #
-# Print solve.md's prompt with its placeholders filled in, ready to paste into
+# Print a routine prompt with its placeholders filled in, ready to paste into
 # the routine at <https://claude.ai/code/routines>.
 #
-# WHY THIS EXISTS. solve.md is a template: the prompt in it says
+#   ./routine/render-prompt.sh [solve|review]      (default: solve)
+#
+# WHY THIS EXISTS. solve.md and review.md are templates: the prompts in them say
 # `<EVENS_URL>` and `<SOLVER_TOKEN>` because those are a deployment's secrets and
-# do not belong in the repository. The routine, though, stores one literal string
-# — so pasting the file as it stands produces a routine that boots, finds no
+# do not belong in the repository. A routine, though, stores one literal string
+# — so pasting a file as it stands produces a routine that boots, finds no
 # credentials, and stops. It does that politely, reporting a configuration
 # problem and spending about fifty cents to do so, which is exactly why it went
 # unnoticed for a day: every fire "succeeded", the button still filled the page
@@ -15,7 +17,12 @@
 # That happened on 2026-07-30. The routine's stored prompt was byte-identical to
 # solve.md's, placeholders and all. So: don't paste the file, paste this.
 #
-#   SOLVER_TOKEN=... ./routine/render-prompt.sh | xclip -selection clipboard
+#   SOLVER_TOKEN=... ./routine/render-prompt.sh        | xclip -selection clipboard
+#   SOLVER_TOKEN=... ./routine/render-prompt.sh review | xclip -selection clipboard
+#
+# THERE ARE TWO ROUTINES and they are not interchangeable: `solve` writes the
+# answer, `review` grades it and decides what goes back. Each is pasted into its
+# own routine, with its own model — see the setup notes at the top of review.md.
 #
 # Configuration, by environment — the same names runner.sh uses:
 #   SOLVER_TOKEN   required; must match the server's
@@ -27,9 +34,18 @@
 
 set -euo pipefail
 
+WHICH="${1:-solve}"
+case "$WHICH" in
+    solve|review) ;;
+    *)
+        echo "render-prompt: unknown prompt \"$WHICH\" — use 'solve' or 'review'" >&2
+        exit 2
+        ;;
+esac
+
 EVENS_URL="${EVENS_URL:-https://even.aansl.com}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE="$HERE/solve.md"
+SOURCE="$HERE/$WHICH.md"
 
 if [[ -z "${SOLVER_TOKEN:-}" ]]; then
     echo "render-prompt: SOLVER_TOKEN is not set (it must match the server's)" >&2

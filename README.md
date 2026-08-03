@@ -10,6 +10,8 @@ server that renders them.
   glasses stay thin.
 - **`routine/solve.md`** — the prompt the Claude routine runs when you tap
   "solve" on the glasses.
+- **`routine/review.md`** — the prompt for the *second* routine, which grades
+  what the first one wrote and sends the weak problems back.
 - **`solution.md`** — the fallback for the AI page, until a solve has landed.
 
 ## How the pieces connect
@@ -23,8 +25,13 @@ server that renders them.
                                                     │  ▲
                                     trigger on tap   │  │  markdown back
                                                      ▼  │
-                                              Claude routine
+                                              Claude routine ──── solves
                                               (cloud session)
+                                                    │  ▲
+                                       every answer  │  │  points per problem,
+                                       is graded     ▼  │  and what to fix
+                                            Claude routine ──── reviews
+                                              (Opus session)
 ```
 
 The AI page shows whatever was last solved. When there is no solution for the
@@ -32,6 +39,86 @@ paper currently under the camera, it shows a trigger button instead: a tap hands
 the transcription to a solver and the answer arrives on the glasses when it's
 done. Every solution is kept in SQLite, so nothing is lost across restarts — see
 [`server/README.md`](server/README.md#the-solve-loop).
+
+## The review loop
+
+An answer is not the end of it. Every solution that lands is handed to a
+**second agent** — a different routine, on Opus — which marks it against a
+rubric and reports points per problem. The server, not the reviewer, decides
+what that means:
+
+| Band | Points | Goes back when |
+|---|---|---|
+| **answer** — the first three problems by default | 15, answer only | the final answer is wrong, whatever it scored |
+| **method** — everything after them | 18 = **5** answer + **13** working | the total is under 13 |
+
+That split is the point. A method-band problem with the right number and an
+unargued middle scores 5 and is re-solved; a well-argued attempt that slipped in
+the arithmetic can score 13 and stand. **The working is worth more than the
+answer**, which is how the papers this is built for are actually marked.
+
+A problem that fails goes back **on its own**: the solver gets that problem, the
+reviewer's `fix` note for it, and nothing else, and it submits just that section.
+The server splices it into the document, so every problem that passed is kept
+byte for byte rather than regenerated and re-checked. Then the whole thing is
+graded again, up to `REVIEW_MAX_ROUNDS` rounds (3 by default, first attempt
+included) — the only thing bounding what the loop spends.
+
+**Every problem carries its own mark**, on the line under its answer, which is
+the thing you actually act on — the total tells you whether to trust the paper,
+this tells you which question to look at again:
+
+```
+**Ответ: 16/3**
+
+*Rated 8/18 — Set up the definite integral explicitly, state the limits…*
+```
+
+and the total is in the footer under the byline:
+
+```
+Solved by claude-sonnet-5
+
+Reviewed by claude-opus-5: 78/81
+```
+
+— or `61/81 — still short on 2, 4` when a round ran out. All of it is in the
+*markdown* rather than only in the status feed, for the reason the byline is: the
+glasses app ships separately from this server and the two drift for weeks, so
+anything that has to be seen belongs in the document.
+
+### On the glasses while it runs
+
+The AI page reports which half of the loop is working:
+
+| | |
+|---|---|
+| `CLAUDE IS SOLVING` · `1m 20s` | a first pass |
+| `FIXING 2, 4` · `attempt 2 of 3 — 1m 20s` | a revision, and which problems |
+| footer `— checking 45s` | the grader has the answer |
+| footer `— 78/81`, or `— 61/81, 2,4 short` | the verdict on what is on screen |
+
+**`Get quick solution`** (the menu, or just a tap while it works) shows the
+answer that has *already* been submitted instead of waiting for the corrections
+— the loop carries on behind it, the footer says `(newer ready)` when the better
+version lands, and `Back to latest` picks it up. Worth having: a full round is
+two cloud sessions, and sometimes you want the 61/81 now.
+
+Setting it up is [`routine/review.md`](routine/review.md)'s own section: a second
+routine, its own API trigger, `REVIEW_ROUTINE_ID` in `.env`. Without it nothing
+is graded and the server behaves exactly as it did before — `REVIEW_ENABLED=0`
+does the same while leaving the routine configured.
+
+## The assignment as images
+
+`/assignment/sheet*` renders the transcription to ordinary PNGs instead of BLE
+tiles: one image per page — pixel-exact, the same layout and the same page
+overlap the glasses show — and one tall image of the whole document at 2×, which
+is the one to download. The **Assignment** tab on `cam.aansl.com` is built on
+those, with a picker for the reader's earlier scans.
+
+It answers what the glasses cannot: *read the transcription before you spend a
+solve on it*, and *keep a copy of this sheet*.
 
 A solution can include **figures** as well as prose and LaTeX — a graph, a
 geometry diagram, vectors, a solution set on a number line. The solver writes a
@@ -67,8 +154,9 @@ Each service owns one file. Nothing is configured in two places.
 | File | Owns | Key settings |
 |---|---|---|
 | `test/.env.local` | the glasses app | `VITE_MD_TARGET` (dev proxy), `VITE_MD_SERVER` (packed build) |
-| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `MESSAGE_TOKEN`, `ROUTINE_ID`, `ROUTINE_TOKEN` |
-| the routine, at [claude.ai/code/routines](https://claude.ai/code/routines) | the solving agent | its prompt (a copy lives in `routine/solve.md`), its model, its **network allowlist**, and `SOLVER_TOKEN` again |
+| `.env` (this repo, next to `docker-compose.yml`) | the document server's deployment | `ASSIGNMENT_URL`, `ASSIGNMENT_TOKEN`, `ASSIGNMENT_DEBOUNCE_MS`, `SOLVER_TOKEN`, `MESSAGE_TOKEN`, `ROUTINE_ID`, `ROUTINE_TOKEN`, `REVIEW_ROUTINE_ID`, `REVIEW_ROUTINE_TOKEN`, and the rubric (`REVIEW_*`, below) |
+| the solve routine, at [claude.ai/code/routines](https://claude.ai/code/routines) | the solving agent | its prompt (a copy lives in `routine/solve.md`), its model, its **network allowlist**, and `SOLVER_TOKEN` again |
+| the review routine, same place | the grading agent | its prompt (`routine/review.md`), **Opus**, the same network allowlist, and `SOLVER_TOKEN` again |
 | `vps/docker/.env` in the lookcam repo | the camera stack and the reader | `GEMINI_API_KEY`, `ASSIGNMENT_TOKEN`, `SNAPSHOT_TOKEN`, `MESSAGE_TOKEN`, `DOMAIN`, `ASSIGNMENT_DOMAIN`, `EVENS_DOMAIN` |
 
 Three values have to match across files, and all three fail quietly if they don't:
@@ -81,6 +169,24 @@ Three values have to match across files, and all three fail quietly if they don'
   `/solution/claim`.
 - `MESSAGE_TOKEN` — this repo's `.env` and the lookcam stack's. If the chat
   widget on `cam.aansl.com` says "unauthorized" on send, this is why.
+
+`SOLVER_TOKEN` is now in **three** places: this `.env` and *both* routines'
+prompts. Render each with the script rather than pasting the file —
+`./routine/render-prompt.sh` for the solver, `./routine/render-prompt.sh review`
+for the grader — for the reason documented at the top of both prompts.
+
+The rubric is configuration, not prose in a prompt, so the thresholds live in one
+place and an agent cannot reason its way around them:
+
+| Variable | Default | |
+|---|---|---|
+| `REVIEW_ANSWER_BAND` | `3` | how many problems at the front are answer-only |
+| `REVIEW_ANSWER_MAX` | `15` | points for one of those |
+| `REVIEW_METHOD_MAX` | `18` | points for a full-solution problem |
+| `REVIEW_METHOD_ANSWER_POINTS` | `5` | of those 18, how many the answer alone is worth |
+| `REVIEW_METHOD_PASS` | `13` | below this it is re-solved |
+| `REVIEW_MAX_ROUNDS` | `3` | total attempts at a problem, first included |
+| `REVIEW_ENABLED` | `1` | `0` grades nothing, routine or no routine |
 
 ## Messages
 

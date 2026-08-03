@@ -115,6 +115,21 @@ let ticker: ReturnType<typeof setInterval> | null = null;
 // both dedup, so a label that hasn't changed costs nothing on the wire.
 const TICK_MS = 1_000;
 
+/**
+ * Reading an already-submitted answer while a correction is being made.
+ *
+ * The solve loop now has a second half — the grader sends weak problems back and
+ * the page goes modal again while they are re-solved — so an answer you could
+ * have read a minute ago can be behind a backdrop for several more. This is the
+ * escape: pin to the newest submitted solution and read it now.
+ *
+ * It is a flag as well as a pin because the status handler un-pins on every
+ * event while a run is live (so an answer never lands on a page frozen to
+ * history). That rule is right for the picker and wrong for this, which is a
+ * deliberate choice made *during* the run it would otherwise be undone by.
+ */
+let quickLook = false;
+
 function status(): SolverStatus | null {
     return GlobalState.solverStatus;
 }
@@ -122,6 +137,76 @@ function status(): SolverStatus | null {
 /** The saved solutions, newest first, as the server sends them. */
 function history(): SolverStatus["solution_history"] {
     return status()?.solution_history ?? [];
+}
+
+// ── the grader ──────────────────────────────────────────────────────────────
+//
+// Every read here is optional-chained and every caller copes with `undefined`.
+// This app is packed and installed separately from the server and the two drift
+// for weeks, so it will be run against a server with no review loop at all —
+// which must look like "nothing to say about grading", not like a broken page.
+
+function review(): SolverStatus["review"] {
+    return status()?.review;
+}
+
+/** The grader is working on the answer on screen right now. */
+function grading(): boolean {
+    const state = review()?.state;
+    return state === "queued" || state === "grading";
+}
+
+/** "78/81" from the last verdict, or null if nothing has been graded. */
+function scoreText(): string | null {
+    const verdict = review()?.review;
+    if (!verdict || verdict.total === null) return null;
+    return `${verdict.total}/${verdict.max_total ?? 0}`;
+}
+
+/** Problems the grader is still not satisfied with. */
+function outstanding(): string[] {
+    return review()?.review?.outstanding ?? [];
+}
+
+/** How long the grader has been at it, status age plus local drift. */
+function reviewElapsedMs(): number {
+    const verdict = review()?.review;
+    if (!verdict) return 0;
+    return verdict.age_ms + (Date.now() - statusReceivedAt);
+}
+
+/** The problems the live run is re-solving; empty on a first attempt. */
+function revising(): string[] {
+    return status()?.run?.revising ?? [];
+}
+
+/** "attempt 2 of 3", or just the clock on a first pass. */
+function attemptLabel(): string {
+    const round = status()?.run?.round ?? 1;
+    const clock = elapsed(runElapsedMs());
+    if (round <= 1) return clock;
+    const max = review()?.max_rounds;
+    return `attempt ${round}${max ? ` of ${max}` : ""} - ${clock}`;
+}
+
+/**
+ * Whether there is an answer already on file to fall back to.
+ *
+ * Only while the document is being replaced — the rest of the time the page is
+ * already showing it, and an entry offering to fetch what you are looking at is
+ * noise.
+ */
+function quickAvailable(): boolean {
+    return replacingDocument() && history().length > 0;
+}
+
+/** Show the newest submitted answer now, without waiting for the loop to end. */
+function quickSolution(): void {
+    const latest = history()[0];
+    if (!latest) return;
+    quickLook = true;
+    openSolution(latest.id);
+    repaint();
 }
 
 function setRequesting(on: boolean): void {
@@ -254,7 +339,7 @@ function buttonText(): string {
         // the same wait, and naming the seam only invited the question of whether
         // anything was actually happening.
         case "queued":
-        case "solving":
+        case "solving": {
             // The exception, because it is the one case where the answer is
             // "nothing, and it won't happen on its own".
             if (s.state === "queued" && s.run?.trigger !== "triggered") {
@@ -268,13 +353,21 @@ function buttonText(): string {
                     "2x = menu",
                 ].join("\n");
             }
+            // A revision names the problems it is fixing. "CLAUDE IS SOLVING" on
+            // the fourth minute of a paper you watched get answered two minutes
+            // ago reads as a page that has lost its place; "FIXING 2, 4" says
+            // both that the answer exists and why you are still waiting.
+            const fixing = revising();
             return [
-                "CLAUDE IS SOLVING",
+                fixing.length ? `FIXING ${fixing.join(", ")}` : "CLAUDE IS SOLVING",
                 "",
-                elapsed(runElapsedMs()),
+                attemptLabel(),
                 "",
-                "2x = menu to cancel",
+                // The way out of the wait, when there is something to come out
+                // to. Otherwise teach the menu, as this always has.
+                quickAvailable() ? "tap = last answer" : "2x = menu to cancel",
             ].join("\n");
+        }
 
         case "failed":
             return [
@@ -338,16 +431,50 @@ function pagerLabel(state: DocState): string {
                 : "Tap to solve (page incomplete)";
         }
         case "queued":
-        case "solving":
-            return s.state === "queued" && s.run?.trigger !== "triggered"
-                ? "Waiting - no solver configured"
-                : `Solving - ${elapsed(runElapsedMs())}`;
+        case "solving": {
+            if (s.state === "queued" && s.run?.trigger !== "triggered") {
+                return "Waiting - no solver configured";
+            }
+            const fixing = revising();
+            const what = fixing.length ? `Fixing ${fixing.join(", ")}` : "Solving";
+            return `${what} - ${attemptLabel()}`;
+        }
         case "failed":
             return "Solve failed - tap to retry";
-        case "solved":
+        case "solved": {
             if (!state.pages.length) return state.status;
-            return withClock(`${state.currentPage + 1} / ${state.pages.length}${openedLabel()}`);
+            // The grader's line REPLACES the version suffix rather than joining
+            // it. The strip is one line, and when nothing is pinned that suffix
+            // says "v3 ... (latest)" — which is the least interesting thing it
+            // could be saying while a mark is being decided or has just landed.
+            const tail = reviewSuffix() ?? openedLabel();
+            return withClock(`${state.currentPage + 1} / ${state.pages.length}${tail}`);
+        }
     }
+}
+
+/**
+ * What the grader has to say about the answer on screen, as a footer suffix.
+ *
+ * Null when there is nothing worth the width: no review loop configured, a
+ * verdict about some other solution, or a graded paper the reader has pinned
+ * away from. Same leading spaces as `openedLabel`, which it stands in for.
+ */
+function reviewSuffix(): string | null {
+    const block = review();
+    if (!block?.configured) return null;
+    if (grading()) return `   - checking ${elapsed(reviewElapsedMs())}`;
+
+    const score = scoreText();
+    if (!score) return null;
+    // Only about the solution actually on screen. A verdict on the previous one
+    // would otherwise be read as a mark for this one.
+    const verdict = block.review;
+    const shown = history()[0];
+    if (!verdict || !shown || verdict.solution_id !== shown.id) return null;
+
+    const short = outstanding();
+    return short.length ? `   - ${score}, ${short.join(",")} short` : `   - ${score}`;
 }
 
 /**
@@ -366,6 +493,14 @@ function openedLabel(): string {
     // Pinned to something older than the handful the server sends back. Say so:
     // "v?" beats a footer that quietly claims you are on the latest.
     if (!opened) return "   - older version";
+
+    // A quick look that the loop has since overtaken. Without this the page sits
+    // on the answer you grabbed mid-solve with no sign that the corrected one is
+    // already waiting behind it — and the whole point of the wait was that the
+    // corrected one is better.
+    if (quickLook && items[0] && items[0].id !== opened.id) {
+        return `   - v${opened.version} (newer ready)`;
+    }
 
     return (
         `   - v${opened.version} ${formatDate(opened.created_at)}` +
@@ -388,6 +523,9 @@ function formatDate(timestamp: number): string {
  * about the solution it is pinned to and never learn that a newer one landed.
  */
 function openSolution(id: number | null): void {
+    // Going back to the live document ends the quick look by definition, and it
+    // is the only thing that does — see `quickLook`.
+    if (id === null) quickLook = false;
     if (selectedSolutionId === id) return;
     selectedSolutionId = id;
     void page.reload();
@@ -407,6 +545,12 @@ function buildMenu(): MenuEntry[] {
 function buildRootMenu(): MenuEntry[] {
     const s = status();
     const items: MenuEntry[] = [{ label: "Back", run: leavePage }];
+
+    // Ahead of "cancel", because it is the one you want: it gets you the answer
+    // without giving up the better one being made.
+    if (quickAvailable()) {
+        items.push({ label: "Get quick solution", run: quickSolution });
+    }
 
     if (requesting || s?.state === "queued" || s?.state === "solving") {
         items.push({ label: "Cancel this solve", run: cancelSolve });
@@ -486,12 +630,25 @@ function menuHeading(): string {
         case "idle":
             return `READY - ${s.assignment.problems} problems`;
         case "queued":
-        case "solving":
-            return `SOLVING - ${elapsed(runElapsedMs())}`;
+        case "solving": {
+            const fixing = revising();
+            return fixing.length
+                ? `FIXING ${fixing.join(", ")} - ${attemptLabel()}`
+                : `SOLVING - ${elapsed(runElapsedMs())}`;
+        }
         case "failed":
             return "LAST SOLVE FAILED";
-        case "solved":
+        case "solved": {
+            if (grading()) return `CHECKING - ${elapsed(reviewElapsedMs())}`;
+            const score = scoreText();
+            if (score) {
+                const short = outstanding();
+                return short.length
+                    ? `SCORED ${score} - ${short.join(",")} SHORT`
+                    : `SCORED ${score}`;
+            }
             return s.solution?.stale ? "SOLVED - earlier scan" : "SOLVED";
+        }
     }
 }
 
@@ -589,6 +746,11 @@ function syncOverlay(): void {
  * was found.
  */
 function replacingDocument(): boolean {
+    // Not while you are deliberately reading an earlier answer. That document is
+    // not the one being replaced, and blacking it out is the exact mistake this
+    // function's note above warns about — it also made the menu come up black
+    // during a quick look, which is when you most want to read around it.
+    if (selectedSolutionId !== null) return false;
     if (requesting) return true;
     const s = status();
     return s?.state === "queued" || s?.state === "solving";
@@ -646,7 +808,14 @@ const page = createDocPage({
             // A solve is about the paper in front of you, not the history you
             // were browsing: go back to following the live document, or the
             // answer will land on a page still pinned to an older one.
-            if (next.state === "queued" || next.state === "solving") openSolution(null);
+            //
+            // UNLESS you asked for the quick solution. This fires on every event
+            // while a run is live, not just on the one that starts it, so
+            // without the guard a quick look would be undone within the second —
+            // and the pin is a decision made *during* exactly that window.
+            if ((next.state === "queued" || next.state === "solving") && !quickLook) {
+                openSolution(null);
+            }
             statusReceivedAt = Date.now();
             syncTicker();
             repaint();
@@ -748,6 +917,7 @@ export async function enterAiPage(): Promise<void> {
     menuMode = "root";
     setRequesting(false);
     requestError = null;
+    quickLook = false;
     // The containers are new and blank, so the box has to forget what it was
     // showing: the dedup would otherwise skip a repaint that says the same
     // thing the last visit ended on, and leave it empty. See Panel.reset().
@@ -796,6 +966,9 @@ export function handleAiPageEvent(gesture: GESTURE_EVENTS): void {
     // nobody can see behind the backdrop.
     if (gesture === GESTURE_EVENTS.TAP && buttonUp()) {
         if (tappable()) solveNow();
+        // Nothing to start, but there is something to read: the answer already
+        // submitted, while the grader's corrections carry on behind it.
+        else if (quickAvailable()) quickSolution();
         return;
     }
 

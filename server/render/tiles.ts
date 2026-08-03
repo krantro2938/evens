@@ -160,11 +160,17 @@ async function keepTogether(page: Page): Promise<number> {
 
 // Render the document HTML and screenshot the .md-root element (width fixed at
 // RENDER_WIDTH by the CSS) into a single tall PNG.
-async function screenshot(bodyHtml: string): Promise<Buffer> {
+//
+// `scale` multiplies the raster without touching the layout: CSS pixels are
+// unchanged, so pagination, line breaks and the keep-together spacers land in
+// exactly the same places. That is what lets the sheet renderer produce a
+// legible download and a picture of what the glasses actually show from one
+// piece of geometry — see render/sheet.ts.
+async function screenshot(bodyHtml: string, scale = 1): Promise<Buffer> {
     const browser = await getBrowser();
     const page = await browser.newPage({
         viewport: { width: RENDER_WIDTH, height: 800 },
-        deviceScaleFactor: 1,
+        deviceScaleFactor: scale,
     });
     try {
         await page.setContent(pageHtml(bodyHtml), { waitUntil: "load" });
@@ -346,4 +352,19 @@ export async function renderTiles(
     const html = await renderMarkdownToHtml(markdown);
     const png = await screenshot(html);
     return slice(png, opts.reserved ?? []);
+}
+
+/**
+ * The whole document as one tall PNG, before it is cut into anything.
+ *
+ * The same markdown, the same CSS and the same pagination shims as the tiles —
+ * this is the picture they are sliced out of. Exported for render/sheet.ts,
+ * which turns it into something a person can look at and download rather than
+ * something a pair of glasses can push over BLE.
+ */
+export async function renderDocumentImage(
+    markdown: string,
+    scale = 1,
+): Promise<Buffer> {
+    return screenshot(await renderMarkdownToHtml(markdown), scale);
 }

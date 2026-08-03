@@ -95,6 +95,16 @@ Enabled by setting `ASSIGNMENT_URL`. Without it every route below answers
 | `POST /assignment/photo[?reset=1&name=]` | **read a photo into the assignment** — the body IS the image (`image/jpeg\|png\|webp\|heic\|heif`). Forwards to the reader, which **merges** it into the current attempt exactly as it merges a camera frame, so several photos of one sheet build one transcription. `?reset=1` archives the current attempt and starts a new one from this photo instead → `{ ok, version, problems, done }` |
 | `GET /assignment/photo` | the photo last published, as bytes — for showing what you sent |
 | `GET /assignment/photo/meta` | the same as metadata, so a poll doesn't drag the bytes with it |
+| `GET /assignment/sheet` | **the transcription as images**, metadata first: `{ version, scan, pages, page_width, page_height, full_width, full_height, scale, bytes }` |
+| `GET /assignment/sheet.png[?download=1]` | the whole document in one tall PNG, rastered at `SHEET_SCALE` — the download |
+| `GET /assignment/sheet/:n.png[?download=1]` | page `n` (0-based) at 576×252, **pixel-exact**: same layout, same greys, same `PAGE_OVERLAP` rows of shared context the glasses page through |
+
+All three take `?version=` for an archived scan, like `/assignment/tiles`, and
+render through the same markdown pipeline the tiles do — see
+[`render/sheet.ts`](render/sheet.ts) for why the pages are a second screenshot
+rather than a downscale of the first. This is what the camera site's Assignment
+tab is built on: reading a transcription before spending a solve on it, and
+keeping a copy of the sheet.
 
 `status` is:
 
@@ -130,9 +140,28 @@ displayed.
 
 | Route | Purpose |
 |---|---|
-| `GET /solution/claim` | The agent's first call: takes the oldest queued run and returns the assignment text **plus a one-time `run_token`**. `{"ok":false,"reason":"no_pending_run"}` with status 200 when the queue is empty, so a cron run that finds nothing exits cleanly. |
-| `POST /solution/submit` | `{ markdown, model?, notes? }` with the run token → stores it, ends the run, pushes new tiles. `409 unknown_or_superseded_token` if the run is no longer the current one. |
+| `GET /solution/claim` | The agent's first call: takes the oldest queued run and returns the assignment text **plus a one-time `run_token`**. `{"ok":false,"reason":"no_pending_run"}` with status 200 when the queue is empty, so a cron run that finds nothing exits cleanly. On a **revision run** it also carries `revision` — which problems to redo, the solution they belong to, and the reviewer's note on each. |
+| `POST /solution/submit` | `{ markdown, model?, notes? }` with the run token → stores it, ends the run, pushes new tiles. `409 unknown_or_superseded_token` if the run is no longer the current one. A revision may instead send `{ sections: {"4": "## 4 …"} }`, which is **spliced** into the solution being corrected so every problem that passed is kept byte for byte; a key matching no heading is refused with the document's real numbering. |
 | `POST /solution/fail` | `{ error }` with the run token → the reason shows on the glasses instead of a timeout. |
+
+### the review loop's own routes
+
+The second agent's side. `/review/claim` is gated by the same `SOLVER_TOKEN`;
+submit and fail are identified by the one-time `review_token` the claim hands
+back, exactly as the solve loop does it.
+
+| Route | Purpose |
+|---|---|
+| `GET /review/claim` | takes the oldest queued review and returns the assignment, the solution, **the rubric keyed by the document's own problem numbers**, the round, the previous round's verdict, and a one-time `review_token`. `{"ok":false,"reason":"no_pending_review"}` with 200 on an empty queue. |
+| `POST /review/submit` | `{ model?, summary?, problems: [{ id, band, points, answer_correct, notes, fix }] }` → stores the verdict and, if anything failed its band's rule, **creates the revision run itself** and fires the solver. Replies with `{ total, max_total, resolving, next }`. |
+| `POST /review/fail` | `{ error }` → the solution is left ungraded with a reason rather than silently never marked. |
+| `GET /review/status` | the grader's own status: rubric, state, last verdict, what is still outstanding. Also embedded in `/solution/status` as `review`. |
+| `POST /solution/review` | ungated, like `/solve`: grade the newest solution by hand. For a solution submitted while the reviewer was misconfigured, or a second opinion. |
+
+**The thresholds are applied here, not by the reviewer.** It reports points and
+whether the answer is right; `review.ts` decides what that means. There is no
+"send it back" flag in the payload on purpose — a grader that could set one
+could also be talked out of setting it.
 
 ### Configuration
 
@@ -158,6 +187,18 @@ displayed.
 | `BACKUP_SOLVER_MODEL` | `gemini-3.6-flash` | the backup's model. A 404 from Google means this id is the one thing to change |
 | `BACKUP_SOLVER_DELAY_MS` | `150000` | how long a *triggered* run stays unclaimed before the backup takes it |
 | `BACKUP_SOLVER_QUEUE_DELAY_MS` | `20000` | the same wait when the trigger is unconfigured or failed — nothing is coming but a runner someone may be watching |
+| `REVIEW_ROUTINE_ID` | — | the grading routine. Empty: nothing is ever reviewed, and the server behaves as it did before the loop existed |
+| `REVIEW_ROUTINE_TOKEN` | `$ROUTINE_TOKEN` | its API-trigger token; one trigger can serve two routines in the same account |
+| `REVIEW_ENABLED` | `1` | `0` grades nothing while leaving the routine configured |
+| `REVIEW_ANSWER_BAND` | `3` | how many problems at the front of the paper are graded on the answer alone |
+| `REVIEW_ANSWER_MAX` | `15` | points for one of those. It fails on a wrong answer whatever it scored |
+| `REVIEW_METHOD_MAX` | `18` | points for a full-solution problem |
+| `REVIEW_METHOD_ANSWER_POINTS` | `5` | of those, how many the correct answer alone is worth — the rest is the working |
+| `REVIEW_METHOD_PASS` | `13` | below this, the problem is re-solved. So a right answer with an unargued middle goes back and a well-argued slip can stand |
+| `REVIEW_MAX_ROUNDS` | `3` | total attempts at a problem, the first included. **The only thing bounding what the loop spends** |
+| `REVIEW_TIMEOUT_MS` | `1200000` | a claimed review that never submits fails after this |
+| `REVIEW_QUEUE_TIMEOUT_MS` | `10800000` | a queued review nobody claims fails after this |
+| `SHEET_SCALE` | `2` | how much denser `/assignment/sheet.png` is than the panel. Page images are always 1:1 and unaffected |
 | `DOC_MAX_CHARS` | `200000` | the same ceiling for a hand-written document |
 
 CORS is open so the app (served from the Vite dev origin) can reach it.
@@ -278,6 +319,81 @@ Nothing is ever deleted. A re-solve inserts a row and the newest wins, so a bad
 solve can't destroy the good one you had, and a solution stays readable after the
 paper (and so the assignment) has changed — the page labels it as answering an
 earlier scan and offers to solve the current one.
+
+## The review loop
+
+The answer that lands is not the end of it. `submitSolution` hands the finished
+document to a **second routine** ([`../routine/review.md`](../routine/review.md),
+on Opus) which marks it problem by problem, and the ones that fall short come
+back to the ordinary solve queue as a **revision run**.
+
+```
+ /solution/submit lands ──▶ mints a review + token, fires the review routine
+                                                    │
+ reviewer ◀─────────────────────────────────────────┘
+    ├──▶ GET  /review/claim     assignment + solution + the rubric
+    └──▶ POST /review/submit    points per problem
+                    │
+       thresholds applied HERE, not by the reviewer
+                    │
+                    ├── everything passed ──▶ done, score in the footer
+                    └── something failed ───▶ createRun(revision) ──▶ the solver
+                                               (that problem only, plus the
+                                                reviewer's fix note)
+                                                      │
+                            sections spliced into the solution, and back
+                            to the reviewer — up to REVIEW_MAX_ROUNDS
+```
+
+**Two bands, and the split is the point:**
+
+| Band | Points | Goes back when |
+|---|---|---|
+| `answer` — the first `REVIEW_ANSWER_BAND` problems | 15, answer only | the answer is wrong, whatever it scored |
+| `method` — the rest | 18 = 5 answer + 13 working | the total is under 13 |
+
+A method-band problem with the right number and no argument scores 5 and is
+re-solved. A well-argued attempt that slipped in the arithmetic can score 13 and
+stand. The reviewer may move a problem between bands **only** when the paper
+itself marks the parts (ЧАСТЬ А/В), because an explicit marking on the sheet is
+better evidence than a positional default.
+
+Three design decisions worth knowing:
+
+- **`reviews` is its own table, not a `kind` column on `runs`.** `claimNextRun`
+  hands out the oldest pending row regardless of what it is for, so one table
+  would let the solver claim a review and the grader claim a solve. Two tables,
+  two queues, two independent supersede rules — and the solve loop's invariants
+  are untouched by any of this.
+- **A revision goes through `createRun` like everything else.** Same token, same
+  supersede-on-create, same routine. Tap solve while a revision is in flight and
+  its token dies exactly as any other agent's would; there is no second path by
+  which an answer can reach the display.
+- **A revision submits `sections`, not a document.** They are spliced by problem
+  number ([`sections.ts`](sections.ts)) so problems that already passed survive
+  byte for byte rather than being regenerated and re-checked. A key that matches
+  no heading is an error with the document's real numbering attached — dropping
+  it quietly would leave a wrong answer on the glasses under a review that
+  believed it had been fixed.
+
+A fresh solve **stands down any grading in flight** (`cancelReviews`): that
+verdict is about a document you have just decided to replace, and left running it
+would queue a revision of the wrong paper in front of the one you asked for.
+
+The verdict reaches the glasses **in the document itself**, twice over, and for
+the reason the byline is there — see `withByline` in [`solver.ts`](solver.ts):
+
+- **per problem**, as `*Rated 8/18 — …*` under that problem's answer
+  (`withRatings` in [`review.ts`](review.ts), via `annotateSections`). The note
+  is capped at ~110 characters, which is about two lines on the panel, and the
+  reviewer's prompt says so — a mark you cannot read beside the working it
+  grades is not worth the rows it costs.
+- **in the footer**, as the total.
+
+Both are part of the rendered markdown, so they change the document's content
+hash: a verdict landing re-renders the tiles and pushes them, which is exactly
+what should happen when new information about the answer arrives. An *ungraded*
+solution comes back byte-identical, so it costs no render and no BLE push.
 
 ### Who drains the queue
 

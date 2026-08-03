@@ -1,11 +1,14 @@
 // Persistence for the solve loop: which runs were triggered, and what came
-// back. SQLite rather than a file because two things must survive a restart and
-// must not be lost by a half-written overwrite:
+// back. SQLite rather than a file because three things must survive a restart
+// and must not be lost by a half-written overwrite:
 //
 //   runs       one row per "solve this assignment" request, each with the
 //              one-time token the agent submits its answer with
 //   solutions  every markdown that ever came back, keyed to the assignment
 //              version it was solving
+//   reviews    one row per "grade that solution" request — the same shape as a
+//              run, for the same reason, and deliberately NOT the same table
+//              (see the note above the reviews CREATE)
 //
 // Nothing is ever deleted. A re-solve adds a row; the newest one wins. That
 // means a bad solve never destroys the good one you had, and a solution stays
@@ -55,6 +58,22 @@ db.exec(`
     -- Whether the routine was actually kicked, and what the API said if not.
     trigger_state        TEXT,
     trigger_detail       TEXT,
+    -- A REVISION RUN: not "solve this paper" but "solve these problems again,
+    -- the reviewer says they are wrong". The three columns are one unit —
+    -- which solution is being corrected, which of its problems, and what the
+    -- reviewer said about each. NULL on an ordinary first-pass run.
+    --
+    -- No REFERENCES: ALTER TABLE ADD COLUMN cannot add a foreign key, so a
+    -- database migrated into this shape could not have one — and a constraint
+    -- that exists only on installations created after today is worse than no
+    -- constraint at all. Nothing deletes a solution, so there is nothing for it
+    -- to catch.
+    revision_of          INTEGER,
+    revision_problems    TEXT,
+    revision_notes       TEXT,
+    -- 1 for a first attempt, 2 for the first revision, and so on. What bounds
+    -- the solve/review loop — see REVIEW_MAX_ROUNDS in review.ts.
+    round                INTEGER NOT NULL DEFAULT 1,
     created_at           INTEGER NOT NULL,
     claimed_at           INTEGER,
     finished_at          INTEGER,
@@ -74,6 +93,44 @@ db.exec(`
     -- the migration below.
     source               TEXT    NOT NULL DEFAULT 'agent',
     created_at           INTEGER NOT NULL
+  );
+
+  -- One grading pass over one solution, by the reviewer routine.
+  --
+  -- A SEPARATE TABLE FROM runs, not a "kind" column on it, and the reason is
+  -- the concurrency story rather than tidiness. Runs have exactly one live
+  -- token at a time: createRun supersedes every active row so a late answer
+  -- from a superseded agent cannot land. A review is a different subject —
+  -- it answers about a SOLUTION, not about the paper — and claimNextRun hands
+  -- out the oldest pending row regardless of what it is for, so sharing the
+  -- table would let the solve routine claim a review and the reviewer claim a
+  -- solve. Two tables, two queues, two independent supersede rules; the solve
+  -- loop's invariants are untouched by any of this.
+  CREATE TABLE IF NOT EXISTS reviews (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    solution_id   INTEGER NOT NULL REFERENCES solutions(id),
+    -- The solve run that produced that solution, for tracing one paper's whole
+    -- solve -> review -> re-solve chain back through the log.
+    run_id        INTEGER REFERENCES runs(id),
+    token         TEXT    NOT NULL UNIQUE,
+    state         TEXT    NOT NULL,
+    round         INTEGER NOT NULL DEFAULT 1,
+    model         TEXT,
+    -- Points scored and points available across every problem graded. NULL
+    -- until the reviewer submits.
+    total         INTEGER,
+    max_total     INTEGER,
+    -- The per-problem verdicts, as the JSON the reviewer posted. Stored whole
+    -- rather than exploded into a table: nothing queries inside it, and a
+    -- shape that grows a field shouldn't need a migration to keep a record.
+    problems      TEXT,
+    summary       TEXT,
+    trigger_state TEXT,
+    trigger_detail TEXT,
+    created_at    INTEGER NOT NULL,
+    claimed_at    INTEGER,
+    finished_at   INTEGER,
+    error         TEXT
   );
 
   -- Documents you write by hand, one row per slug. See the note at putDoc for
@@ -116,6 +173,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS runs_state_idx      ON runs(state);
   CREATE INDEX IF NOT EXISTS solutions_recent_idx ON solutions(created_at DESC);
   CREATE INDEX IF NOT EXISTS messages_recent_idx  ON messages(created_at DESC);
+  CREATE INDEX IF NOT EXISTS reviews_state_idx    ON reviews(state);
+  CREATE INDEX IF NOT EXISTS reviews_solution_idx ON reviews(solution_id);
 `);
 
 /**
@@ -133,9 +192,43 @@ db.exec(`
  * newest row whatever wrote it, so the handful of rows you typed before the
  * split have to stay distinguishable from the agent's.
  */
-if (!db.query<{ name: string }, []>(`PRAGMA table_info(solutions)`).all().some((c) => c.name === "source")) {
-  db.exec(`ALTER TABLE solutions ADD COLUMN source TEXT NOT NULL DEFAULT 'agent'`);
-  console.log("[db] migrated: solutions.source");
+function columns(table: string): Set<string> {
+  return new Set(
+    db.query<{ name: string }, []>(`PRAGMA table_info(${table})`).all().map((c) => c.name),
+  );
+}
+
+/**
+ * Columns on a database that predates them.
+ *
+ * There is no migration framework here, so this is done inline: the CREATEs
+ * above cover a fresh database, these cover the one already sitting in data/.
+ * ADD COLUMN with a constant DEFAULT is the one shape SQLite rewrites nothing
+ * for, which is why every added column here is nullable or has one.
+ *
+ * `solutions.source` was the first, and it is a column rather than a convention
+ * on `model` because the distinction is not cosmetic: `model` is free text from
+ * whatever solved the paper, and something that answers "did I write this?"
+ * cannot be a string nobody validates. Nothing writes 'me' any more, but the AI
+ * page still shows the newest row whatever wrote it, so the handful of rows you
+ * typed before the split have to stay distinguishable from the agent's.
+ *
+ * The `runs` ones came with the review loop: an ordinary run leaves all four at
+ * their defaults, so every row already in the table reads correctly as "a first
+ * attempt at the whole paper", which is what it was.
+ */
+const MIGRATIONS: Array<[table: string, column: string, ddl: string]> = [
+  ["solutions", "source", "ALTER TABLE solutions ADD COLUMN source TEXT NOT NULL DEFAULT 'agent'"],
+  ["runs", "revision_of", "ALTER TABLE runs ADD COLUMN revision_of INTEGER"],
+  ["runs", "revision_problems", "ALTER TABLE runs ADD COLUMN revision_problems TEXT"],
+  ["runs", "revision_notes", "ALTER TABLE runs ADD COLUMN revision_notes TEXT"],
+  ["runs", "round", "ALTER TABLE runs ADD COLUMN round INTEGER NOT NULL DEFAULT 1"],
+];
+
+for (const [table, column, ddl] of MIGRATIONS) {
+  if (columns(table).has(column)) continue;
+  db.exec(ddl);
+  console.log(`[db] migrated: ${table}.${column}`);
 }
 
 /** A run's lifecycle. `superseded` is what a re-trigger does to its predecessor. */
@@ -160,6 +253,13 @@ export interface RunRow {
   assignment_problems: number;
   trigger_state: string | null;
   trigger_detail: string | null;
+  /** The solution being corrected, or null on a first attempt at the paper. */
+  revision_of: number | null;
+  /** JSON array of problem keys to redo, as the solution's headings number them. */
+  revision_problems: string | null;
+  /** JSON: what the reviewer said about each of those problems. */
+  revision_notes: string | null;
+  round: number;
   created_at: number;
   claimed_at: number | null;
   finished_at: number | null;
@@ -186,6 +286,14 @@ export interface NewRun {
   assignment_markdown: string | null;
   assignment_done: boolean;
   assignment_problems: number;
+  /** Set together, or not at all — see the revision columns above. */
+  revision?: {
+    of: number;
+    problems: string[];
+    /** Free-form per-problem detail from the reviewer, serialised as-is. */
+    notes: unknown;
+  };
+  round?: number;
 }
 
 // ── runs ────────────────────────────────────────────────────────────────────
@@ -205,8 +313,10 @@ export const createRun = db.transaction((run: NewRun): RunRow => {
   const row = db
     .query<RunRow, any[]>(
       `INSERT INTO runs (token, state, assignment_version, assignment_markdown,
-                         assignment_done, assignment_problems, created_at)
-       VALUES (?1, 'pending', ?2, ?3, ?4, ?5, ?6)
+                         assignment_done, assignment_problems,
+                         revision_of, revision_problems, revision_notes, round,
+                         created_at)
+       VALUES (?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
        RETURNING *`,
     )
     .get(
@@ -215,6 +325,10 @@ export const createRun = db.transaction((run: NewRun): RunRow => {
       run.assignment_markdown,
       run.assignment_done ? 1 : 0,
       run.assignment_problems,
+      run.revision?.of ?? null,
+      run.revision ? JSON.stringify(run.revision.problems) : null,
+      run.revision ? JSON.stringify(run.revision.notes ?? null) : null,
+      Math.max(1, run.round ?? 1),
       now,
     );
   return row!;
@@ -249,6 +363,10 @@ export function latestRun(): RunRow | null {
     db.query<RunRow, []>(`SELECT * FROM runs ORDER BY id DESC LIMIT 1`).get() ??
     null
   );
+}
+
+export function runById(id: number): RunRow | null {
+  return db.query<RunRow, [number]>(`SELECT * FROM runs WHERE id=?1`).get(id) ?? null;
 }
 
 /**
@@ -373,6 +491,188 @@ export function solutionCount(): number {
 }
 
 export { DB_PATH };
+
+// ── reviews ─────────────────────────────────────────────────────────────────
+//
+// The same lifecycle as a run, over a different subject, on its own queue —
+// see the note above the CREATE. Everything below is the mirror image of the
+// runs half of this file, and deliberately so: a reviewer that behaves exactly
+// like a solver is one set of rules to hold in your head, not two.
+
+export type ReviewState = RunState;
+
+export interface ReviewRow {
+  id: number;
+  solution_id: number;
+  run_id: number | null;
+  token: string;
+  state: ReviewState;
+  round: number;
+  model: string | null;
+  total: number | null;
+  max_total: number | null;
+  /** JSON array of per-problem verdicts, exactly as the reviewer posted it. */
+  problems: string | null;
+  summary: string | null;
+  trigger_state: string | null;
+  trigger_detail: string | null;
+  created_at: number;
+  claimed_at: number | null;
+  finished_at: number | null;
+  error: string | null;
+}
+
+export interface NewReview {
+  token: string;
+  solution_id: number;
+  run_id: number | null;
+  round: number;
+}
+
+/**
+ * Supersede every live review and insert a fresh one, in one transaction —
+ * the same rule createRun follows, for the same reason. A second review of the
+ * same solution (or of the solution that replaced it) makes the first one's
+ * verdict obsolete, and its token dies with it.
+ */
+export const createReview = db.transaction((review: NewReview): ReviewRow => {
+  const now = Date.now();
+  db.query(
+    `UPDATE reviews SET state='superseded', finished_at=?1
+      WHERE state IN ${ACTIVE_STATES}`,
+  ).run(now);
+
+  return db
+    .query<ReviewRow, any[]>(
+      `INSERT INTO reviews (solution_id, run_id, token, state, round, created_at)
+       VALUES (?1, ?2, ?3, 'pending', ?4, ?5)
+       RETURNING *`,
+    )
+    .get(review.solution_id, review.run_id, review.token, Math.max(1, review.round), now)!;
+});
+
+export function activeReview(): ReviewRow | null {
+  return (
+    db
+      .query<ReviewRow, []>(
+        `SELECT * FROM reviews WHERE state IN ${ACTIVE_STATES}
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get() ?? null
+  );
+}
+
+export function latestReview(): ReviewRow | null {
+  return (
+    db.query<ReviewRow, []>(`SELECT * FROM reviews ORDER BY id DESC LIMIT 1`).get() ?? null
+  );
+}
+
+/** The newest finished verdict on one solution — what the AI page's footer reads. */
+export function latestReviewFor(solutionId: number): ReviewRow | null {
+  return (
+    db
+      .query<ReviewRow, [number]>(
+        `SELECT * FROM reviews WHERE solution_id=?1 AND state='done'
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get(solutionId) ?? null
+  );
+}
+
+/**
+ * The finished verdict before this one, whatever solution it graded.
+ *
+ * Not latestReviewFor: a second round grades a NEW solution row (the previous
+ * one with the corrected problems spliced in), so the round it has to be
+ * compared against is attached to a different solution_id by construction.
+ */
+export function reviewBefore(id: number): ReviewRow | null {
+  return (
+    db
+      .query<ReviewRow, [number]>(
+        `SELECT * FROM reviews WHERE id < ?1 AND state='done' ORDER BY id DESC LIMIT 1`,
+      )
+      .get(id) ?? null
+  );
+}
+
+export const claimNextReview = db.transaction((): ReviewRow | null => {
+  const row = db
+    .query<ReviewRow, []>(
+      `SELECT * FROM reviews WHERE state='pending' ORDER BY id ASC LIMIT 1`,
+    )
+    .get();
+  if (!row) return null;
+  const now = Date.now();
+  db.query(`UPDATE reviews SET state='claimed', claimed_at=?2 WHERE id=?1`).run(row.id, now);
+  return { ...row, state: "claimed", claimed_at: now };
+});
+
+export function reviewByToken(token: string): ReviewRow | null {
+  return (
+    db
+      .query<ReviewRow, [string]>(
+        `SELECT * FROM reviews WHERE token=?1 AND state IN ${ACTIVE_STATES}`,
+      )
+      .get(token) ?? null
+  );
+}
+
+export interface ReviewVerdict {
+  model: string | null;
+  total: number;
+  max_total: number;
+  /** Serialised whole; nothing here looks inside it. */
+  problems: unknown;
+  summary: string | null;
+}
+
+export function finishReview(
+  id: number,
+  state: Extract<ReviewState, "done" | "failed" | "cancelled">,
+  verdict: ReviewVerdict | null = null,
+  error: string | null = null,
+): ReviewRow | null {
+  return (
+    db
+      .query<ReviewRow, any[]>(
+        `UPDATE reviews
+            SET state=?2, model=?3, total=?4, max_total=?5, problems=?6,
+                summary=?7, error=?8, finished_at=?9
+          WHERE id=?1
+        RETURNING *`,
+      )
+      .get(
+        id,
+        state,
+        verdict?.model ?? null,
+        verdict?.total ?? null,
+        verdict?.max_total ?? null,
+        verdict ? JSON.stringify(verdict.problems) : null,
+        verdict?.summary ?? null,
+        error,
+        Date.now(),
+      ) ?? null
+  );
+}
+
+export function recordReviewTrigger(id: number, state: string, detail: string | null): void {
+  db.query(`UPDATE reviews SET trigger_state=?2, trigger_detail=?3 WHERE id=?1`).run(
+    id,
+    state,
+    detail,
+  );
+}
+
+/** Stand every live review down. What a fresh solve does to a grading in flight. */
+export const cancelActiveReviews = db.transaction((reason: string): number => {
+  return db.run(
+    `UPDATE reviews SET state='cancelled', error=?1, finished_at=?2
+      WHERE state IN ${ACTIVE_STATES}`,
+    [reason, Date.now()],
+  ).changes;
+});
 
 // ── hand-written documents ──────────────────────────────────────────────────
 

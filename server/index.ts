@@ -29,6 +29,15 @@
 //   POST /solution/submit   │ (see solver.ts) — token-gated, not for the glasses
 //   POST /solution/fail    ─┘
 //
+//   GET  /review/claim     ─┐ the reviewer routine's side of the review loop
+//   POST /review/submit     │ (see review.ts): it grades what the solver wrote
+//   POST /review/fail       │ and the problems that fall short come back to the
+//   GET  /review/status    ─┘ solve queue as a revision run
+//
+// The assignment is also renderable as ordinary images rather than BLE tiles —
+// `/assignment/sheet*` — which is what the camera site's Assignment tab shows
+// and what "download the assignment" saves.
+//
 // The AI document is whatever Claude last solved (SQLite, see db.ts), falling
 // back to the repo's solution.md until something has been. Both are watched, so
 // either changing pushes new tiles.
@@ -76,6 +85,7 @@ import {
   type PreviewMode,
   type PreviewSize,
 } from "./render/camera";
+import { createSheetCache } from "./render/sheet";
 import {
   authorizeSolver,
   cancelRun,
@@ -83,11 +93,19 @@ import {
   createAiSource,
   failRun,
   getSolverStatus,
+  reviewLatest,
   solverTokenRequired,
   startRun,
   submitSolution,
   subscribeSolver,
 } from "./solver";
+import {
+  claimReview,
+  description as reviewDescription,
+  failReview,
+  getReviewStatus,
+  submitReview,
+} from "./review";
 import { HUD_FEEDBACK, HUD_FEEDBACK_LARGE, HUD_MENU, type Rect } from "./render/constants";
 import { DB_PATH, getSetting, putSetting } from "./db";
 import {
@@ -469,15 +487,29 @@ function runToken(c: Context, body: Record<string, unknown>): string {
   );
 }
 
+/**
+ * `sections` on a revision: `{"4": "## 4 …", "7": "## 7 …"}`. Only strings,
+ * only non-empty ones — a key mapped to null would splice a hole into the
+ * document where a corrected problem should be.
+ */
+function submittedSections(body: Record<string, unknown>): Record<string, string> | undefined {
+  const raw = body.sections;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "string" && value.trim()) out[key] = value;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 app.post("/solution/submit", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
-  const markdown = typeof body.markdown === "string" ? body.markdown : "";
-  const result = submitSolution(
-    runToken(c, body),
-    markdown,
-    typeof body.model === "string" ? body.model : null,
-    typeof body.notes === "string" ? body.notes : null,
-  );
+  const result = submitSolution(runToken(c, body), {
+    markdown: typeof body.markdown === "string" ? body.markdown : "",
+    sections: submittedSections(body),
+    model: typeof body.model === "string" ? body.model : null,
+    notes: typeof body.notes === "string" ? body.notes : null,
+  });
   // 409, not 401: a superseded token is a race the agent lost, not a bad
   // credential — you tapped again while it was working.
   return c.json(result, result.ok ? 200 : 409);
@@ -488,6 +520,63 @@ app.post("/solution/fail", async (c) => {
   const result = failRun(runToken(c, body), String(body.error ?? ""));
   return c.json(result, result.ok ? 200 : 409);
 });
+
+/**
+ * Grade the newest solution by hand.
+ *
+ * Reviews normally start themselves, the moment an answer lands. This is for the
+ * cases that never went through that: a solution submitted while the reviewer
+ * was misconfigured, or one you want a second opinion on. Ungated like /solve —
+ * it grades your own solution, it doesn't hand anything out.
+ */
+app.post("/solution/review", async (c) => {
+  const result = await reviewLatest();
+  return c.json(result, result.ok ? 200 : 409);
+});
+
+// ── the review loop ─────────────────────────────────────────────────────────
+//
+// The reviewer's half, gated exactly as the solver's is and for the same
+// reasons: /review/claim hands out an assignment and a solution, and
+// /review/submit decides whether more money gets spent re-solving.
+
+app.use("/review/*", async (c, next) => {
+  if (c.req.path === "/review/claim" && !solverAuthorized(c)) {
+    return c.json({ ok: false, reason: "unauthorized" }, 401);
+  }
+  await next();
+  console.log(
+    `[review] ${c.req.method} ${c.req.path} -> ${c.res.status}` +
+      ` (${c.req.header("x-forwarded-for") ?? "direct"})`,
+  );
+});
+
+app.get("/review/claim", (c) => c.json(claimReview()));
+
+/** The review token identifies the review, so these need no other secret. */
+function reviewTokenOf(c: Context, body: Record<string, unknown>): string {
+  return String(
+    c.req.header("x-review-token") ??
+      c.req.header("authorization")?.replace(/^Bearer\s+/i, "") ??
+      body.review_token ??
+      body.token ??
+      "",
+  );
+}
+
+app.post("/review/submit", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const result = await submitReview(reviewTokenOf(c, body), body);
+  return c.json(result, result.ok ? 200 : 409);
+});
+
+app.post("/review/fail", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const result = failReview(reviewTokenOf(c, body), String(body.error ?? ""));
+  return c.json(result, result.ok ? 200 : 409);
+});
+
+app.get("/review/status", (c) => c.json(getReviewStatus()));
 
 // ── assignment ──────────────────────────────────────────────────────────────
 
@@ -630,6 +719,119 @@ app.get("/assignment/camera", async (c) => {
     const detail = err instanceof Error ? err.message : String(err);
     console.error("camera preview failed:", detail);
     return c.json({ error: "camera_unavailable", detail }, 502);
+  }
+});
+
+// ── the assignment as ordinary images ───────────────────────────────────────
+//
+// The same document the glasses read, rendered for a screen and a download
+// instead of for BLE: one PNG per page (exactly what the glasses show, seams
+// and all — see render/sheet.ts) and one tall PNG of the whole thing.
+//
+// This is what the camera site's Assignment tab is built on. It is the answer
+// to "let me actually read the transcription before I spend a solve on it",
+// which the glasses cannot be, and to "keep a copy of this sheet".
+//
+// One cache per selected scan, exactly as the tile routes do it — `?version=`
+// picks an archived scan and the live one renders under its own key.
+
+const sheetCaches = new Map<string, ReturnType<typeof createSheetCache>>();
+
+/** Which scan is being rendered, and its sheet. */
+async function assignmentSheet(c: Context) {
+  const { key, source } = selectedAssignment(c);
+  let get = sheetCaches.get(key);
+  if (!get) {
+    get = createSheetCache(source);
+    sheetCaches.set(key, get);
+  }
+  // The reader's attempt number — what the picker labels a scan with. A sheet's
+  // own `version` is the content hash it caches on, and the two are different
+  // numbering systems (see the note on SolverStatus.assignment).
+  const scan = key === "live" ? getStatus().version : Number(key.slice(1));
+  return { sheet: await get(), scan };
+}
+
+/** The filename a download lands under. Sanitised: it goes in a header. */
+function sheetName(scan: number, suffix: string): string {
+  const stamp = new Date().toISOString().slice(0, 10);
+  return `assignment-v${scan}-${stamp}${suffix}`;
+}
+
+/** What there is to show: how many pages, how big, and which scan it is. */
+app.get("/assignment/sheet", async (c) => {
+  try {
+    const { sheet, scan } = await assignmentSheet(c);
+    return c.json({
+      version: sheet.version,
+      scan,
+      pages: sheet.pages.length,
+      page_width: sheet.page_width,
+      page_height: sheet.page_height,
+      full_width: sheet.full_width,
+      full_height: sheet.full_height,
+      scale: sheet.scale,
+      bytes: sheet.full.length,
+    });
+  } catch (err) {
+    console.error("render assignment sheet failed:", err);
+    return c.json({ error: "sheet_unavailable", detail: String(err) }, 502);
+  }
+});
+
+/** The whole assignment, one image. `?download=1` saves it instead of showing it. */
+app.get("/assignment/sheet.png", async (c) => {
+  try {
+    const { sheet, scan } = await assignmentSheet(c);
+    const headers: Record<string, string> = {
+      "content-type": "image/png",
+      "content-length": String(sheet.full.length),
+      // The content hash IS the version, so a render can be cached hard and a
+      // new scan simply asks for a different URL.
+      "cache-control": "no-cache",
+      etag: `"${sheet.version}"`,
+    };
+    if (c.req.query("download") === "1") {
+      headers["content-disposition"] = `attachment; filename="${sheetName(scan, ".png")}"`;
+    }
+    return new Response(new Uint8Array(sheet.full), { headers });
+  } catch (err) {
+    console.error("render assignment sheet failed:", err);
+    return c.json({ error: "sheet_unavailable", detail: String(err) }, 502);
+  }
+});
+
+/**
+ * One page, as the glasses show it. `/assignment/sheet/2.png` — the extension is
+ * part of the parameter rather than the route, and that is not cosmetic:
+ * Hono's RegExpRouter cannot build a matcher for a constrained param followed by
+ * a literal in the same segment (`:page{[0-9]+}.png`). It does not fail on that
+ * route — it throws while building ALL of them, on the first request, so every
+ * endpoint on the server 500s with a TypeError from inside the router. Keep the
+ * suffix out of the pattern.
+ */
+app.get("/assignment/sheet/:page", async (c) => {
+  try {
+    const { sheet, scan } = await assignmentSheet(c);
+    const index = Number(c.req.param("page").replace(/\.png$/i, ""));
+    const page = Number.isInteger(index) ? sheet.pages[index] : undefined;
+    if (!page) {
+      return c.json({ error: "no_such_page", pages: sheet.pages.length }, 404);
+    }
+    const headers: Record<string, string> = {
+      "content-type": "image/png",
+      "content-length": String(page.png.length),
+      "cache-control": "no-cache",
+      etag: `"${sheet.version}-${index}"`,
+    };
+    if (c.req.query("download") === "1") {
+      headers["content-disposition"] =
+        `attachment; filename="${sheetName(scan, `-p${index + 1}.png`)}"`;
+    }
+    return new Response(new Uint8Array(page.png), { headers });
+  } catch (err) {
+    console.error("render assignment page failed:", err);
+    return c.json({ error: "sheet_unavailable", detail: String(err) }, 502);
   }
 });
 
@@ -1038,6 +1240,7 @@ console.log(
   }`,
 );
 console.log(`Backup solver: ${backupDescription()}`);
+console.log(`Reviewer: ${reviewDescription()}`);
 console.log(
   MESSAGE_TOKEN
     ? "Messages: POST /messages requires MESSAGE_TOKEN"

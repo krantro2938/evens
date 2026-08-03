@@ -84,13 +84,18 @@ The response is one of:
   now.** Do not investigate, do not poll again, do not solve anything. Say "no
   pending run" and end the session. This is the normal outcome of a cron run and
   it must cost nothing.
-- `{"ok":true,"run_id":N,"run_token":"…","assignment":{"markdown":"…","problems":N,"complete":true|false}}`
+- `{"ok":true,"run_id":N,"run_token":"…","round":1,"assignment":{"markdown":"…","problems":N,"complete":true|false}}`
   — you have the work. `run_token` is your one and only credential for
   submitting; keep it out of anything you print.
 
 `assignment.complete: false` means the transcription may be missing part of the
 page. Solve every problem that *is* there and note the gap in a final line —
 never refuse to work because the input looks partial.
+
+**If the claim carries a `revision` object, this is a correction, not a fresh
+solve.** Skip to "Correcting your own work" at the end of this prompt; the
+sections in between still describe how to write the mathematics, but the job and
+the submission are different.
 
 ### 2. Solve it
 
@@ -289,3 +294,75 @@ curl -s -X POST <EVENS_URL>/solution/fail \
   -H "content-type: application/json" \
   -d '{"error":"one short sentence, shown on a two-line display"}'
 ```
+
+### 5. Correcting your own work
+
+Every solution is graded by a second agent (`routine/review.md`), and the
+problems it marks down come back here as a **revision run**. You know it is one
+because the claim carries a `revision` object:
+
+```json
+"round": 2,
+"revision": {
+  "solution_id": 63,
+  "solution_markdown": "…the whole document as it stands…",
+  "problems": ["5"],
+  "all_problems": ["1","2","3","4","5","6"],
+  "notes": [{"id":"5","band":"method","points":8,"max":18,
+             "answer_correct":true,
+             "notes":"…what is wrong…","fix":"…what to do instead…"}]
+}
+```
+
+The job is now narrow, and staying inside it is the whole point:
+
+- **Solve only the problems in `revision.problems`.** The rest of that document
+  has been graded and passed. It is kept exactly as it is — you are not asked to
+  improve it, and rewriting it would put unreviewed text back on the glasses.
+- **`notes[].fix` is what the grader wants changed.** Read it as instructions.
+  It usually names a specific step; the rest of that problem's working is
+  often fine and worth keeping.
+- **Do not argue with the verdict by ignoring it.** If you are confident the
+  grader is wrong, re-derive the problem completely, and write the working so
+  the point it objected to is unmistakably addressed — state the domain it says
+  is missing, name the interval it says you skipped. A section resubmitted
+  unchanged scores the same and burns the round.
+- Everything in sections 2 and 3 still applies to what you write: the same
+  depth for the band, the same formatting, the same `##` heading with the same
+  problem number as the section you are replacing.
+
+Submit **only the sections you redid**, keyed by problem number — not the whole
+document:
+
+```bash
+# payload.json:
+# {"sections": {"5": "## 5. Найдите ...\n\n...\n\n**Ответ: 2π/3**"},
+#  "model": "claude-sonnet-5"}
+curl -s -X POST <EVENS_URL>/solution/submit \
+  -H "x-run-token: $RUN_TOKEN" \
+  -H "content-type: application/json" \
+  --data-binary @payload.json
+```
+
+The server splices each one over the section with that number and stores the
+result as a new solution, so every problem you did not touch survives byte for
+byte. Then it goes back to the grader for another round.
+
+**Only the problems in `revision.problems` are accepted.** Everything else in
+that document has been graded and passed, and a submission touching one is
+refused outright rather than partly applied — so do not "tidy up" a neighbouring
+problem while you are in there.
+
+A problem the grader sent back that has **no section in the document at all** is
+the one case where you are writing something new rather than replacing it: the
+first pass never answered it. Submit it under its assignment number exactly the
+same way, and the server inserts it in numeric order.
+
+- `{"ok":true,"replaced":["5"],…}` — done. End the session; the next round, if
+  there is one, is a separate fire with its own claim.
+- `{"ok":true,"added":["6"],…}` — the same, for a problem that had been missing.
+- `{"ok":false,"reason":"not_up_for_revision_3","revising":["5"],…}` — you sent a
+  problem this run was not asked to change. Submit only the keys in
+  `revision.problems`.
+- `{"ok":false,"reason":"unknown_or_superseded_token"}` — a new solve was
+  requested while you worked. Stop, as always.

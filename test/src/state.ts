@@ -135,7 +135,40 @@ export type SolverStatus = {
         trigger: string | null;
         trigger_detail: string | null;
         error: string | null;
+        /** 1 on a first attempt; 2+ while the grader's corrections are made. */
+        round?: number;
+        /** The problems this run is re-solving; empty on a first attempt. */
+        revising?: string[];
     } | null;
+    /**
+     * The grader (server/review.ts). OPTIONAL, and every read of it must stay
+     * that way: this app is packed and installed separately from the server, so
+     * it routinely runs against one that predates a field. A missing `review`
+     * means "no grading loop over there", which is exactly how the page should
+     * behave.
+     */
+    review?: {
+        configured: boolean;
+        detail: string;
+        max_rounds: number;
+        /** none | queued | grading | graded | failed */
+        state: "none" | "queued" | "grading" | "graded" | "failed";
+        review: {
+            id: number;
+            solution_id: number;
+            round: number;
+            state: string;
+            model: string | null;
+            total: number | null;
+            max_total: number | null;
+            summary: string | null;
+            error: string | null;
+            created_at: number;
+            age_ms: number;
+            /** Problems still short after this verdict. */
+            outstanding: string[];
+        } | null;
+    };
     trigger: { configured: boolean; detail: string };
     mode?: "online" | "offline" | "auto";
     solutions: number;

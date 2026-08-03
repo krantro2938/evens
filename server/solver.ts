@@ -22,6 +22,14 @@
 // falling back to the repo's solution.md when nothing has been solved yet. So
 // the page works exactly as before on a fresh deployment, and the button is
 // what fills it in.
+//
+// AND IT IS NOW HALF A LOOP. An answer that lands is handed to a second agent
+// to grade (review.ts), and the problems that fall short come back here as a
+// REVISION RUN: the same queue, the same one-time tokens, the same routine —
+// but scoped to those problems and carrying what the reviewer said about each.
+// A revision submits only the sections it redid and they are spliced into the
+// solution it is correcting, so problems that already passed are preserved
+// exactly rather than re-generated and re-checked.
 
 import { hashContent, type DocSource, type Snapshot } from "./doc";
 import {
@@ -37,12 +45,25 @@ import {
   latestSolutionFor,
   recentSolutions,
   recordTrigger,
+  runById,
   runByToken,
   solutionCount,
   solutionById,
   type RunRow,
   type SolutionRow,
 } from "./db";
+import { sectionKeys, spliceSections } from "./sections";
+import {
+  cancelReviews,
+  getReviewStatus,
+  isEnabled as reviewEnabled,
+  scoreLine,
+  startReview,
+  subscribeReview,
+  withRatings,
+  type ProblemVerdict,
+  type ReviewStatus,
+} from "./review";
 import {
   activeAssignment,
   assignmentSource,
@@ -114,7 +135,13 @@ export interface SolverStatus {
     trigger: string | null;
     trigger_detail: string | null;
     error: string | null;
+    /** 1 on a first attempt; 2+ while the reviewer's corrections are being made. */
+    round: number;
+    /** The problems this run is re-solving, empty on a first attempt. */
+    revising: string[];
   } | null;
+  /** The grader: its rubric, and how the last (or live) verdict went. */
+  review: ReviewStatus;
   /** Whether a tap starts the routine now or only queues it. */
   trigger: { configured: boolean; detail: string };
   /**
@@ -131,6 +158,14 @@ export interface SolverStatus {
    * solution ever submitted, so the number a footer shows is the same number
    * tomorrow — an index into this array would shift under every new solve.
    */
+  // NOTE ON `state` AND THE REVIEW LOOP. There is deliberately no `reviewing`
+  // variant in the union above. The glasses app is packed and installed
+  // separately from this server and the two drift for weeks, and its renderer
+  // switches on this exact string with no default arm — a state it has never
+  // heard of draws an empty panel. So grading shows up in `review` (which an
+  // older client simply ignores) and, where it has to be *seen*, in the
+  // document's own footer. A revision run in flight reads as `solving`, which
+  // is both true and already handled everywhere.
   solution_history: Array<{
     id: number;
     version: number;
@@ -143,6 +178,17 @@ export interface SolverStatus {
 
 const statusListeners = new Set<() => void>();
 const docListeners = new Set<() => void>();
+
+/** The problem numbers a run is re-solving; empty on a first attempt. */
+function revisionProblems(run: RunRow): string[] {
+  if (!run.revision_problems) return [];
+  try {
+    const parsed = JSON.parse(run.revision_problems);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
 
 export function subscribeSolver(fn: () => void): () => void {
   statusListeners.add(fn);
@@ -282,8 +328,11 @@ export async function getSolverStatus(): Promise<SolverStatus> {
           trigger: run.trigger_state,
           trigger_detail: run.trigger_detail,
           error: run.error,
+          round: run.round,
+          revising: revisionProblems(run),
         }
       : null,
+    review: getReviewStatus(),
     trigger: { configured: triggerConfigured(), detail: triggerDescription() },
     backup: { configured: backupConfigured(), detail: backupDescription() },
     mode: (getSetting("mode") as SolverStatus["mode"]) || "auto",
@@ -299,6 +348,14 @@ export async function getSolverStatus(): Promise<SolverStatus> {
     })),
   };
 }
+
+// A verdict landing changes what the AI page says about the solution on it, and
+// the score it carries in its footer, so the grader's progress moves our status
+// and our document exactly as the solver's own does.
+subscribeReview(() => {
+  notifyStatus();
+  notifyDocument();
+});
 
 // A new scan means the displayed solution no longer answers what's on the paper,
 // which changes what the button says — so the reader's changes move our status
@@ -341,10 +398,23 @@ assignmentSource.subscribe(() => {
  */
 function withByline(solution: SolutionRow): string {
   const who = solution.model?.trim();
-  if (!who) return solution.markdown;
-  // A rule then one italic line: enough to read as a footer and not as the last
-  // step of the working, at the cost of one row on the final page.
-  return `${solution.markdown.replace(/\s+$/, "")}\n\n---\n\n*Solved by ${who}*\n`;
+  // Each problem's own mark, under the problem. The footer's total says whether
+  // to trust the paper; the per-problem lines say which question to look at
+  // again, and that is the one you act on.
+  const body = withRatings(solution.markdown, solution.id);
+  // The grader's verdict on THIS solution, when it has one. Same argument as the
+  // byline's: a score is only useful if you can see it while you are reading the
+  // working it grades, and it says what to do next — 63/66 means trust it, 48/66
+  // with problem 4 named means check that one yourself.
+  const score = scoreLine(solution.id);
+
+  const lines = [who ? `Solved by ${who}` : null, score].filter(Boolean) as string[];
+  if (lines.length === 0) return body;
+
+  // A rule then italic lines: enough to read as a footer and not as the last
+  // step of the working, at the cost of a row or two on the final page.
+  const footer = lines.map((line) => `*${line}*`).join("\n\n");
+  return `${body.replace(/\s+$/, "")}\n\n---\n\n${footer}\n`;
 }
 
 export function createAiSource(fallback: DocSource, selectedId?: number): DocSource {
@@ -402,6 +472,12 @@ export async function startRun(): Promise<SolveResult> {
     return { ok: false, action: "failed", detail: "nothing transcribed yet" };
   }
 
+  // A grading in flight is about a solution you have just decided to replace.
+  // Left running, its verdict would arrive minutes later and start a revision of
+  // a document nobody is looking at any more — and that revision would land on
+  // the solve queue in front of this one.
+  cancelReviews("a new solve was requested");
+
   const run = createRun({
     token: crypto.randomUUID(),
     assignment_version: snapshot.version,
@@ -444,9 +520,107 @@ export async function startRun(): Promise<SolveResult> {
   };
 }
 
+export interface RevisionRequest {
+  /** The solution being corrected. Its text is the base the answer splices into. */
+  solution: SolutionRow;
+  round: number;
+  /** The reviewer's verdicts for the problems that failed. */
+  problems: ProblemVerdict[];
+}
+
+/**
+ * Send the failed problems back for another attempt.
+ *
+ * Called by review.ts when a verdict falls short. It goes through the ORDINARY
+ * solve queue on purpose — createRun, the same one-time token, the same routine
+ * — so a revision inherits the whole concurrency story unchanged: tap solve
+ * while it is working and its token dies, exactly like any other run. There is
+ * no second way for an answer to reach the display.
+ *
+ * The paper it carries is the one the original run was given, not a fresh read.
+ * A correction has to be graded against the same sheet as the thing it corrects,
+ * or the second round is answering a different question from the first.
+ */
+export async function startRevisionRun(req: RevisionRequest): Promise<SolveResult> {
+  const source = req.solution.run_id === null ? null : runById(req.solution.run_id);
+  const markdown = source?.assignment_markdown ?? "";
+  if (!markdown) {
+    return {
+      ok: false,
+      action: "failed",
+      detail: `solution ${req.solution.id} has no stored assignment to re-solve against`,
+    };
+  }
+  if (req.problems.length === 0) {
+    return { ok: false, action: "failed", detail: "no problems to revise" };
+  }
+
+  const problems = req.problems.map((p) => p.id);
+  const run = createRun({
+    token: crypto.randomUUID(),
+    assignment_version: source!.assignment_version,
+    assignment_markdown: markdown,
+    assignment_done: source!.assignment_done === 1,
+    assignment_problems: source!.assignment_problems,
+    revision: {
+      of: req.solution.id,
+      problems,
+      notes: req.problems.map((p) => ({
+        id: p.id,
+        band: p.band,
+        points: p.points,
+        max: p.max,
+        answer_correct: p.answer_correct,
+        notes: p.notes,
+        fix: p.fix,
+      })),
+    },
+    round: req.round,
+  });
+  notifyStatus();
+
+  const trigger = await runRoutine(
+    `A review sent work back: run ${run.id}, round ${req.round}, ` +
+      `re-solve problem${problems.length === 1 ? "" : "s"} ${problems.join(", ")} ` +
+      `of solution ${req.solution.id}. Claim it.`,
+  );
+  recordTrigger(run.id, trigger.state, trigger.detail);
+  notifyStatus();
+
+  console.log(
+    `[solver] revision run ${run.id} (round ${req.round}, problems ${problems.join(", ")}) ` +
+      `— trigger ${trigger.state}`,
+  );
+  return trigger.state === "triggered"
+    ? { ok: true, action: "triggered", run_id: run.id }
+    : { ok: true, action: "queued", run_id: run.id, detail: trigger.detail ?? undefined };
+}
+
+/**
+ * Grade the solution currently on the AI page, on request.
+ *
+ * The automatic path starts a review the moment an answer lands; this covers
+ * what that path cannot reach — a solution submitted while the reviewer was
+ * unconfigured, or one you simply want looked at again.
+ */
+export async function reviewLatest(): Promise<{
+  ok: boolean;
+  detail?: string;
+  review_id?: number;
+}> {
+  const solution = latestSolution();
+  if (!solution) return { ok: false, detail: "nothing has been solved yet" };
+  const run = solution.run_id === null ? null : runById(solution.run_id);
+  const started = await startReview(solution, run);
+  return started.ok
+    ? { ok: true, review_id: started.review_id, detail: started.detail }
+    : { ok: false, detail: started.detail ?? "the reviewer is not configured" };
+}
+
 /** Give up on the live run. Its token dies with it. */
 export function cancelRun(): SolveResult {
   const run = cancelActiveRun();
+  cancelReviews("the solve was cancelled");
   notifyStatus();
   if (!run) return { ok: false, action: "failed", detail: "nothing running" };
   return { ok: true, action: "cancelled", run_id: run.id };
@@ -458,12 +632,31 @@ export interface ClaimResult {
   run_id?: number;
   /** The credential to submit with. Dies if a newer run is created. */
   run_token?: string;
+  /** 1 on a first attempt; 2+ when the reviewer sent work back. */
+  round?: number;
   assignment?: {
     markdown: string;
     version: number | null;
     problems: number;
     /** False when the reader hadn't finished reading the page — solve what's there. */
     complete: boolean;
+  };
+  /**
+   * Present only on a revision run, and when it is present it changes the job
+   * completely: solve these problems again, submit `sections` rather than a
+   * whole document, and everything else in the solution is left alone.
+   */
+  revision?: {
+    /** The solution being corrected. */
+    solution_id: number;
+    /** Its full text, so the agent can see what it is replacing and what stays. */
+    solution_markdown: string;
+    /** The problem numbers to redo, as the solution's own headings number them. */
+    problems: string[];
+    /** Every heading in that document, so a mismatch is visible before it submits. */
+    all_problems: string[];
+    /** The reviewer's verdict on each of `problems`. */
+    notes: unknown;
   };
 }
 
@@ -476,18 +669,47 @@ export function claimRun(): ClaimResult {
   const run = claimNextRun();
   if (!run) return { ok: false, reason: "no_pending_run" };
   notifyStatus();
-  console.log(`[solver] run ${run.id} claimed`);
+
+  const base = run.revision_of === null ? null : solutionById(run.revision_of);
+  console.log(
+    `[solver] run ${run.id} claimed` +
+      (base ? ` (round ${run.round}, revising ${revisionProblems(run).join(", ")})` : ""),
+  );
+
   return {
     ok: true,
     run_id: run.id,
     run_token: run.token,
+    round: run.round,
     assignment: {
       markdown: run.assignment_markdown ?? "",
       version: run.assignment_version,
       problems: run.assignment_problems,
       complete: run.assignment_done === 1,
     },
+    // A revision run whose base solution has somehow gone reads as an ordinary
+    // solve rather than as a broken one: the paper is still there, so solving it
+    // whole is a worse answer than the splice but a much better one than nothing.
+    ...(base
+      ? {
+          revision: {
+            solution_id: base.id,
+            solution_markdown: base.markdown,
+            problems: revisionProblems(run),
+            all_problems: sectionKeys(base.markdown),
+            notes: run.revision_notes ? safeParse(run.revision_notes) : null,
+          },
+        }
+      : {}),
   };
+}
+
+function safeParse(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
 }
 
 export interface SubmitResult {
@@ -495,22 +717,46 @@ export interface SubmitResult {
   reason?: string;
   solution_id?: number;
   version?: number;
+  /** Which problems a spliced revision replaced. */
+  replaced?: string[];
+  /** Problems the revision added, having found no section to replace. */
+  added?: string[];
+  /** What this run was actually asked to revise, when a key was outside it. */
+  revising?: string[];
+  /** The document's problem numbers, so a rejected key can be corrected. */
+  known_problems?: string[];
+  /** What was done with the answer next: a review, or why there wasn't one. */
+  review?: string;
+}
+
+export interface Submission {
+  /**
+   * The whole document. The only form a first-pass solve may take, and still
+   * accepted from a revision — the backup solver writes whole documents.
+   */
+  markdown?: string;
+  /**
+   * A revision's corrected problems, keyed by problem number. Spliced into the
+   * solution being corrected (see sections.ts) so everything that passed is
+   * preserved byte for byte rather than regenerated.
+   */
+  sections?: Record<string, string>;
+  model?: string | null;
+  notes?: string | null;
 }
 
 /**
  * The answer. Rejected unless the token still belongs to a live run — which is
  * how a superseded agent's late submission is kept out of the display.
  */
-export function submitSolution(
-  token: string,
-  markdown: string,
-  model?: string | null,
-  notes?: string | null,
-): SubmitResult {
+export function submitSolution(token: string, submission: Submission): SubmitResult {
   const run = runByToken(token);
   if (!run) return { ok: false, reason: "unknown_or_superseded_token" };
 
-  const text = markdown.trim();
+  const built = buildMarkdown(run, submission);
+  if (!built.ok) return built.error;
+
+  const text = built.markdown.trim();
   if (!text) return { ok: false, reason: "empty_markdown" };
   if (text.length > MAX_MARKDOWN_CHARS) {
     return { ok: false, reason: `markdown_too_long_${text.length}` };
@@ -520,19 +766,96 @@ export function submitSolution(
     run_id: run.id,
     assignment_version: run.assignment_version,
     markdown: text,
-    model: model ?? null,
-    notes: notes ?? null,
+    model: submission.model ?? null,
+    notes: submission.notes ?? null,
   });
   finishRun(run.id, "done");
   console.log(
-    `[solver] run ${run.id} solved: ${text.length} chars (solution ${solution.id})`,
+    `[solver] run ${run.id} solved: ${text.length} chars (solution ${solution.id})` +
+      (built.replaced?.length ? `, replaced ${built.replaced.join(", ")}` : "") +
+      (built.added?.length ? `, added ${built.added.join(", ")}` : ""),
   );
 
   // Document first: the glasses should be fetching tiles by the time the status
   // event tells them the run is over.
   notifyDocument();
   notifyStatus();
-  return { ok: true, solution_id: solution.id, version: hashContent(text) };
+
+  // Grading is started but NOT waited for. The answer is already on the glasses
+  // and the agent that wrote it is holding this response open; a reviewer that
+  // is slow, misconfigured or absent must not turn a good solve into a failed
+  // submit. startReview never throws, and the catch is belt-and-braces.
+  const reviewing = reviewEnabled();
+  if (reviewing) {
+    void startReview(solution, run).catch((err) =>
+      console.error("[solver] could not start a review:", err),
+    );
+  }
+
+  return {
+    ok: true,
+    solution_id: solution.id,
+    version: hashContent(text),
+    ...(built.replaced?.length ? { replaced: built.replaced } : {}),
+    ...(built.added?.length ? { added: built.added } : {}),
+    review: reviewing ? "queued for review" : "not reviewed",
+  };
+}
+
+/**
+ * The document this submission produces.
+ *
+ * Two shapes, and which one is allowed depends on the run: `sections` needs a
+ * base solution to splice into, so it is meaningless on a first-pass run and is
+ * refused there rather than silently treated as a document. A key that matches
+ * no heading is refused too, with the document's real numbering in the reply —
+ * dropping it quietly would leave a wrong answer on the glasses under a review
+ * that believes it was corrected.
+ */
+type BuildResult =
+  | { ok: true; markdown: string; replaced?: string[]; added?: string[] }
+  | { ok: false; error: SubmitResult };
+
+function buildMarkdown(run: RunRow, submission: Submission): BuildResult {
+  const sections = submission.sections;
+  if (!sections || Object.keys(sections).length === 0) {
+    return { ok: true, markdown: submission.markdown ?? "" };
+  }
+
+  const base = run.revision_of === null ? null : solutionById(run.revision_of);
+  if (!base) {
+    return {
+      ok: false,
+      error: {
+        ok: false,
+        reason: "sections_need_a_revision_run — submit the whole document as `markdown`",
+      },
+    };
+  }
+
+  // Scoped to what the reviewer actually sent back. A revision is not a chance
+  // to rewrite the paper: everything outside this list has been graded and
+  // passed, and letting it be replaced would put unreviewed text on the glasses
+  // under a score that was never about it.
+  const allowed = revisionProblems(run);
+  const spliced = spliceSections(base.markdown, sections, { allowed });
+  if (!spliced.ok || !spliced.markdown) {
+    return {
+      ok: false,
+      error: {
+        ok: false,
+        reason: `not_up_for_revision_${(spliced.unexpected ?? []).join("_") || "keys"}`,
+        revising: allowed,
+        known_problems: sectionKeys(base.markdown),
+      },
+    };
+  }
+  return {
+    ok: true,
+    markdown: spliced.markdown,
+    replaced: spliced.replaced,
+    added: spliced.added,
+  };
 }
 
 // Your own answer is NOT here. It used to be — an extra row in `solutions` with

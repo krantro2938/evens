@@ -202,7 +202,13 @@ export async function sweepBackup(): Promise<boolean> {
     const started = Date.now();
     try {
         const markdown = await callGemini(claim.assignment?.markdown ?? "");
-        const result = submitSolution(claim.run_token, markdown, cfg.model, "backup solver");
+        // A whole document, even when this is a revision run: one model call
+        // has no way to splice, and the submit path accepts either shape.
+        const result = submitSolution(claim.run_token, {
+            markdown,
+            model: cfg.model,
+            notes: "backup solver",
+        });
         if (!result.ok) {
             // Superseded while it worked: someone tapped again, and this answer
             // is no longer wanted. Not an error.
