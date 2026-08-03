@@ -1,0 +1,880 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 13.07.2022</b></i></p>
+				<p><i><b>Дополнена: 17.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Функция нескольких переменных</h1>
+				<p>
+					В этом разделе разбирается тема <b>&laquo;Вектор-функция скалярного аргумента. Функции нескольких переменных.
+					Дифференцируемая функция нескольких переменных. Исследование функции нескольких переменных на экстремум&raquo;.</b>
+				</p>
+				
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Вектор-функция</a></li>
+						<li><a href="#h2_2">Функция нескольких переменных</a></li>
+						<li><a href="#h2_3">Частные производные и полный дифференциал</a></li>
+						<li><a href="#h2_4">Исследование функции двух переменных на экстремум</a></li>
+						<li><a href="#h2_5">Исследование функции нескольких (n &gt; 2) переменных на экстремум</a></li>
+						<li><a href="#h2_6">Условные экстремумы</a></li>
+						<li><a href="#h2_7">Упражнения</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Вектор-функция</h2>
+				<p>
+					<b>Вектор-функция</b> — это функция, которая отображает одно, два, ..., <span class="math">n</span> вещественных чисел во множество
+					векторов. Эти векторы описывают некоторую поверхность в <span class="math">m</span>-мерном
+					пространстве (при изменении скалярного(-ых) аргумента(-ов)).
+				</p>
+				
+				<p>
+					Вектор-функцию принято обозначать как <span class="math"><b>r</b>(t)</span> (тут один скалярный аргумент — <span class="math">t</span>).
+					В трёхмерном пространстве вектор-функция
+					задаётся с помощью трёх скалярных функций:<br>
+					<span class="math center">
+						<b>r</b>(t) = (x(t), y(t), z(t)) = x(t)<b>i</b> + y(t)<b>j</b> + z(t)<b>k</b>,
+					</span>
+				</p>
+				
+				<p>
+					где <span class="math"><b>i</b></span>, <span class="math"><b>j</b></span> и <span class="math"><b>k</b></span> —
+					орты (единичные ортонормированные базисные векторы) пространства.
+				</p>
+				
+				<p>
+					Соответственно в двухмерном пространстве вектор-функция одного аргумента будет содержать лишь две скалярные функции
+					<span class="math">x(t)</span> и <span class="math">y(t)</span>.
+				</p>
+				
+				<p>
+					Пусть векторы <span class="math"><b>r</b>(t)</span> при всех значениях аргумента <span class="math">t</span> приложены к
+					одной точке <span class="math">O</span>.
+					Кривая, которая описывается концом
+					вектор-функции <span class="math"><b>r</b>(t)</span> (это в двухмерном пространстве; в 3-мерном — поверхность) называется <b>годографом</b> функции <span class="math"><b>r</b>(t)</span>.
+				</p>
+				
+				<p>
+					Для вектор-функции заданы предел, производная и правила дифференцирования, которые своим определением немного
+					отличаются от привычных подобных понятий скалярных функций.
+				</p>
+				
+				<p>
+					Подробнее см. в методичке <b>Семакина А.Н.</b> МГТУ им. Баумана —
+					<a class="new-tab-link" href="https://guimc.bmstu.ru/wp-content/uploads/2017/11/lecture_4.7.pdf" target="_blank">lecture_4.7.pdf</a>
+					или в <a class="new-tab-link" href="https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D0%BA%D1%82%D0%BE%D1%80-%D1%84%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D1%8F" target="_blank">Вики.</a>
+				</p>
+				
+				<h2 id="h2_2">Функция нескольких переменных</h2>
+				<p>
+					Если каждой паре <span class="math">(x, y)</span> значений двух не зависимых друг от друга
+					переменных величин <span class="math">x</span> и <span class="math">y</span> из некоторой
+					области их изменения <span class="math">D</span> соответствует определённое значение величины
+					<span class="math">z</span>, то мы говорим, что <span class="math">z</span> есть <b>функция
+					двух независимых переменных <span class="math">x</span> и <span class="math">y</span>,</b>
+					определённая в области <span class="math">D</span>.
+				</p>
+				
+				<p>
+					Функция двух переменных обозначается так:<br>
+					<span class="math center">
+						z = f(x, y), z = F(x, y) и т.д.
+					</span>
+				</p>
+				
+				<p>
+					Определение функции двух переменных легко обобщается на случай <b>функции <span class="math">n</span> переменных.</b>
+				</p>
+				
+				<p>
+					Отдельно обсуждают <b>область существования (определения)</b> функции двух переменных. Она может быть <i>открытой</i> (<i>незамкнутой</i>),
+					<i>замкнутой</i>, <i>ограниченной</i> (см. <a href="#pic1">рис. 1</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="mathway.com" alt="Изображение образца области определения некоторой функции F(x, y) (здесь - окружность)"></td></tr>
+					<tr><td>Рисунок 1 — Пример области определения функции двух переменных</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Кроме того, следует отличать <b>частное</b> и <b>полное приращения</b> функции нескольких переменных. В случае функции двух переменных <span class="math">z = F(x, y)</span>:<br>
+					<span class="math center">
+						Δ<sub>x</sub>z = F(x+Δx, y) - F(x, y)
+					</span>
+				</p>
+				
+				<p>
+					— частное приращение функции <span class="math">z</span> по <span class="math">x</span>. Аналогично понимается частное приращение
+					<span class="math">z</span> по <span class="math">y</span>.
+				</p>
+				
+				<p>
+					А если дать приращения обоим независимым аргументам, то получится полное приращение функции <span class="math">z</span>:<br>
+					<span class="math center">
+						Δz = F(x+Δx, y+Δy) - F(x, y).
+					</span>
+				</p>
+				
+				<p>
+					<b>Окрестностью</b> некоторой точки называется совокупность всех точек, лежащих внутри круга заданного радиуса с центром
+					в этой точке.
+				</p>
+				
+				<p>
+					Для функции нескольких переменных вводится и понятие предела, использующее понятие окрестности точки.
+				</p>
+				
+				<p>
+					Число <span class="math">A</span> называется <b>пределом</b> функции <span class="math">F(x, y)</span> при стремлении точки
+					<span class="math">M(x, y)</span> к точке <span class="math">M<sub>0</sub>(x<sub>0</sub>, y<sub>0</sub>)</span>, если
+					для каждого числа <span class="math">&epsilon; &gt; 0</span> найдётся такое число <span class="math">r &gt; 0</span>,
+					что для всех точек <span class="math">M(x, y)</span>, для которых выполняется неравенство <span class="math">MM<sub>0</sub> &lt; r</span>,
+					имеет место неравенство<br>
+					<span class="math center">
+						|F(x, y) - A| &lt; &epsilon;.
+					</span>
+				</p>
+				
+				<p>
+					Если число <span class="math">A</span> является пределом функции <span class="math">F(x, y)</span> при
+					<span class="math">M(x, y) —> M<sub>0</sub>(x<sub>0</sub>, y<sub>0</sub>)</span>, то пишут<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<table class="fraction"><tr><td style="font-size: 1.5em">lim</td></tr><tr><td>x—>x<sub>0</sub></td></tr><tr><td>y—>y<sub>0</sub></td></tr></table>
+						F(x, y) = A.
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(1)
+				</p>
+				
+				<p>
+					Здесь всё строится по аналогии с пределом функции одной переменной (см. <a href="../maga10/maga10.php">&laquo;Пределы&raquo;</a>).
+				</p>
+				
+				<p>
+					Аналогично функции одной переменной определяется и понятие <b>непрерывности</b> функции нескольких переменных, понятие <b>точки разрыва</b>.
+					Кроме того, существует доказанное утверждение, что <i>непрерывная функция в замкнутой ограниченной области <span class="math">D</span>
+					достигает по крайней мере один раз своего наибольшего значения и наименьшего значения.</i>
+				</p>
+				
+				<h2 id="h2_3">Частные производные и полный дифференциал функции нескольких переменных</h2>
+				<p>
+					Ответвляясь от понятия предела (1) функции нескольких переменных, вводится определение <b>частной производной</b> функции нескольких переменных (+ есть
+					даже и <b>полная производная</b>) и <b>полного дифференциала.</b>
+				</p>
+				
+				<p>
+					Их нужно знать в первую очередь для продолжения дальнейшего изучения матанализа! Подробнее см., например,
+					<a class="new-tab-link" href="https://studfile.net/preview/9245228/" target="_blank">в книге <b>Н.С. Пискунова</b>
+					&laquo;Дифференциальное и интегральное исчисления&raquo; (том первый, глава 8, параграфы 5 и 10).</a>
+				</p>
+				
+				<p>
+					На этих ключевых понятиях строится вычисление, например, <i>дифференциальных уравнений в полных дифференциалах</i>, определяется
+					двойной, тройной (и вообще <i>кратный</i>) интеграл. На понятии частной производной основываются понятия <b>производной по направлению</b> и
+					<b>градиента</b>.
+				</p>
+				
+				<p>
+					Также существуют и частные производные <span class="math">n</span>-го порядка (<span class="math">n &gt; 1</span>).
+				</p>
+				
+				<h2 id="h2_4">Исследование функции двух переменных на экстремум</h2>
+				<p>
+					Максимум и минимум функции называются её <b>экстремумами.</b> Существует:
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<b>Теорема 1. Необходимое условие экстремума функции двух переменных.</b>
+					<i>Если функция <span class="math">z = F(x, y)</span> достигает экстремума при <span class="math">x = x<sub>0</sub></span>,
+					<span class="math">y = y<sub>0</sub></span>, то каждая частная производная 1-го порядка от <span class="math">z</span> или
+					обращается в нуль при этих значениях аргументов, или не существует.
+				</i></p>
+				
+				<p>
+					Точки, в которых частная производная <span class="math">&delta;z/&delta;x = 0</span> (или не существует) и частная производная
+					<span class="math">&delta;z/&delta;y = 0</span> (или не существует), называются <b>критическими точками</b> функции <span class="math">z = F(x, y)</span>.
+					Функция может иметь экстремум только в критических точках (но необязательно).
+				</p>
+				
+				<p id="teorem" style="border-top: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+					<b>Теорема 2.</b>
+					<i>Пусть в некоторой области, содержащей точку <span class="math">M<sub>0</sub>(x<sub>0</sub>, y<sub>0</sub>)</span>, функция <span class="math">F(x, y)</span>
+					имеет непрерывные частные производные до третьего порядка включительно; пусть, кроме того, точка <span class="math">M<sub>0</sub>(x<sub>0</sub>, y<sub>0</sub>)</span>
+					является критической точкой функции <span class="math">F(x, y)</span>, т.е.<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>&delta;f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x</td></tr></table></sup></sup> = 0,
+						<sup><sup><table class="fraction"><tr><td>&delta;f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;y</td></tr></table></sup></sup> = 0.
+					</span>
+				</i></p>
+				
+				<p style="border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+					Тогда при <span class="math">x = x<sub>0</sub></span>, <span class="math">y = y<sub>0</sub></span>:<br>
+					<ol style="border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+						<li>
+							<span class="math">F(x, y)</span> имеет максимум, если<br>
+							<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+							<span class="math center">
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sup>2</sup></td></tr></table></sup></sup> *
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;y<sup>2</sup></td></tr></table></sup></sup> -
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x&delta;y</td></tr></table></sup></sup> &gt; 0<br><br>
+								и<br><br>
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sup>2</sup></td></tr></table></sup></sup> &lt; 0;
+							</span>
+						</li>
+						<li>
+							<span class="math">F(x, y)</span> имеет минимум, если<br>
+							<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+							<span class="math center">
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sup>2</sup></td></tr></table></sup></sup> *
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;y<sup>2</sup></td></tr></table></sup></sup> -
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x&delta;y</td></tr></table></sup></sup> &gt; 0<br><br>
+								и<br><br>
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sup>2</sup></td></tr></table></sup></sup> &gt; 0;
+							</span>
+						</li>
+						<li>
+							<span class="math">F(x, y)</span> не имеет ни максимума, ни минимума (<b>минимакс</b>), если<br>
+							<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+							<span class="math center">
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sup>2</sup></td></tr></table></sup></sup> *
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;y<sup>2</sup></td></tr></table></sup></sup> -
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x&delta;y</td></tr></table></sup></sup> &lt; 0<br><br>
+							</span>
+						</li>
+						<li>
+							если<br>
+							<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+							<span class="math center">
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sup>2</sup></td></tr></table></sup></sup> *
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;y<sup>2</sup></td></tr></table></sup></sup> -
+								<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>f(x<sub>0</sub>, y<sub>0</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x&delta;y</td></tr></table></sup></sup> = 0<br><br>
+							</span>
+						</li>
+					</ol>
+				</p>
+				
+				<p style="border-bottom: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+					то требуется дальнейшее исследование (экстремум может быть, а может и не быть) (например, можно разложить функцию в ряд Тейлора
+					функции двух переменных более высокого порядка или исследовать её каким-нибудь иным способом).
+				</p>
+				
+				<p>
+					<b>Пример</b> нахождения экстремумов функции <b>трёх</b> переменных см. в разделе <a href="#h2_7">ниже.</a>
+				</p>
+				
+				<p>
+					Также, к слову, выделяют так называемые <b>особые точки</b> кривых, заданных уравнением
+					<span class="math">F(x, y) = 0</span>. Это точки, в которых
+					все частные производные функции обращаются в нуль. См. для примера <a href="#pic2">рис. 2</a>,
+					на котором особая точка находится в начале координат.
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="mathway.com" alt="Пример графика функции F(x, y) = y^2 - x^4 + x^6 = 0"></td></tr>
+					<tr><td>Рисунок 2 — Точка соприкосновения двух ветвей кривой</td></tr>
+					<tr><td>в начале координат (особая точка кривой)</td></tr>
+				</table>
+				</p>
+				
+				<h2 id="h2_5">Исследование функции n переменных (n &gt; 2) на экстремум</h2>
+				<p>
+					Этот раздел был написан благодаря теории, изложенной в методичке <b>Л.В. Лебедевой</b>
+					<a class="new-tab-link" href="http://www.lib.unn.ru/students/src/extremum.pdf" target="_blank">&laquo;ЭКСТРЕМУМ
+					ФУНКЦИИ НЕСКОЛЬКИХ ПЕРЕМЕННЫХ&raquo;, Университет Лобачевского.</a>
+				</p>
+				<p>
+					Случай поиска экстремума функции двух переменных вытекает из более общего поиска экстремумов функций нескольких переменных (трёх, четырёх и т.д.).
+					Здесь имеет место теория линейной алгебры о <b>квадратичных формах</b> и <b>критерий Сильвестра</b> (который был заторнут
+					в предыдущей статье <a href="../maga7/maga7.php#h2_3">&laquo;Билинейные и квадратичные функции (формы)&raquo;</a>).
+				</p>
+				
+				<p>
+					В случае с функцией трёх и более переменных <span class="math">u = f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</span>
+					сначала также, как и с функцией двух переменных, ищутся
+					<i>критические точки,</i> в которых все первые частные производные функции равны нулю или не существуют.
+					Точнее говоря, такие точки можно определить из решения системы уравнений:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>&delta;f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>1</sub></td></tr></table></sup></sup> = 0,<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>2</sub></td></tr></table></sup></sup> = 0,<br>
+						&lt; . . . &gt;<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>n</sub></td></tr></table></sup></sup> = 0;
+					</span>
+				</p>
+				
+				<p>
+					Затем находятся <b>все</b> частные производные второго порядка той же функции, и из них строится квадратичная форма, в которой
+					коэффициентами являются значения этих вторых частных производных в рассматриваемой критической точке. Т.е. она выглядит так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span style="font-size: 1.4em;"><sup><sup><table class="fraction"><tr><td>n</td></tr><tr><tr><td></td></tr><tr><td>&sum;</td></tr><tr><td></td></tr><tr><tr><td>i, j = 1</td></tr></table></sup></sup></span>
+						<sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>i</sub>&delta;x<sub>j</sub></td></tr></table></sup></sup>(M<sub>0</sub>)
+						* dx<sub>i</sub> * dx<sub>j</sub>
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(2)
+				</p>
+				
+				<p>
+					К слову, в этой квадратичной форме можно разглядеть второй полный дифференциал функции нескольких переменных
+					<span class="math">u = f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</span>.
+				</p>
+				
+				<p>
+					Т.е. после нахождения вторых частных производных функции
+					<span class="math">u = f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</span>
+					нужно построить матрицу квадратичной формы (2):<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span id="form_matrix" class="math center">
+						A =
+						<table class="matrix">
+							<tr>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>1</sub><sup>2</sup></td></tr></table></sup></sup></td>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>1</sub>&delta;x<sub>2</sub></td></tr></table></sup></sup></td>
+								<td>. . .</td>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>1</sub>&delta;x<sub>n</sub></td></tr></table></sup></sup></td>
+							</tr>
+							<tr>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>2</sub>&delta;x<sub>1</sub></td></tr></table></sup></sup></td>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>2</sub><sup>2</sup></td></tr></table></sup></sup></td>
+								<td>. . .</td>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>2</sub>&delta;x<sub>n</sub></td></tr></table></sup></sup></td>
+							</tr>
+							<tr>
+								<td>. . .</td>
+								<td>. . .</td>
+								<td>. . .</td>
+								<td>. . .</td>
+							</tr>
+							<tr>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>n</sub>&delta;x<sub>1</sub></td></tr></table></sup></sup></td>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>n</sub>&delta;x<sub>2</sub></td></tr></table></sup></sup></td>
+								<td>. . .</td>
+								<td><sup><sup><table class="fraction"><tr><td>&delta;<sup>2</sup>u</td></tr><tr><td>—————</td></tr><tr><td>&delta;x<sub>n</sub><sup>2</sup></td></tr></table></sup></sup></td>
+							</tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Если эта квадратичная форма по критерию Сильвестра <i>положительно определена,</i> то функция имеет <b>локальный
+					минимум</b> в соответствующей критической точке,
+					а если она <i>отрицательно определена,</i> то — функция имеет <b>локальный максимум</b>
+					(глобальный экстремум находится путём сравнения всех локальных).
+					Если же форма <i>знакопеременна,</i> то функция <span class="math">u = f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</span>
+					не имеет <b>ни максимума, ни минимума</b> в соответствующей критической точке.
+				</p>
+				
+				<p>
+					В четвёртом случае, если квадратичная форма, составленная из значений вторых частных производных,
+					является <i>квазизнакоопределенной</i> (т.е. она принимает либо только неположительные, либо только неотрицательные
+					значения), то в такой точке функция <b>может иметь локальный экстремум, а может и не иметь его.</b>
+				</p>
+				
+				<p>
+					Вот как раз из такой общей теории и появилось <a href="#teorem">достаточное условие экстремума функции двух переменных.</a>
+					<b>Пример</b> нахождения экстремумов функции нескольких переменных см. в разделе <a href="#h2_7">ниже.</a>
+				</p>
+				
+				<h2 id="h2_6">Условные экстремумы</h2>
+				<p>
+					Также, помимо разобранных экстремумов функции, существуют <b>условные экстремумы</b> функции.
+					Это когда к функции придаются ещё несколько <b>условий</b> — неравенств или равенств, в которых участвуют все
+					или часть переменных заданной функции.
+				</p>
+				
+				<p>
+					Как пишет в своём учебнике <b>Н.С. Пискунов</b> (&laquo;Дифференциальное и интегральное исчисления&raquo;, том 1, глава 8, параграф 18),
+					можно решить эту задачу, просто выразив через условия одни переменные через другие и подставив их в исходную функцию. В итоге, можно прийти
+					к функции одной переменной, которую и нужно впоследствии исследовать на экстремум. И этот экстремум получится условным, если будут учтены
+					все данные условия.
+				</p>
+				
+				<p>
+					А можно, как предлагает Пискунов, поступить в решении по-другому. Можно составить в дополнение к условиям —
+					ещё несколько уравнений, включающих первые частные производные заданной функции и условий; и включить всё это в одну систему уравнений:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&phi;<sub>1</sub>(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>) = 0,<br>
+						&phi;<sub>2</sub>(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>) = 0,<br>
+						&lt; . . . &gt;<br>
+						&phi;<sub>m</sub>(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>) = 0,<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;f</td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>1</sub></td></tr></table></sup></sup> +
+						&lambda;<sub>1</sub><sup><sup><table class="fraction"><tr><td>&delta;&phi;<sub>1</sub></td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>1</sub></td></tr></table></sup></sup> +
+						&lt; . . . &gt; +
+						&lambda;<sub>m</sub><sup><sup><table class="fraction"><tr><td>&delta;&phi;<sub>m</sub></td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>1</sub></td></tr></table></sup></sup> = 0,<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;f</td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>2</sub></td></tr></table></sup></sup> +
+						&lambda;<sub>1</sub><sup><sup><table class="fraction"><tr><td>&delta;&phi;<sub>1</sub></td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>2</sub></td></tr></table></sup></sup> +
+						&lt; . . . &gt; +
+						&lambda;<sub>m</sub><sup><sup><table class="fraction"><tr><td>&delta;&phi;<sub>m</sub></td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>2</sub></td></tr></table></sup></sup> = 0,<br>
+						&lt; . . . &gt;<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;f</td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>n</sub></td></tr></table></sup></sup> +
+						&lambda;<sub>1</sub><sup><sup><table class="fraction"><tr><td>&delta;&phi;<sub>1</sub></td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>n</sub></td></tr></table></sup></sup> +
+						&lt; . . . &gt; +
+						&lambda;<sub>m</sub><sup><sup><table class="fraction"><tr><td>&delta;&phi;<sub>m</sub></td></tr><tr><td>———</td></tr><tr><td>&delta;x<sub>n</sub></td></tr></table></sup></sup> = 0,<br>
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(3)
+				</p>
+				
+				<p>
+					Получится <span class="math">(n + m)</span> уравнений, из которых можно найти вспомогательные числа <span class="math">&lambda;<sub>k</sub></span> и
+					сами независимые переменные исходной функции <span class="math">f(x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub>)</span>. При бесконечном
+					числе решений системы уравнений (3)
+					переменные
+					<span class="math">x<sub>1</sub>, x<sub>2</sub>, . . ., x<sub>n</sub></span>
+					могут быть выражены друг через друга, и полученная система решений и будет давать
+					условный максимум или минимум заданной функции.
+				</p>
+				
+				<p>
+					Но это может оказаться такой себе затеей, когда уравнений в системе слишком много и неизвестных тоже много. Здесь уже действуйте, дорогой
+					читатель, по обстоятельствам, в зависимости от задачи.
+				</p>
+				
+				<p>
+					<b>Пример</b> решения подобной задачи на отыскание условных экстремумов функции нескольких переменных см. <a href="#condition1">ниже.</a>
+				</p>
+				
+				<h2 id="h2_7">Упражнения</h2>
+				<h3>Условие задания 1</h3>
+				<p>
+					Это задание взято из
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_301.pdf" target="_blank">демоварианта 2019-го года №301.</a>
+				</p>
+				
+				<p>
+				<table class="img" id="pic3">
+					<tr><td><img src="3.jpg" title="priem.mirea.ru" alt="Скриншот условия первого задания в этой статье"></td></tr>
+					<tr><td>Рисунок 3 — Условие первого задания</td></tr>
+				</table>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Это функция <i>трёх</i> переменных. Значит, необходимо следовать алгоритму из параграфа
+					<a href="#h2_5">&laquo;Исследование функции n переменных (n &gt; 2) на экстремум&raquo;.</a>
+				</p>
+				
+				<p>
+					Ищутся <i>критические точки,</i> путём решения системы трёх уравнений:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>&delta;u</td></tr><tr><td>———</td></tr><tr><td>&delta;x</td></tr></table></sup></sup> = 0,<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;u</td></tr><tr><td>———</td></tr><tr><td>&delta;y</td></tr></table></sup></sup> = 0,<br>
+						<sup><sup><table class="fraction"><tr><td>&delta;u</td></tr><tr><td>———</td></tr><tr><td>&delta;z</td></tr></table></sup></sup> = 0;
+					</span>
+				</p>
+				
+				<p>
+					Или:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						10x - 6y - 4z - 1 = 0,<br>
+						-6x + 8y + 2z - 1 = 0,<br>
+						-4x + 2y + 6z = 0;
+					</span>
+				</p>
+				
+				<p>
+					Т.к. ранг матрицы системы равен рангу расширенной матрицы системы, то эта система <i>совместна</i> (имеет решения).
+					И т.к. ранг матрицы системы равен кол-ву неизвестных (<span class="math">rang(B) = n = 3</span>), то система имеет
+					<i>единственное</i> решение, которое можно найти <i>методом Крамера.</i>
+				</p>
+				
+				<p>
+					Согласно методу Крамера:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						x<sub>0</sub> = <sup><sup><table class="fraction"><tr><td>Δ<sub>x</sub></td></tr><tr><td>——</td></tr><tr><td>Δ</td></tr></table></sup></sup> = <sup><sup><table class="fraction"><tr><td>72</td></tr><tr><td>——</td></tr><tr><td>192</td></tr></table></sup></sup> = <sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>,<br>
+						y<sub>0</sub> = <sup><sup><table class="fraction"><tr><td>Δ<sub>y</sub></td></tr><tr><td>——</td></tr><tr><td>Δ</td></tr></table></sup></sup> = <sup><sup><table class="fraction"><tr><td>72</td></tr><tr><td>——</td></tr><tr><td>192</td></tr></table></sup></sup> = <sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>,<br>
+						z<sub>0</sub> = <sup><sup><table class="fraction"><tr><td>Δ<sub>z</sub></td></tr><tr><td>——</td></tr><tr><td>Δ</td></tr></table></sup></sup> = <sup><sup><table class="fraction"><tr><td>24</td></tr><tr><td>——</td></tr><tr><td>192</td></tr></table></sup></sup> = <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>;
+					</span>
+				</p>
+				
+				<p>
+					Значит, единственная критическая точка <span class="math">M<sub>0</sub></span> имеет координаты:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						M<sub>0</sub> =
+						(<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>;
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>;
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>)
+					</span>
+				</p>
+				
+				<p>
+					Затем последовательно находятся <i>вторые частные производные</i> (по три второй частной производной от каждой первой частной производной). После этого
+					строится <i>матрица квадратичной формы,</i> которая обязательно должна быть <i>симметрической</i>
+					(см. <a href="#form_matrix">общий вид матрицы формы</a>):
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span id="form_matrix" class="math center">
+						A =
+						<table class="matrix">
+							<tr>
+								<td>10</td>
+								<td>-6</td>
+								<td>-4</td>
+							</tr>
+							<tr>
+								<td>-6</td>
+								<td>8</td>
+								<td>2</td>
+							</tr>
+							<tr>
+								<td>-4</td>
+								<td>2</td>
+								<td>6</td>
+							</tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Все угловые миноры этой матрицы положительны, поэтому по критерию Сильвестра эта квадратичная форма положительна.
+					А это значит, что в точке <span class="math">M<sub>0</sub></span> находится <i>глобальный минимум</i>
+					всей обсуждаемой функции <span class="math">u(x, y, z)</span>.
+				</p>
+				
+				<p><b>
+					ОТВЕТ: в точке<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						M<sub>0</sub> =
+						(<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>;
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>;
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>)
+					</span>
+				</b></p>
+				
+				<p>
+				<b>
+					находится глобальный минимум функции <span class="math">u(x, y, z)</span>. Значение функции в этой точке равно<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						-<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>8</td></tr></table></sup></sup>.
+					</span>
+				</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Сайт <a class="new-tab-link" href="https://www.wolframalpha.com/input?i=extrema+calculator&assumption=%7B%22F%22%2C+%22GlobalExtremaCalculator%22%2C+%22curvefunction%22%7D+-%3E%223*%28x-y%29%5E2%2B%28y%2Bz%29%5E2%2B2*%28z-x%29%5E2-x-y%22" target="_blank">wolframalpha.com</a>
+					даёт тот же ответ на эту задачу (см. <a href="#pic4">рис. 4</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic4">
+					<tr><td><img src="4.jpg" title="wolframalpha.com" alt="Такое же решение этой задачи онлайн-сервиса wolframalpha.com"></td></tr>
+					<tr><td>Рисунок 4 — Совпадение ответов с сервисом wolframalpha.com</td></tr>
+				</table>
+				</p>
+				
+				<h3>Условие задания 2</h3>
+				<p>
+					Это задание взято из
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2019/samples/math_mag_301.pdf" target="_blank">демоварианта 2018-го года №301.</a>
+				</p>
+				
+				<p>
+				<table class="img" id="pic5">
+					<tr><td><img src="5.jpg" title="priem.mirea.ru" alt="Скриншот условия четвёртого задания демоварианта 2018-го года (см. сайт РТУ МИРЭА)"></td></tr>
+					<tr><td>Рисунок 5 — Задание на условные экстремумы функций</td></tr>
+				</table>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Это задание на отыскание условных экстремумов функции четырёх переменных <span class="math">f(a, b, c, d)</span>.
+				</p>
+				
+				<p>
+					Геометрическая интепретация такой задачи выглядит следующим образом (см. <a href="#pic6">рис. 6</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic6">
+					<tr><td><img src="6.jpg" title="mathway.com" alt="Координатная плоскость и две окружности на ней, соответствующие двум условиям этого задания; а также три точки, лежащие на этих окружностях"></td></tr>
+					<tr><td>Рисунок 6 — Задача на координатной плоскости</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Т.е. каждой точке <span class="math">A(a; b)</span>, лежащей на меньшей синей окружности, например в первой четверти, соответствуют
+					точки <span class="math">B(c; d)</span>, лежащие на большей красной окружности, в данном случае
+					обязательно во второй и четвёртой четвертях, но не в третьей — согласно условию <span class="math">ac + bd = 0</span>.
+				</p>
+				
+				<p>
+					Координаты этих точек как раз и складываются функцией <span class="math">f(a, b, c, d) = (a + b)<sup>2</sup> + (c + d)<sup>2</sup></span> (см. <a href="#condition1">условие задания</a>).
+				</p>
+				
+				<p>
+					Используем более простой для данной задачи метод отыскания условного экстремума — выражение одной переменной через другую и подстановка каждой
+					в исходную функцию. Второй предложенный в разделе <a href="#h2_6">выше</a> способ решения этой задачи, через частные производные,
+					<b>не годится,</b> потому что он слишком громоздкий.
+				</p>
+				
+				<p>
+					Сначала нужно дать ответ на вопрос, а какие именно точки на красной окружности соответствуют точке на синей окружности? (И наоборот.)
+				</p>
+				
+				<p>
+					Для этого нужно решить систему из двух уравнений, полагая, к примеру, координаты точки <span class="math">A(a; b)</span> известными:<br>
+					<span class="math center">
+						ac + bd = 0,<br>
+						c<sup>2</sup> + d<sup>2</sup> = 6;<br>
+					</span>
+				</p>
+				
+				<p>
+					Нужно также учитывать, что <span class="math">a<sup>2</sup> + b<sup>2</sup> = 5</span>.
+					Становится понятно, что<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						c = (-/+)<sup><sup><table class="fraction"><tr><td>&radic;6 * a</td></tr><tr><td>———</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>,
+						d = (+/-)<sup><sup><table class="fraction"><tr><td>&radic;6 * b</td></tr><tr><td>———</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					Т.е., наглядно говоря, точке <span class="math">A(a; b)</span> соответствуют две точки<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						B(<sup><sup><table class="fraction"><tr><td>&radic;6 * a</td></tr><tr><td>———</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>; -<sup><sup><table class="fraction"><tr><td>&radic;6 * b</td></tr><tr><td>—</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>),
+						B'(-<sup><sup><table class="fraction"><tr><td>&radic;6 * a</td></tr><tr><td>———</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>; <sup><sup><table class="fraction"><tr><td>&radic;6 * b</td></tr><tr><td>—</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>).
+					</span>
+				</p>
+				
+				<p>
+					Теперь преобразуется исходная функция:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(a, b, c, d) = (a + b)<sup>2</sup> + (c + d)<sup>2</sup> =
+						(a + b)<sup>2</sup> + (<sup><sup><table class="fraction"><tr><td>&radic;6 * a</td></tr><tr><td>———</td></tr><tr><td>&radic;5</td></tr></table></sup></sup> - <sup><sup><table class="fraction"><tr><td>&radic;6 * b</td></tr><tr><td>———</td></tr><tr><td>&radic;5</td></tr></table></sup></sup>)<sup>2</sup> =<br>
+						
+						= a<sup>2</sup> + 2ab + b<sup>2</sup> + <sup><sup><table class="fraction"><tr><td>6</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>a<sup>2</sup> -
+						<sup><sup><table class="fraction"><tr><td>12</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>ab +
+						<sup><sup><table class="fraction"><tr><td>6</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>b<sup>2</sup> =<br>
+						
+						= 11 - <sup><sup><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>ab =<br>
+						
+						= 11 - <sup><sup><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>a * &radic;(5 - a<sup>2</sup>);
+					</span>
+				</p>
+				
+				<p>
+					Получается функция одной переменной <span class="math">&omega;(a)</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&omega;(a) = 11 - <sup><sup><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>a * &radic;(5 - a<sup>2</sup>).
+					</span>
+				</p>
+				
+				<p>
+					Её и следует дальше исследовать на экстремумы.
+				</p>
+				
+				<p>
+					Её производная будет следующей:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&omega;'(a) = -<sup><sup><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>5</td></tr></table></sup></sup>[&radic;(5 - a<sup>2</sup>) - <sup><sup><table class="fraction"><tr><td>a<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td>&radic;(5 - a<sup>2</sup>)</td></tr></table></sup></sup>].
+					</span>
+				</p>
+				
+				<p>
+					Она равна нулю в следующих точках:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						-<sup><table class="fraction"><tr><td>&radic;5</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></sup> и
+						<sup><table class="fraction"><tr><td>&radic;5</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					Т.к. производная меньше нуля в точке <span class="math">a<sub>0</sub> = 0</span>, то между найденными двумя критическими
+					точками график функции <span class="math">&omega;(a)</span> убывает. До и после критических точек график возрастает, потому что
+					<span class="math">&omega;'(a) &gt; 0</span>. Таким образом получается, что точка <span class="math">a<sub>крит. 1</sub> = -&radic;5/&radic;2</span>
+					— точка максимума, а точка <span class="math">a<sub>крит. 2</sub> = &radic;5/&radic;2</span> — точка минимума.
+				</p>
+				
+				<p>
+					Подставляя значения точек экстремума в функцию <span class="math">&omega;(a)</span>,
+					получатся её максимальное — <span class="math">12</span> — и минимальное — <span class="math">10</span> — значения.
+				</p>
+				
+				<p>
+					Т.к. функция <span class="math">&omega;(a)</span> была получена из исходной <span class="math">f(a, b, c, d)</span> с применением трёх условий,
+					то это значения условных максимума и минимума заданной <span class="math">f(a, b, c, d)</span>.
+				</p>
+				
+				<p>
+					Результат на &laquo;геометрическом языке&raquo; будет звучать так (см. <a href="#pic6">рис. 6</a>).
+				</p>
+				
+				<p>
+					Наибольшая сумма координат обеих точек (какую из симметричных относительно центра точек красной окружности выбирать — неважно, т.к. сумма в квадрате)
+					будет тогда, когда точка <span class="math">A(a; b)</span> располагается либо в четвёртой четверти, либо во второй на своей синей окружности и имеет равные по модулю координаты
+					(т.е. находится в центре дуги окружности в четверти).
+					А точка <span class="math">B(c; d)</span> также имеет равные по модулю координаты и располагается соответственно в первой или третьей координатных четвертях
+					на своей красной окружности. Тогда координаты точки <span class="math">A(a; b)</span> просто образуют ноль в исходной функции.
+				</p>
+				
+				<p>
+					Минимум получится, если точку <span class="math">A(a; b)</span>, наоборот, переместить в первую или третью координатную четверть на середину соответствующей дуги,
+					а точку <span class="math">B(c; d)</span> — во вторую или четвёртую. В этом случае, координаты уже точки <span class="math">B(c; d)</span> образуют ноль в исходном выражении
+					функции.
+				</p>
+				
+				<p>
+					<b>ОТВЕТ: наименьшее значение 10, наибольшее — 12.</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					На форуме <a class="new-tab-link" href="http://mathhelpplanet.com/viewtopic.php?f=31&t=66136&st=0&sk=t&sd=a" target="_blank">mathhelpplanet.com</a>
+					дан точно такой же ответ, только с применением более гениального способа — заменой переменных соответствующими тригонометрическими функциями.
+				</p>
+				
+				<p>
+					Получившаяся функция <span class="math">&omega;(a)</span> действительно
+					имеет максимум, равный 12-ти, а минимум, равный 10 (см. <a href="#pic7">рис. 7</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic7">
+					<tr><td><img src="7.jpg" title="mathway.com" alt="График функции &omega;(a)"></td></tr>
+					<tr><td>Рисунок 7 — График функции &omega;(a)</td></tr>
+				</table>
+				</p>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga11/maga11.php">Предыдущая статья</a></span><span class="next"><a href="../maga13/maga13.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga12/maga12.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

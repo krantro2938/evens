@@ -1,0 +1,833 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 13.06.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Линейные операторы</h1>
+				<p>
+					Разбор вопроса <b><i>&laquo;Линейные операторы и их матрицы. Действия с линейными операторами
+					и их матрицами. Преобразование матрицы линейного оператора при замене
+					базиса. Ядро линейного оператора. Собственные значения и собственные
+					векторы линейного оператора. Характеристический многочлен линейного
+					оператора. Линейные операторы простого типа&raquo;.</i></b>
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Кратко о линейных пространствах</a></li>
+						<li><a href="#h2_2">Линейные операторы</a>
+							<i><ol>
+								<li><a href="#another0">Действия с линейными операторами</a></li>
+								<li><a href="#another1">Ядро и образ линейного оператора</a></li>
+								<li><a href="#another2">Матрица линейного оператора</a></li>
+								<li><a href="#another3">Матрица линейного оператора при замене базиса</a></li>
+							</ol></i>
+						</li>
+						<li><a href="#h2_3">Примеры задач на обсуждаемые темы</a>
+							<i><ol>
+								<li><a href="#condition0">Условие задачи 1</a></li>
+								<li><a href="#solution0">Решение</a></li>
+								<li><a href="#check0">Проверка</a></li>
+								<li><a href="#condition1">Условие задачи 2</a></li>
+								<li><a href="#solution1">Решение</a></li>
+								<li><a href="#check1">Проверка</a></li>
+								<li><a href="#condition2">Условие задачи 3</a></li>
+								<li><a href="#solution2">Решение</a></li>
+								<li><a href="#check2">Проверка</a></li>
+							</ol></i>
+						</li>
+						<li><a href="#h2_4">Завершение</a></li>
+						<li><a href="#h2_5">Список использованной литературы</a></li>
+						<li><a href="#comments">Комментарии</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Кратко о линейных пространствах</h2>
+				<p>
+					Множество <span class="math">L</span> элементов любой природы, в котором заданы две операции:
+					<i>сумма</i> двух элементов и <i>умножение</i> элемента на <i>число,</i> —
+					имеющие определённые свойства (их 8 штук; по 4 свойства
+					на каждую операцию), называется <b>линейным пространством.</b>
+				</p>
+				
+				<p>
+					Каждое линейное пространство обычно имеет свой <b>базис.</b> Это те элементы этого пространства,
+					которые не выражаются друг через друга. Являются основой пространства. Приведём пример.
+				</p>
+				
+				<p>
+					Есть координатная плоскость с привычными нам двумя осями <span class="math">Ox</span> и <span class="math">Oy</span>.
+					На ней можно нарисовать какой-нибудь вектор со своими координатами в виде двух чисел — <span class="math">(x; y)</span>.
+					И, как мы знаем из курса геометрии, такие вектора можно выражать через два единичных вектора, обозначаемые как <b><span class="math">i</span></b>
+					и <b><span class="math">j</span></b> (см. <a href="#pic1">рис. 1</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="Координатная плоскость (mathway.com)" alt="Несколько векторов на координатной плоскости, нарисованные сервисом mathway.com"></td></tr>
+					<tr><td>Рисунок 1 — Пример линейного пространства</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Так вот, смотря на <a href="#pic1">рисунок 1</a>, можно понять, что выразить векторы <b><span class="math">i</span></b>
+					и <b><span class="math">j</span></b> друг через друга нельзя. Следовательно, они являются базисом пространства
+					таких векторов — или системой из двух <b>линейно-независимых</b> векторов. В этом случае, <b>элементы</b> пространства, это векторы на плоскости.
+					<b>Размерность</b> этого линейного пространства
+					равна двум, потому что линейно-независимых векторов всего два:<br>
+					<span class="math center">dim L = 2.</span>
+				</p>
+				
+				<p>
+					Также можно переходить от одного базиса к другому, если в линейном пространстве их несколько. Тогда координаты
+					элементов просто меняются на координаты относительно нового базиса.
+				</p>
+				
+				<p>
+					Есть и <b>подпространство</b> линейного пространства. К примеру, пространство, состоящее из трёх координатных осей:
+					<span class="math">Ox</span>, <span class="math">Oy</span> и <span class="math">Oz</span> — имеет подпространство (даже несколько)
+					в виде плоскости, например показанное выше пространство с осями <span class="math">Ox</span> и <span class="math">Oy</span>.
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<b>Теорема.</b><br>
+					<i>Каждый вектор линейного пространства линейно выражается
+					через любой его базис, причём единственным образом [<a href="#res4">4</a>, с.21].</i>
+				</p>
+				
+				<h2 id="h2_2">Линейные операторы</h2>
+				<p>
+					Строгое определение звучит так.
+				</p>
+				
+				<p>
+					Пусть <span class="math">R</span> и <span class="math">S</span> линейные пространства, которые имеют размерность <span class="math">n</span> и <span class="math">m</span> соответственно.
+					<b>Оператором</b> <span class="math">&phi;</span> действующим из <span class="math">R</span> в <span class="math">S</span> называется отображение вида <span class="math">&phi;: R—>S</span>,
+					сопоставляющее каждому элементу <span class="math">x</span> пространства <span class="math">R</span> некоторый элемент <span class="math">y</span> пространства <span class="math">S</span>.
+					Для этого отображения будем использовать обозначение <span class="math">y = &phi;(x)</span> или <span class="math">y = &phi;x</span>.
+				</p>
+				
+				<p>
+					То есть на обычном языке линейный оператор это обычная функция <span class="math">f(x)</span>, разбираемая в школе.
+					Только оператор — понятие более обширное. И оно включает все свойства функции действительных чисел.
+				</p>
+				
+				<p>
+					Оператор, <span class="math">&phi;</span> действующий из <span class="math">R</span> в <span class="math">S</span>, называется <b>линейным,</b>
+					если для любых элементов <span class="math">x<sub>1</sub></span> и <span class="math">x<sub>2</sub></span> пространства <span class="math">R</span> и
+					любого <span class="math">&lambda;</span> из числового поля <span class="math">K</span> выполняются соотношения:
+					<ol>
+						<li><span class="math">&phi;(x<sub>1</sub> + x<sub>2</sub>) = &phi;x<sub>1</sub> + &phi;x<sub>2</sub>;</span></li>
+						<li><span class="math">&phi;(&lambda;x) = &lambda;&phi;x.</span></li>
+					</ol>
+				</p>
+				
+				<p>
+					Если пространство <span class="math">S</span> совпадает с пространством <span class="math">R</span>, то линейный оператор,
+					который действует из <span class="math">R</span> в <span class="math">R</span> называют <i>линейным преобразованием пространства <span class="math">R</span>.</i>
+				</p>
+				
+				<p>
+					Для всякого линейного оператора <span class="math">&phi;</span> следует, что <span class="math">&phi;(0) = 0</span>. Если <span class="math">&phi;x = 0</span> только при <span class="math">x = 0</span>,
+					то оператор называется <i>невырожденным</i>. Если же существует такой элемент
+					<span class="math">x &ne; 0</span>, что <span class="math">&phi;x = 0</span>, то <span class="math">&phi;</span> является <i>вырожденным</i> оператором.
+				</p>
+				
+				<p>
+					Линейное преобразование называется <i>тождественным,</i> если оно
+					преобразует любой элемент <span class="math">x</span> в себя, и
+					обозначаеся через <span class="math">id</span>, т.е. <span class="math">id(x) = x</span>.
+				</p>
+				
+				<p>
+					<b>Пример.</b> Пусть <span class="math">&phi;:R—>R</span>, <span class="math">n</span> —
+					какой-нибудь элемент вещественного пространства <span class="math">R</span>.
+					Допустим, наш оператор выглядит так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&phi;<b>x</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>x</b>.</span>
+				</p>
+				
+				<p>
+					Является ли этот оператор линейным?
+				</p>
+				
+				<p>
+					Проверяем два свойства линейности, указанные в определении линейного оператора:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&phi;<b>x</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>x</b>;</span><br>
+					<span class="math center">&phi;<b>z</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>z</b>.</span><br>
+				</p>
+				
+				<p>
+					Значит:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&phi;<b>x</b> + &phi;<b>z</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>x</b> +
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>z</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup>(<b>x</b> + <b>z</b>);</span><br>
+					
+					<span class="math center">&phi;(<b>x</b> + <b>z</b>) =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup>(<b>x</b> + <b>z</b>).</span><br>
+				</p>	
+					
+				<p>
+					Таким образом, первое свойство линейности выполняется:<br>
+					<span class="math center">&phi;<b>x</b> + &phi;<b>z</b> = &phi;(<b>x</b> + <b>z</b>).</span>
+				</p>
+					
+				<p>
+					Проверяем второе свойство:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&phi;(&lambda;<b>x</b>) =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup>&lambda;<b>x</b>;</span><br>
+					
+					<span class="math center">&lambda;&phi;<b>x</b> = &lambda;
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>x</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup>&lambda;<b>x</b>.</span><br>
+				</p>
+				
+				<p>
+					И здесь всё выполняется:<br>
+					<span class="math center">&phi;(&lambda;<b>x</b>) = &lambda;&phi;<b>x</b>.</span>
+				</p>
+				
+				<p>
+					Делаем вывод, что оператор<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&phi;<b>x</b> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+					n<sup>2</sup><b>x</b></span><br>
+					— линейный.
+				</p>
+				
+				<p>
+					Есть также примеры нелинейных операторов, к примеру операторы, содержащие операцию сложения с
+					каким-либо элементом <span class="math">n</span> вещественного пространства.
+				</p>
+				
+				<h3>Действия с линейными операторами</h3>
+				<p>
+					Линейные операторы можно <b>складывать (вычитать), умножать на скаляр и друг на друга.</b>
+					При этом будет получаться тоже линейный оператор. Об этом гласят теоремы об операциях над линейными операторами.
+					Например, одна из теорем, взятая из презентации Ю.Б. Мельникова —
+					<a class="new-tab-link" href="https://lib.usue.ru/resource/free/10/MelnikovAlgebra3/00LinOper1.pdf" target="_blank">00LinOper1.pdf</a>
+					— гласит, что:
+				</p>
+				
+				<p align="center">
+					<i>
+						Пусть <span class="math">&phi;</span> и <span class="math">&psi;</span> — линейные
+						операторы линейного пространства <span class="math">U</span> в линейное пространство <span class="math">V</span>. Тогда справедливы следующие утверждения:
+						<ol>
+							<li>Сумма <span class="math">&phi; + &psi;</span> линейных операторов
+							<span class="math">&phi;</span> и <span class="math">&psi;</span> является линейным оператором.</li>
+							<li>Произведение <span class="math">&lambda;&phi;</span> линейного оператора на скаляр является
+							линейным оператором.</li>
+							<li>Если <span class="math">U = V</span>, то произведение <span class="math">&phi; * &psi;</span>
+							линейных операторов является линейным оператором.</li>
+						</ol>
+					</i>
+				</p>
+				
+				<p>
+					Если Вам, дорогой читатель, интересно почитать доказательство этой теоремы, то
+					заглядывайте в презентацию Ю.Б. Мельникова или в другие известные Вам учебники. Как хотите.
+				</p>
+				
+				<p>
+					Также существует <b>обратный</b> оператор, который обозначается как <span class="math">&phi;<sup>-1</sup></span>:<br>
+					<span class="math center">&phi; * &phi;<sup>-1</sup> = &phi;<sup>-1</sup> * &phi; = id.</span>
+				</p>
+				
+				<p>
+					Где <span class="math">id</span> — тождественный оператор, который преобразует любой элемент
+					пространства в себя. То есть при умножении оператора на обратный ему получается всегда тождественный оператор.
+				</p>
+				
+				<h3>Ядро и образ линейного оператора</h3>
+				<p>
+					<b>Ядром</b> линейного оператора <span class="math">&phi;: R—>V</span> называется подмножество <span class="math">R</span>,
+					которое отображается в нуль:<br>
+					<span class="math center">Ker &phi; = {x &isin; R | &phi;(x) = 0}</span>
+				</p>
+				
+				<p>
+					<b>Образом</b> линейного оператора <span class="math">&phi;: R—>V</span>
+					называется следующее подмножество <span class="math">V</span>:<br>
+					<span class="math center">Im &phi; = {&phi;(x) &isin; V | x &isin; R}</span>
+				</p>
+				
+				<p>
+					То есть <i>образ оператора,</i> это все те элементы пространства, которые получаются из исходных элементов
+					после применения этого оператора.
+				</p>
+				
+				<h3>Матрица линейного оператора</h3>
+				<p>
+					Пусть <span class="math">e<sub>1</sub>, e<sub>2</sub>, ..., e<sub>n</sub></span> —
+					некоторый базис линейного пространства <span class="math">V</span>, т.е. линейно независимая
+					система векторов, через которую линейно выражается любой вектор пространства <span class="math">V</span>;
+					<span class="math">&phi;</span> — линейный оператор [<a href="#res2">2</a>, с. 7].
+				</p>
+				
+				<p>
+					Образы базисных векторов
+					<span class="math">&phi;(е<sub>1</sub>), &phi;(е<sub>2</sub>), ..., &phi;(е<sub>n</sub>)</span>,
+					как и все векторы пространства <span class="math">V</span>, линейно выражаются через
+					базисные векторы <span class="math">e<sub>1</sub>, e<sub>2</sub>, ..., e<sub>n</sub></span>:<br>
+					<span class="math center">
+						&phi;(е<sub>1</sub>) = <b>a<sub>1, 1</sub></b>e<sub>1</sub> + <b>a<sub>2, 1</sub></b>e<sub>2</sub> + ... + <b>a<sub>n, 1</sub></b>e<sub>n</sub>;<br>
+						&phi;(е<sub>2</sub>) = <b>a<sub>1, 2</sub></b>e<sub>1</sub> + <b>a<sub>2, 2</sub></b>e<sub>2</sub> + ... + <b>a<sub>n, 2</sub></b>e<sub>n</sub>;<br>
+						. . .<br>
+						&phi;(е<sub>n</sub>) = <b>a<sub>1, n</sub></b>e<sub>1</sub> + <b>a<sub>2, n</sub></b>e<sub>2</sub> + ... + <b>a<sub>n, n</sub></b>e<sub>n.</sub>
+					</span>
+				</p>
+				
+				<p>
+					Матрица<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">A = </span>
+					<table class="matrix">
+						<tr><td>a<sub>1, 1</sub></td><td>a<sub>1, 2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>1, n</sub></td></tr>
+						<tr><td>a<sub>2, 1</sub></td><td>a<sub>2, 2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>2, n</sub></td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>a<sub>n, 1</sub></td><td>a<sub>n, 2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>n, n</sub></td></tr>
+					</table>,
+				</p>
+				
+				<p>
+					в столбцах которой стоят координаты образов базисных векторов в рассматриваемом базисе, называется
+					<b>матрицей линейного оператора</b> (в данном базисе).
+				</p>
+				
+				<p>
+					Если оператор <i>нулевой или тождественный,</i> т.е. соответственно:<br>
+					<span class="math center">&phi;(x) = 0 &forall; x,</span><br>
+					<span class="math center">id(x) = x &forall; x,</span><br>
+				</p>
+				
+				<p>
+					то <b>в любом базисе</b> матрицы таких операторов будут, в том же порядке:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">O = </span>
+					<table class="matrix">
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					как матрица нулевого оператора, и —<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">E = </span>
+					<table class="matrix">
+						<tr><td>1</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>0</td><td>1</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>1</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					как матрица тождественного оператора.
+				</p>
+				
+				<p>
+					Над матрицами линейных операторов также можно производить операции. К примеру,
+					есть такое свойство — при умножении матрицы оператора на матрицу обратного ему оператора (см. для полноты ещё параграф
+					<i>&laquo;Действия над операторами&raquo;</i> выше) всегда получается единичная матрица:<br>
+					<span class="math center">A<sub>&phi;</sub>A<sub>&phi;</sub><sup>-1</sup> = A<sub>&phi;</sub><sup>-1</sup>A<sub>&phi;</sub> = E.</span><br>
+				</p>
+				
+				<p>
+					Вот ещё полезный факт. Матрица оператора <span class="math">&phi; = &phi;<sub>1</sub> * &phi;<sub>2</sub></span> произведения
+					линейных операторов <span class="math">&phi;<sub>1</sub></span> и <span class="math">&phi;<sub>2</sub></span> является произведением матриц этих операторов,
+					взятых в обратном порядке.
+				</p>
+				
+				<p>
+					При умножении же оператора на число его матрица умножается на это число. Аналогично, при сложении операторов их
+					матрицы складываются.
+				</p>
+				
+				<h3>Матрица линейного оператора при замене базиса</h3>
+				<p>
+					Одним из стандартных вопросов в рассматриваемой теории является вопрос об изменении
+					матрицы оператора при переходе в <b>другой базис</b> [<a href="#res1">1</a>, с. 88].
+				</p>
+				
+				<p>
+					Если <span class="math">A</span> — матрица линейного оператора <span class="math">&phi;</span> в базисе
+					<span class="math">e<sub>1</sub>, e<sub>2</sub>, ..., e<sub>n</sub></span>, то
+					матрица <span class="math">B</span> этого линейного оператора
+					в базисе
+					<span class="math">e'<sub>1</sub>, e'<sub>2</sub>, ..., e'<sub>n</sub></span>
+					имеет вид [<a href="#res4">4</a>, с. 59]:<br>
+					<span class="math center">B = T<sup>-1</sup> * A * T,</span>
+				</p>
+				
+				<p>
+					где <span class="math">T</span> — матрица перехода от базиса <span class="math">e<sub>1</sub>, e<sub>2</sub>, ..., e<sub>n</sub></span>
+					к базису <span class="math">e'<sub>1</sub>, e'<sub>2</sub>, ..., e'<sub>n</sub></span>.
+				</p>
+				
+				<h2 id="h2_3">Примеры задач на обсуждаемые темы</h2>
+				<h3>Условие задачи 1</h3>
+				<p>
+					Пусть <span class="math">R<sup>3</sup></span> — линейное пространство, размерность которого равна 3 [<a href="#res4">4</a>, с.23].
+					Найти координаты вектора <span class="math">x = (2, 3, 5) &isin; R<sup>3</sup></span> в базисе
+					<ol type="a">
+						<li>
+							(стандартном:)<br>
+							<span class="math center">e<sub>1</sub> = (1,0,0),<br>
+							e<sub>2</sub> = (0,1,0),<br>
+							e<sub>3</sub> = (0,0,1);</span>
+						</li>
+						<li><br>
+							<span class="math center">b<sub>1</sub> = (0,0,10),<br>
+							b<sub>2</sub> = (2,0,0),<br>
+							b<sub>3</sub> = (0,1,0).</span>
+						</li>
+					</ol>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					<ol type="a">
+						<li>
+							<p>
+								Вектор <span class="math">x = (2, 3, 5)</span> можно разложить на сумму трёх векторов
+								(согласно 8-ми свойствам, указанных в определении линейного пространства):<br>
+								<span class="math center">x = (2, 3, 5) = (2, 0, 0) + (0, 3, 0) + (0, 0, 5) =
+								2(1, 0, 0) + 3(0, 1, 0) + 5(0, 0, 1) = 2e<sub>1</sub> + 3e<sub>2</sub> + 5e<sub>3</sub>.</span>
+							</p>
+							<p>
+								Значит, координаты вектора <span class="math">x</span> в этом
+								стандартном базисе будут числа: <b><span class="math">2, 3 и 5</span></b>.
+							</p>
+						</li>
+						<li>
+							<p>
+								Эту задачу можно решить несколькими способами. Возьмём способ, включающий определение <b>матрицы перехода от
+								одного базиса к другому.</b>
+								Векторы <span class="math">b<sub>1</sub>, b<sub>2</sub>, b<sub>3</sub></span> выражаются через стандартный базис как:<br>
+								<span class="math center">b<sub>1</sub> = (0,0,10) = 0e<sub>1</sub> + 0e<sub>2</sub> + 10e<sub>3</sub>,<br>
+								b<sub>2</sub> = (2,0,0) = 2e<sub>1</sub> + 0e<sub>2</sub> + 0e<sub>3</sub>,<br>
+								b<sub>3</sub> = (0,1,0) = 0e<sub>1</sub> + e<sub>2</sub> + 0e<sub>3</sub>.</span>
+							</p>
+							
+							<p>
+								Значит, матрица перехода от базиса <span class="math">e<sub>1</sub>, e<sub>2</sub>, e<sub>3</sub></span> к базису
+								<span class="math">b<sub>1</sub>, b<sub>2</sub>, b<sub>3</sub></span> будет выглядеть так:<br>
+								<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+								<span class="math">T = </span>
+								<table class="matrix">
+									<tr><td>0</td><td>2</td><td>0</td></tr>
+									<tr><td>0</td><td>0</td><td>1</td></tr>
+									<tr><td>10</td><td>0</td><td>0</td></tr>
+								</table>.
+							</p>
+							
+							<p>
+								Матрица, обратная матрице <span class="math">T</span>, т.е. матрица
+								<span class="math">T<sup>-1</sup></span>, имеет вид:<br>
+								<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+								<span class="math">T<sup>-1</sup> =
+								<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>|T|</td></tr></table> *
+								T<sup>+T</sup> =
+								<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>20</td></tr></table> *
+								<table class="matrix">
+									<tr><td>0</td><td>0</td><td>2</td></tr>
+									<tr><td>10</td><td>0</td><td>0</td></tr>
+									<tr><td>0</td><td>20</td><td>0</td></tr>
+								</table>
+								=
+								<table class="matrix">
+									<tr><td>0</td><td>0</td><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>10</td></tr></table></td></tr>
+									<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></td><td>0</td><td>0</td></tr>
+									<tr><td>0</td><td>1</td><td>0</td></tr>
+								</table>
+								</span>
+							</p>
+							
+							<p>
+								Значит, по формуле перехода от стандратного базиса <span class="math">e<sub>1</sub>, e<sub>2</sub>, e<sub>3</sub></span>
+								к базису <span class="math">b<sub>1</sub>, b<sub>2</sub>, b<sub>3</sub></span> координаты вектора <span class="math">x</span>
+								в базисе <span class="math">b<sub>1</sub>, b<sub>2</sub>, b<sub>3</sub></span> будут такими:<br>
+								<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+								<span class="math center">
+								<table class="matrix">
+									<tr><td>x<sub>b,1</sub></td></tr>
+									<tr><td>x<sub>b,2</sub></td></tr>
+									<tr><td>x<sub>b,3</sub></td></tr>
+								</table> =
+								T<sup>-1</sup> *
+								<table class="matrix">
+									<tr><td>x<sub>e,1</sub></td></tr>
+									<tr><td>x<sub>e,2</sub></td></tr>
+									<tr><td>x<sub>e,3</sub></td></tr>
+								</table> =
+								<table class="matrix">
+									<tr><td>0</td><td>0</td><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>10</td></tr></table></td></tr>
+									<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></td><td>0</td><td>0</td></tr>
+									<tr><td>0</td><td>1</td><td>0</td></tr>
+								</table> *
+								<table class="matrix">
+									<tr><td>2</td></tr>
+									<tr><td>3</td></tr>
+									<tr><td>5</td></tr>
+								</table> =
+								<table class="matrix">
+									<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></td></tr>
+									<tr><td>1</td></tr>
+									<tr><td>3</td></tr>
+								</table>
+								</span>
+							</p>
+							
+							<p><b>ОТВЕТ: 1/2, 1 и 3</b></p>
+						</li>
+					</ol>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					В задачнике авторства <b>А.И. Шерстнёвой</b> и <b>О.В. Янущика</b> приведён тот же ответ! [<a href="#res4">4</a>, с.24]
+				</p>
+				
+				<h3>Условие задачи 2</h3>
+				<p>
+					Матрицей линейного оператора
+					<span class="math">f</span> в базисе
+					<span class="math">e<sub>1</sub>, e<sub>2</sub></span>
+					некоторого линейного пространства является матрица
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">A = </span>
+					<table class="matrix">
+						<tr><td>-1</td><td>-2</td></tr>
+						<tr><td>5</td><td>0</td></tr>
+					</table>.
+				</p>
+				
+				<p>
+					Найти матрицу <span class="math">B</span> этого оператора в базисе<br>
+					<span class="math center">e'<sub>1</sub> = 2e<sub>1</sub> - e<sub>2</sub>,<br>
+					e'<sub>2</sub> = -3e<sub>1</sub> + 2e<sub>2</sub> [<a href="#res4">4</a>].</span>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					1) Матрицей перехода из базиса <span class="math">e<sub>1</sub>, e<sub>2</sub></span>
+					в базис <span class="math">e'<sub>1</sub>, e'<sub>2</sub></span> является матрица<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">T = </span>
+					<table class="matrix">
+						<tr><td>2</td><td>-3</td></tr>
+						<tr><td>-1</td><td>2</td></tr>
+					</table>.
+				</p>
+				
+				<p>
+					2) Обратная ей матрица находится по стандартной формуле отыскания обратной матрицы (см. отличную статью
+					<a class="new-tab-link" href="http://www.mathprofi.ru/kak_naiti_obratnuyu_matricu.html" target="_blank">mathprofi.ru</a>):<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">T<sup>-1</sup> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>|T|</td></tr></table>
+					* T<sup>+T</sup>.
+					</span>
+				</p>
+				
+				<p>
+					Значит, матрица <span class="math">T<sup>-1</sup></span> равняется:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">T<sup>-1</sup> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>1</td></tr></table>
+					*
+					<table class="matrix">
+						<tr><td>2</td><td>3</td></tr>
+						<tr><td>1</td><td>2</td></tr>
+					</table> =
+					<table class="matrix">
+						<tr><td>2</td><td>3</td></tr>
+						<tr><td>1</td><td>2</td></tr>
+					</table>.
+					</span>
+				</p>
+				
+				<p>
+					Таким образом, искомая матрица <span class="math">B</span> будет равна<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">B = T<sup>-1</sup> * A * T =
+					<table class="matrix">
+						<tr><td>2</td><td>3</td></tr>
+						<tr><td>1</td><td>2</td></tr>
+					</table> *
+					<table class="matrix">
+						<tr><td>-1</td><td>-2</td></tr>
+						<tr><td>5</td><td>0</td></tr>
+					</table> *
+					<table class="matrix">
+						<tr><td>2</td><td>-3</td></tr>
+						<tr><td>-1</td><td>2</td></tr>
+					</table> =
+					<table class="matrix">
+						<tr><td>13</td><td>-4</td></tr>
+						<tr><td>9</td><td>-2</td></tr>
+					</table> *
+					<table class="matrix">
+						<tr><td>2</td><td>-3</td></tr>
+						<tr><td>-1</td><td>2</td></tr>
+					</table> =
+					<table class="matrix">
+						<tr><td>30</td><td>-47</td></tr>
+						<tr><td>20</td><td>-31</td></tr>
+					</table></span>.
+				</p>
+				
+				<p>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<b>ОТВЕТ:
+					<span class="math">B =</span>
+					<table class="matrix">
+						<tr><td>30</td><td>-47</td></tr>
+						<tr><td>20</td><td>-31</td></tr>
+					</table>.</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					В задачнике авторов <b>А.И. Шерстнёвой, О.В. Янущика</b>
+					в этом задании дан точно такой же ответ! [<a href="#res4">4</a>, с. 60]
+				</p>
+				
+				<h3>Условие задачи 3</h3>
+				<p>
+					Матрицей линейного оператора [<a href="#res4">4</a>, с. 62]
+					<span class="math">f</span> в базисе
+					<span class="math">e<sub>1</sub>, e<sub>2</sub>, e<sub>3</sub></span>
+					некоторого линейного пространства является матрица
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">A = </span>
+					<table class="matrix">
+						<tr><td>15</td><td>-11</td><td>5</td></tr>
+						<tr><td>20</td><td>-15</td><td>8</td></tr>
+						<tr><td>8</td><td>-7</td><td>6</td></tr>
+					</table>.
+				</p>
+				
+				<p>
+					Найти матрицу <span class="math">B</span> этого оператора в базисе<br>
+					<span class="math center">e'<sub>1</sub> = 2e<sub>1</sub> + 3e<sub>2</sub> + e<sub>3</sub>,<br>
+					e'<sub>2</sub> = 3e<sub>1</sub> + 4e<sub>2</sub> + e<sub>3</sub>,<br>
+					e'<sub>3</sub> = e<sub>1</sub> + 2e<sub>2</sub> + 2e<sub>3</sub></span> [<a href="#res4">4</a>, с. 62].
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">B = T<sup>-1</sup> * A * T =
+					<table class="matrix">
+						<tr><td>-6</td><td>5</td><td>-2</td></tr>
+						<tr><td>4</td><td>-3</td><td>1</td></tr>
+						<tr><td>1</td><td>-1</td><td>1</td></tr>
+					</table> *
+					<table class="matrix">
+						<tr><td>15</td><td>-11</td><td>5</td></tr>
+						<tr><td>20</td><td>-15</td><td>8</td></tr>
+						<tr><td>8</td><td>-7</td><td>6</td></tr>
+					</table> *
+					<table class="matrix">
+						<tr><td>2</td><td>3</td><td>1</td></tr>
+						<tr><td>3</td><td>4</td><td>2</td></tr>
+						<tr><td>1</td><td>1</td><td>2</td></tr>
+					</table> =
+					<table class="matrix">
+						<tr><td>1</td><td>0</td><td>0</td></tr>
+						<tr><td>0</td><td>2</td><td>0</td></tr>
+						<tr><td>0</td><td>0</td><td>3</td></tr>
+					</table></span>
+					[<a href="#res5">5</a>]
+				</p>
+				
+				<p>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<b>ОТВЕТ:
+					<span class="math">B =</span>
+					<table class="matrix">
+						<tr><td>1</td><td>0</td><td>0</td></tr>
+						<tr><td>0</td><td>2</td><td>0</td></tr>
+						<tr><td>0</td><td>0</td><td>3</td></tr>
+					</table>.</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					В ответах задачника <b>А.И. Шерстнёвой</b> и <b>О.В. Янущика</b>
+					дан такой же результат! [<a href="#res4">4</a>, с. 89]
+				</p>
+				
+				<h2 id="h2_4">Завершение</h2>
+				<p>
+					На этом всё, дорогой читатель! Продолжение будет в следующей статье. Если чего-то тебе непонятно, то не переживай —
+					со временем всё станет ясно, так или иначе, если ты будешь больше с этим практиковаться :) Хорошего настроения тебе!
+				</p>
+				
+				<h2 id="h2_5">Список использованной литературы</h2>
+				<ol>
+					<li id="res1">Ю. Б. Мельников Линейные операторы. - 3-е изд. -
+					Екатеринбург: Федеральное агентство по образованию Уральский
+					государственный экономический университет, 2010. - 207 с.</li>
+					<li id="res2">Линейные операторы: Метод. указания к домашней контрольной работе по курсу
+					«Линейная алгебра и аналитическая геометрия». Часть 1 /
+					Моск. гос. ин-т электроники и математики; Сост.: И.К. Бусяцкая, К.К. Андреев. М., 2005. – 23 с.</li>
+					<li id="res3">Линейное отображение // Wikipedia, the free encyclopedia URL:
+					https://en.wikipedia.org/wiki/Linear_map (дата обращения: 13.06.2022).</li>
+					<li id="res4">А.И. Шерстнёва, О.В. Янущик Линейные пространства. Линейные операторы.
+					- Томск: Издательство Томского политехнического университета, 2010. - 92 с.</li>
+					<li id="res5">Онлайн калькулятор. Умножение матриц // OnlineMSchool URL:
+					https://ru.onlinemschool.com/math/assistance/matrix/multiply (дата обращения: 13.06.2022).</li>
+				</ol>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga4/maga4.php">Предыдущая статья</a></span><span class="next"><a href="../maga6/maga6.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga5/maga5.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

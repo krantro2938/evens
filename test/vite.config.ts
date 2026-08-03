@@ -29,6 +29,9 @@ const DOC_ROUTES = [
     "/doc",
     "/adri",
     "/mine",
+    // The offline study pack: pre-rendered pages, served as static bytes by
+    // both backends (server/enc.ts, offline/encyclopedia.py).
+    "/enc",
     // The app ships its own log here — the glasses have no console.
     "/log",
 ];

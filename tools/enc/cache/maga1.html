@@ -1,0 +1,383 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 03.06.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Комплексные числа</h1>
+				<h2>Краткая теория</h2>
+				<p>
+					Сайт
+					<a class="new-tab-link" href="http://www.mathprofi.ru/kompleksnye_chisla_dlya_chainikov.html" target="_blank">mathprofi.ru</a>
+					даёт понятнейшее объяснение теме комплексных чисел. Спасибо автору <b>Емелину Александру</b> за написание этой статьи!
+				</p>
+				
+				<p>
+					Для решения магистерских вступительных экзаменов по математике касательно комплексных чисел нужны знания:
+					<ul>
+						<li>
+							Множество комплексных чисел <span class="math"><b>C</b></span> включает в себя множество действительных чисел <span class="math"><b>R</b></span>.
+						</li>
+
+						<p>
+						<table class="img" id="pic1">
+							<tr><td><img src="1.jpg" title="Чертёж сервиса https://www.math10.com/ru/geometria/geogebra/geogebra.html" alt="Чертёж комплексной плоскости"></td></tr>
+							<tr><td>Рисунок 1 — Комплексная плоскость</td></tr>
+						</table>
+						</p>
+
+						<li>
+							Представление комплексного числа (см. <a href="#pic1">рис. 1</a>):
+							<span class="math">
+								z = a + bi
+							</span>
+							, где <span class="math">a</span> — действительная часть числа,
+							<span class="math">b</span> — мнимая часть числа (обе действительные числа), а <span class="math">i</span> — мнимая единица,
+							<b>квадрат которой равен -1</b>:<br>
+							<span class="math center">i<sup>2</sup> = -1;</span><br>
+							<span class="math center">i = &radic;-1.</span>
+						</li>
+						<li>
+							Понимание арифметических операций с комплексными числами.
+						</li>
+						
+						<li>
+							Тригонометрическое представление комплексного числа:<br>
+							<span class="math center">z = |z| * (cos(&phi;) + i sin(&phi;))</span><br>
+							, где <span class="math">|z|</span> — модуль комплексного числа (обобщение модуля действительного числа);<br>
+							<span class="math">cos(&phi;) + i sin(&phi;) = arg z</span> — аргумент (по сути, угол) комплексного числа.<br><br>
+							
+							Модуль находится по формуле:<br>
+								<span class="math center">|z| = &radic;(a<sup>2</sup> + b<sup>2</sup>)</span>;<br>
+							Угол находится по формуле:
+								<ol>
+									<li>Первая и четвёртая четверть:<br><span class="math center">arg z = arctg(<table class="fraction"><tr><td>b</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>)</span>;</li>
+									<li>Вторая четверть:<br><span class="math center">arg z = &pi; + arctg(<table class="fraction"><tr><td>b</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>)</span>;</li>
+									<li>Третья четверть:<br><span class="math center">arg z = -&pi; + arctg(<table class="fraction"><tr><td>b</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>)</span>.</li>
+								</ol>
+						</li>
+						
+						<li>
+							Также необходимо понимать, как комплексные числа возводятся в степень (формулу Муавра),
+							и как извлекаются корни (не только квадратные) из них. И понимать, что любое квадратное уравнение имеет комплексные корни.
+						</li>
+					</ul>
+				</p>
+
+				<h2>Решение заданий с сайта МИРЭА</h2>
+				<h3>Условие 1-го задания</h3>
+				<p>
+					(см. вар. <a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_101.pdf" target="_blank">№101-19</a> 2019 года)<br>
+				</p>
+				<p>
+					Найти аргумент комплексного числа<br>
+					<span class="math center">
+						z = (-&radic;3 + i)<sup>6</sup>
+					</span>
+				</p>
+
+				<h3>Решение</h3>
+				<p>
+					Сначала лучше всего построить на комплексной плоскости число под степенью <span class="math">6</span>: см. <a href="#pic2">рис. 2</a>.
+				</p>
+
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="Чертёж сервиса https://www.math10.com/ru/geometria/geogebra/geogebra.html" alt="Чертёж комплексной плоскости с заданной точкой"></td></tr>
+					<tr><td>Рисунок 2 — Число z<sub>1</sub> на комплексной плоскости</td></tr>
+				</table>
+				</p>
+
+				<p>
+					На чертеже видно, где примерно располагается число <span class="math">z<sub>1</sub></span>. Значит, в тригонометрической форме оно будет выглядеть так:<br>
+					<span class="math center">|z<sub>1</sub>| = &radic;(a<sup>2</sup> + b<sup>2</sup>) = &radic;( (-&radic;3)<sup>2</sup> + 1<sup>2</sup> ) = 2;</span><br>
+					<span style="visibility: hidden" class="math center"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">arg z<sub>1</sub> = &pi; + arctg(<table class="fraction"><tr><td>b</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>) = &pi; + arctg(<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>-&radic;3</td></tr></table>) =
+						&pi; - arctg(<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;3</td></tr></table>) =
+						&pi; - <table class="fraction"><tr><td>&pi;</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table> =
+						<table class="fraction"><tr><td>5&pi;</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table>;</span><br>
+					<span class="math center">z<sub>1</sub> = 2 * (cos<table class="fraction"><tr><td>5&pi;</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table> + i sin<table class="fraction"><tr><td>5&pi;</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table>).</span>
+				</p>
+
+				<p>
+					Дальше, возводя в 6-ую степень число <span class="math">z<sub>1</sub></span> по формуле Муавра, следует определить
+					тригонометрическую форму числа <span class="math">z</span>:<br>
+					<span style="visibility: hidden" class="math center"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">z = (z<sub>1</sub>)<sup>6</sup> = 2<sup>6</sup> * (cos[6*<table class="fraction"><tr><td>5&pi;</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table>] + i sin[6 * <table class="fraction"><tr><td>5&pi;</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table>])
+					= 64 * (cos 5&pi; + i sin 5&pi;)
+					</span>
+				</p>
+
+				<p>
+					Следовательно, аргумент числа <span class="math">z = (-&radic;3 + i)<sup>6</sup></span> равен <span class="math"><b>&pi;</b></span>, или 180-ти градусам.
+					<span style="visibility: hidden" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span align="left">Лучше написать <span class="math">&pi;</span>, чем <span class="math">5&pi;</span>, потому что областью значений функции
+					<span class="math">arctg</span> является интервал
+					<span class="math">(<table class="fraction"><tr><td>-&pi;</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table> ; <table class="fraction"><tr><td>&pi;</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>)</span>.</span>
+				</p>
+
+				<p>
+					И не <span class="math">-&pi;</span>, а именно <span class="math"><b>+</b>&pi;</span>, как принято у математиков!
+				</p>
+
+				<h3>Проверка</h3>
+				<p>
+					И действительно, число <span class="math">z</span>, как показывает сайт
+					<a class="new-tab-link" target="_blank" href="https://www.math10.com/ru/geometria/geogebra/geogebra.html">math10.com</a> (см. <a href="#pic3">рис. 3</a>),
+					равно действительному числу <span class="math">-64</span>, поэтому угол наклона относительно оси абсцисс будет логично равен 180-ти градусам.
+				</p>
+
+				<p>
+				<table class="img" id="pic3">
+					<tr><td><img src="3.jpg" title="Чертёж сервиса https://www.math10.com/ru/geometria/geogebra/geogebra.html" alt="Чертёж комплексной плоскости с заданными точками"></td></tr>
+					<tr><td>Рисунок 3 — Число z = -64 на комплексной плоскости</td></tr>
+				</table>
+				</p>
+
+				<h3>Условие 2-го задания</h3>
+					<p>
+						(см. вар. <a class="new-tab-link" href="https://priem.mirea.ru/docs/2019/samples/math_mag_301.pdf" target="_blank">№301-18</a> 2018 года)<br>
+					</p>
+					<p>
+						Из комплексных корней уравнения
+						<span class="math">
+							z<sup>6</sup> + 4(1 - i)z<sup>3</sup> - 8i = 0
+						</span>
+						найти корень с наименьшей мнимой частью.
+					</p>
+				
+				<h3>Решение</h3>
+					<p>
+						Из этого уравнения можно увидеть обычное квадратное уравнение,
+						но уже имеющее при себе комплексные коэффициенты.
+					</p>
+					
+					<p>
+						Такие уравнения решаются подобно обычному квадратному уравнению с действительными коэффициентами,
+						которые мы привыкли видеть в школе. Но, в отличие от школьных, такие уравнения <i>всегда</i> имеют решения —
+						как комплексные, так и действительные. Последние иногда они могут не иметь (случаи с только комплексными корнями).
+					</p>
+					
+					<p>
+						Перейдём к решению. Заменяем переменную<br>
+							<span class="math center">z<sup>3</sup> = &omega;</span><br>
+						Получается уравнение более привычного вида:<br>
+							<span class="math center">
+								&omega;<sup>2</sup> + 4(1 - i)&omega; - 8i = 0
+							</span><br>
+							<span class="math center">
+								&omega;<sup>2</sup> + (4 - 4i)&omega; - 8i = 0
+							</span><br>
+						Дискриминант (не забывайте при ваших дальнейших вычислениях, что
+						<span class="math">i<sup>2</sup> = -1</span>!):<br>
+							<span class="math center">
+								D = b<sup>2</sup> - 4ac = (4 - 4i)<sup>2</sup> - 4 * 1 * (-8i) =
+								-32i + 32i = 0
+							</span><br>
+						<span style="visibility: hidden" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						Таким образом, переменная <span class="math">&omega;</span> равна<br>
+							<span class="math center">
+								&omega; = <table class="fraction"><tr><td>-b</td></tr><tr><td>—</td></tr><tr><td>2a</td></tr></table>
+								= <table class="fraction"><tr><td>-4 + 4i</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>
+								= -2 + 2i
+							</span><br>
+						Значит, подставляя изначальную неизвестную вместо омеги:<br>
+							<span class="math center">
+								z<sup>3</sup> = &omega; = -2 + 2i&nbsp;&nbsp;&nbsp;&nbsp;=>&nbsp;&nbsp;&nbsp;&nbsp;z = <sup>3</sup>&radic;(-2 + 2i)
+							</span><br>
+						Извлекаем корень из комплексного числа:<br>
+							<span class="math center">
+								n = 3, k = {0;1;2}; &mu; = -2 + 2i.
+							</span><br>
+							<span class="math center">
+								|&mu;| = &radic;(4+4) = &radic;8<br>
+								arg &mu; = <table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table>
+							</span><br>
+							<span class="math center">
+								&mu;<sub>0</sub> = <sup>6</sup>&radic;8 *
+								(cos[<table class="fraction"><tr><td><table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table> + (2&pi; * 0)</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>])
+								+ i sin[<table class="fraction"><tr><td><table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table> + (2&pi; * 0)</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>]
+								= <sup>6</sup>&radic;8 * (cos<table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> + i sin<table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table>)
+							</span><br>
+							<span class="math center">
+								&mu;<sub>1</sub> = <sup>6</sup>&radic;8 *
+								(cos[<table class="fraction"><tr><td><table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table> + (2&pi; * 1)</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>])
+								+ i sin[<table class="fraction"><tr><td><table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table> + (2&pi; * 1)</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>]
+								= <sup>6</sup>&radic;8 * (cos<table class="fraction"><tr><td>11&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> + i sin<table class="fraction"><tr><td>11&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table>)
+							</span><br>
+							<span class="math center">
+								&mu;<sub>2</sub> = <sup>6</sup>&radic;8 *
+								(cos[<table class="fraction"><tr><td><table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table> + (2&pi; * 2)</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>])
+								+ i sin[<table class="fraction"><tr><td><table class="fraction"><tr><td>3&pi;</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table> + (2&pi; * 2)</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>]
+								= <sup>6</sup>&radic;8 * (cos<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> + i sin<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table>)
+							</span><br>
+							В итоге, можно сделать вывод, что корнями этого уравнения являются три числа:<br>
+							<span class="math center">
+								&mu;<sub>0</sub> = 1 + i;
+							</span><br>
+							<span class="math center">
+								&mu;<sub>1</sub> = &radic;2 * (cos<table class="fraction"><tr><td>11&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> + i sin<table class="fraction"><tr><td>11&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table>)
+							</span><br>
+							<span class="math center">
+								&mu;<sub>2</sub> = &radic;2 * (cos<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> + i sin<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table>)
+							</span><br>
+							Так как мнимая часть в третьем корне <span class="math">&mu;<sub>2</sub></span> отрицательная (<span class="math">sin<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> &lt; 0</span>), то
+							она и будет наименьшей.
+					</p>
+					
+					<p>
+						<span style="visibility: hidden" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<b>Ответ: &radic;2 * (cos<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table> + i sin<table class="fraction"><tr><td>19&pi;</td></tr><tr><td>—</td></tr><tr><td>12</td></tr></table>)</b>
+					</p>
+					
+					<h3>Проверка</h3>
+					<p>
+						Решение с сайта
+						<a class="new-tab-link" target="_blank" href="https://www.kontrolnaya-rabota.ru/s/equal-one/any-uravnenie">kontrolnaya-rabota.ru</a>
+						подтверждает сделанный вывод: см. <a href="#pic4">рис. 4</a>.
+					</p>
+					
+					<p>
+					<table class="img" id="pic4">
+						<tr><td><img src="4.jpg" title="Данные сервиса https://www.kontrolnaya-rabota.ru/s/equal-one/any-uravnenie" alt="Три корня уравнения в условии в виде дробных чисел"></td></tr>
+						<tr><td>Рисунок 4 — Решение онлайн-сервиса kontrolnaya-rabota.ru,</td></tr>
+						<tr><td>подтверждающее правильность написанного выше ответа</td></tr>
+					</table>
+					</p>
+					
+					<h2>Итог</h2>
+					<p>
+						Это были все типы заданий, касающиеся комплексных чисел. Как ты видишь, дорогой читатель, их всего два,
+						но знать нужно про комплексные числа как можно больше, чтобы успешно решить это задание.
+					</p>
+					
+					<p>
+						<b>Удачи тебе и хорошего настроения! Спасибо за внимание!</b>
+					</p>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga0/maga0.php">Предыдущая статья</a></span><span class="next"><a href="../maga2/maga2.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga1/maga1.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

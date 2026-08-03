@@ -124,6 +124,7 @@ import {
   subscribeMessages,
 } from "./messages";
 import { docSource, isDocSlug, readDoc, saveDoc } from "./docs";
+import { encAvailable, readNode, readToc } from "./enc";
 import { triggerDescription } from "./trigger";
 import { description as backupDescription } from "./backup";
 
@@ -1113,6 +1114,39 @@ app.get("/mine/tiles", async (c) => {
 
 app.get("/mine/events", (c) => documentStream(mineSource)(c));
 
+// ── the encyclopedia ────────────────────────────────────────────────────────
+//
+// The odd one out on this server: it is not a document, it is not rendered, and
+// nothing about it is live. tools/enc built it once from the matesspace course
+// plus a set of hand-written formula sheets, and these three routes read the
+// files it wrote.
+//
+// The same three exist in offline/encyclopedia.py over the same files, and the
+// client cannot tell which one answered — which is the point. See server/enc.ts.
+
+/** Pre-compressed on disk: declare the encoding, don't gzip it a second time. */
+const packed = (body: Buffer) =>
+  new Response(body, {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "content-encoding": "gzip",
+      // Immutable by construction — a node's id changes when its content does
+      // (tools/enc hashes the pages), so a stale copy is impossible.
+      "cache-control": "public, max-age=604800, immutable",
+    },
+  });
+
+app.get("/enc/toc", async (c) => {
+  const toc = await readToc();
+  return toc ? packed(toc) : c.json({ error: "enc_not_packed" }, 503);
+});
+
+app.get("/enc/node", async (c) => {
+  const id = c.req.query("id") ?? "";
+  const node = await readNode(id);
+  return node ? packed(node) : c.json({ error: "not_found", id }, 404);
+});
+
 // ── publishing a photo as the assignment ────────────────────────────────────
 //
 // The body IS the image. Not multipart: every caller here is code (the
@@ -1323,6 +1357,11 @@ console.log(
 );
 console.log(`Backup solver: ${backupDescription()}`);
 console.log(`Reviewer: ${reviewDescription()}`);
+console.log(
+  encAvailable()
+    ? "Encyclopedia: packed, served from /enc/*"
+    : "Encyclopedia: NOT PACKED — /enc/* returns 503 (run tools/enc/build.ts)",
+);
 console.log(
   MESSAGE_TOKEN
     ? "Messages: POST /messages requires MESSAGE_TOKEN"

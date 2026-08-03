@@ -1,0 +1,442 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 27.06.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Линейные операторы (часть 2)</h1>
+				<p>
+					Продолжение разбора вопроса <b><i>&laquo;Линейные операторы и их матрицы.
+					Действия с линейными операторами
+					и их матрицами. Преобразование матрицы линейного оператора при замене
+					базиса. Ядро линейного оператора. Собственные значения и собственные
+					векторы линейного оператора. Характеристический многочлен линейного
+					оператора. Линейные операторы простого типа&raquo;.</i></b>
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Собственные значения и собственные векторы линейного оператора</a></li>
+						<li><a href="#h2_2">Характеристический многочлен линейного оператора</a></li>
+						<li><a href="#h2_3">Примеры задач на эти темы</a>
+							<ul>
+								<li><a href="#condition0">Условие первого задания</a></li>
+								<li><a href="#solution0">Решение</a></li>
+								<li><a href="#check0">Проверка</a></li>
+								<li><a href="#condition1">Условие второго задания</a></li>
+								<li><a href="#solution1">Решение</a></li>
+								<li><a href="#check1">Проверка</a></li>
+							</ul>
+						</li>
+						<li><a href="#h2_4">Список использованной литературы</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Собственные значения и собственные векторы линейного оператора</h2>
+				<p>
+					Отличный от нуля вектор <span class="math">x</span> называется <b>собственным вектором</b>
+					линейного оператора <span class="math">&phi;</span>, если существует такое число
+					<span class="math">&lambda;</span>, что <span class="math">&phi;x = &lambda;x</span>.
+					Это <span class="math">&lambda;</span> называется <b>собственным значением</b> оператора
+					<span class="math">&phi;</span> [<a href="#res1">1</a>, с.19]. В этом случае говорят, что собственный вектор
+					<span class="math">x</span> относится к собственному значению <span class="math">&lambda;</span>.
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<b>Теорема.</b><br>
+					<i>Собственный вектор линейного оператора относится к единственному
+					собственному значению [<a href="#res3">3</a>, с.63].</i>
+				</p>
+				
+				<h2 id="h2_2">Характеристический многочлен линейного оператора</h2>
+				<p>
+					Определитель матрицы <span class="math">&phi; - &lambda;E</span> называется <b>характеристическим
+					многочленом</b> оператора <span class="math">&phi;</span>, т.е.<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">P<sub>&phi;</sub>(&lambda;) =</span>
+					<table class="matrix">
+						<tr><td>&alpha;<sub>1, 1</sub> - &lambda;</td><td>&alpha;<sub>1, 2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>&alpha;<sub>1, n</sub></td></tr>
+						<tr><td>&alpha;<sub>2, 1</sub></td><td>&alpha;<sub>2, 2</sub> - &lambda;</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>&alpha;<sub>2, n</sub></td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>&alpha;<sub>n, 1</sub></td><td>&alpha;<sub>n, 2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>&alpha;<sub>n, n</sub> - &lambda;</td></tr>
+					</table><span class="math"> = |&phi; - &lambda;E|</span>
+				</p>
+				
+				<h2 id="h2_3">Примеры задач на эти темы</h2>
+				<h3>Условие задачи 1</h3>
+				<p>
+					Линейный оператор <span class="math">f</span> задан матрицей
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">A =</span>
+					<table class="matrix">
+						<tr><td>1</td><td>1</td></tr>
+						<tr><td>-1</td><td>3</td></tr>
+					</table>.
+				</p>
+				
+				<p>
+					в некотором базисе <span class="math">e<sub>1</sub>, e<sub>2</sub></span>. Выяснить, является
+					ли вектор <span class="math">x</span> собственным вектором этого линейного оператора. Если да, то к какому собственному значению
+					он относится?
+					<ol>
+						<li><span class="math">e<sub>1</sub> - 2e<sub>2</sub></span>;</li>
+						<li><span class="math">e<sub>1</sub> + e<sub>2</sub></span>.</li>
+					</ol>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Сначала нужно найти все собственные значения оператора <span class="math">f</span>:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">|A - &lambda;E| =</span>
+					<table class="deter">
+						<tr><td>1 - &lambda;</td><td>1</td></tr>
+						<tr><td>-1</td><td>3 - &lambda;</td></tr>
+					</table> = 0;
+				</p>
+				
+				<p>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">(1 - &lambda;)(3 - &lambda;) + 1 = 0;</span><br>
+					<span class="math">&lambda;<sup>2</sup> - 4&lambda; + 4 = 0;</span><br>
+					<span class="math">D = 16 - 16 = 0;</span><br>
+					<span class="math">&lambda; = 2.</span>
+				</p>
+				
+				<p>
+					Далее из уравнения<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">Ax = &lambda;x;<br>
+					<table class="matrix">
+						<tr><td>1</td><td>1</td></tr>
+						<tr><td>-1</td><td>3</td></tr>
+					</table> *
+					<table class="matrix">
+						<tr><td>x<sub>1</sub></td></tr>
+						<tr><td>x<sub>2</sub></td></tr>
+					</table> = 2 *
+					<table class="matrix">
+						<tr><td>x<sub>1</sub></td></tr>
+						<tr><td>x<sub>2</sub></td></tr>
+					</table>;
+					</span>
+				</p>
+				
+				<p>
+					Получается, что собственному значению <span class="math">&lambda; = 2</span> соответствуют векторы,
+					у которых обе координаты равны:<br>
+					<span class="math center">x<sub>1</sub> = x<sub>2</sub>.</span>
+				</p>
+				
+				<p>
+					Таким образом, первый вектор из предложенных в условии задания <b>не является</b> собственным вектором
+					оператора <span class="math">f</span>, потому что его координаты разные — <span class="math">(1;-2)</span>.
+					А второй вектор <b>является</b> собственным вектором, потому что его координаты равны: <span class="math">(1;1)</span>.
+					И он соответствует собственному значению <span class="math">&lambda; = 2</span>.
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					В задачнике А.И. Шерстнёвой и О.В. Янущика даны такие же ответы на это задание [<a href="#res3">3</a>, с.65].
+				</p>
+				
+				<h3>Условие задачи 2</h3>
+				<p>
+					Это задание взято из варианта прошлых лет:
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2019/samples/math_mag_301.pdf" target="_blank">math_mag_301.pdf</a>.
+				</p>
+				<p>
+					Найти все значения <span class="math">&lambda;</span>, при которых равен двум ранг матрицы
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">A(&lambda;) =
+					<table class="matrix">
+						<tr><td>&lambda; - 4</td><td>2</td><td>3</td></tr>
+						<tr><td>2</td><td>&lambda; - 1</td><td>6</td></tr>
+						<tr><td>3</td><td>6</td><td>&lambda; + 4</td></tr>
+					</table>
+					</span>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Это задание, как оказалось, не является заданием на тему
+					линейного оператора и его собственных чисел. Оно предполагает знание
+					определения ранга матрицы [<a href="#res4">4</a>] и умения находить определители матриц
+					(см. также раздел
+					<a href="../maga2/maga2.php">Матрицы и определители</a>).
+				</p>
+				
+				<p>
+					Всё, что нужно понять, это то, что ранг у матрицы
+					<span class="math">A</span> будет равен двум, если:
+					<ol>
+						<li>определитель третьего порядка будет равен нулю;</li>
+						<li>и обязательно найдётся такой определитель второго порядка,
+						что он не будет равен нулю.</li>
+					</ol>
+				</p>
+				
+				<p>
+					Всё, теперь можно смело решать!
+					Сначала раскрывается определитель матрицы <span class="math">A</span>
+					по первому столбцу (Вы, дорогой читатель, вычисляйте определитель, как сами захотите) и
+					приравнивается к нулю:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">|A| =
+					<table class="deter">
+						<tr><td>&lambda; - 4</td><td>2</td><td>3</td></tr>
+						<tr><td>2</td><td>&lambda; - 1</td><td>6</td></tr>
+						<tr><td>3</td><td>6</td><td>&lambda; + 4</td></tr>
+					</table> = (&lambda; - 4) * [(&lambda; - 1)(&lambda; + 4) - 36] -
+					2 * [2(&lambda; + 4) - 18] + 3 * [12 - 3(&lambda; - 1)] = 0;
+					</span>
+				</p>
+				
+				<p>
+					Левая часть получившегося уравнения затем упрощается:<br>
+					<span class="math center">(&lambda; - 4)(&lambda; - 1)(&lambda; + 4)
+					- 36(&lambda; - 4) - 4(&lambda; + 4) + 36 + 36 - 9(&lambda; - 1) = 0;
+					</span><br>
+					<span class="math center">(&lambda;<sup>2</sup> - &lambda; - 4&lambda; + 4)(&lambda; + 4)
+					- 36&lambda; + 144 - 4&lambda; - 16 + 72 - 9&lambda; + 9 = 0;
+					</span><br>
+					<span class="math center">&lambda;<sup>3</sup> - &lambda;<sup>2</sup>
+					- 16&lambda; + 16 - 49&lambda; + 209 = 0;
+					</span><br>
+					<span class="math center">&lambda;<sup>3</sup> - &lambda;<sup>2</sup>
+					- 65&lambda; + 225 = 0;
+					</span>
+				</p>
+				
+				<p>
+					Решая это уравнение, по правилу кол-ва действительных
+					корней уравнения третьей степени нужно понимать, что их
+					должно быть максимум <b>три</b> (может быть и меньше).
+				</p>
+				
+				<p>
+					Потом квадратное уравнение переносится в правую часть — так, как
+					показано ниже:<br>
+					<span class="math center">&lambda;<sup>3</sup> = &lambda;<sup>2</sup>
+					+ 65&lambda; - 225;
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;<i>(1)</i>
+				</p>
+				
+				<p>
+					Теперь остаётся только найти точки пересечения двух
+					графиков функций: <span class="math">y = &lambda;<sup>3</sup></span>
+					и <span class="math">y = &lambda;<sup>2</sup> + 65&lambda; - 225</span>.
+				</p>
+				
+				<p>
+					Предполагая, что на вступительном экзамене вряд ли
+					будут нецелые решения этого уравнения, поочерёдно подставляются
+					разные значения неизвестной <span class="math">&lambda;</span>
+					в обе части уравнения <i>(1).</i>
+				</p>
+				
+				<p>
+					Изобразив примерно графически графики этих функций (см. <a href="#pic1">рис. 1</a>), можно понять, что
+					отрицательное значение будет лишь одно, а положительных может быть одно, два или
+					нисколько.
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="Два графика функций" alt="Для лучшего представления на рисунке показан чертёж с графиками двух обсуждаемых функций"></td></tr>
+					<tr><td>Рисунок 1 — Приблизительный чертёж двух графиков обсуждаемых функций</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Начиная вычисления, наклёвывается вывод, что отрицательным
+					корнем уравнения <i>(1)</i> будет число <span class="math">&lambda; = -9</span>.
+					Потому что при значении <span class="math">&lambda;</span>,
+					равном <span class="math">-9</span>, уравнение приводится к виду<br>
+					<span class="math center">-729 = -729</span>
+				</p>
+				
+				<p>
+					Продолжая вычисления, ничего кроме <span class="math">&lambda; = 5</span>
+					не находится. Сейчас следует узнать кратность корня <span class="math">&lambda; = 5</span>
+					[<a href="#res5">5</a>]:<br>
+					<span class="math center">f(x) = &lambda;<sup>3</sup> - &lambda;<sup>2</sup>
+					- 65&lambda; + 225;
+					</span><br>
+					<span class="math center">=> f'(x) = 3&lambda;<sup>2</sup> - 2&lambda;
+					- 65 = 0;
+					</span><br>
+					<span class="math center">=> D = 784, или &radic;D = 28;
+					</span><br>
+					<span class="math center">=> &lambda;<sub>1</sub> = 5, &lambda;<sub>2</sub> = -13/3.
+					</span>
+				</p>
+				
+				<p>
+					Значит, корень <span class="math">&lambda; = 5</span> имеет кратность,
+					равную двум, следовательно, при этом корне
+					рассматриваемые графики функций пересекаются дважды. То есть
+					в целом, получается, что корнями кубического многочлена
+					(см. уравнение <i>(1)</i>) являются два числа — <span class="math">-9</span> и <span class="math">5</span>.
+				</p>
+				
+				<p>
+					Подставляя эти значения <span class="math">&lambda;</span> в исходную матрицу
+					<span class="math">A</span>, выясняется, что при <span class="math">&lambda; = 5</span>
+					ранг матрицы равен единице, а вот при <span class="math">&lambda; = -9</span> уже находятся определители
+					второго порядка матрицы, которые не равны нулю. И ранг при этом будет равен двум!
+				</p>
+				
+				<p><b>ОТВЕТ: -9.</b></p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Вычисляя в любом онлайн-сервисе ранги матриц
+					[<a href="#res6">6</a>],
+					делаем вывод, что
+					решение -9 является правильным и единственным!
+				</p>
+				
+				<h2 id="h2_4">Список использованной литературы</h2>
+				<ol>
+					<li id="res1">Линейные операторы в примерах и задачах: Метод. указания / Сост.
+					Ф.И. Папоркова; Яросл. гос. ун-т. Ярославль, 2003. 24.</li>
+					<li id="res2">А.В. Татаринцев Программа вступительного испытания по высшей математике.
+					- Москва: РТУ МИРЭА, 2021. - 7 с.</li>
+					<li id="res3">А.И. Шерстнёва, О.В. Янущик Линейные пространства. Линейные операторы.
+					- Томск: Издательство Томского политехнического университета, 2010. - 92 с.</li>
+					<li id="res4">Нахождение ранга матрицы // zaochnik.com URL:
+					https://zaochnik.com/spravochnik/matematika/matritsy/rang-matritsy/ (дата обращения: 27.06.2022).</li>
+					<li id="res5">Простые и кратные корни многочлена // Научная библиотека URL:
+					https://scask.ru/g_book_math_al_1.php?id=122 (дата обращения: 27.06.2022).</li>
+					<li id="res6">Онлайн калькулятор. Ранг матрицы //
+					OnlineMSchool URL: https://ru.onlinemschool.com/math/assistance/matrix/rank/ (дата обращения: 27.06.2022).</li>
+				</ol>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga5/maga5.php">Предыдущая статья</a></span><span class="next"><a href="../maga7/maga7.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga6/maga6.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

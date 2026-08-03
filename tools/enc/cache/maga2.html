@@ -1,0 +1,433 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 04.06.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Матрицы и определители</h1>
+				<p>
+					На сайте <b>Александра Емелина</b>
+					<a class="new-tab-link" href="http://www.mathprofi.ru/kak_vychislit_opredelitel.html" target="_blank">mathprofi.ru</a>
+					даны понятнейшие объяснения на пальцах, как решить определитель, и что такое матрица.
+				</p>
+				
+				<p>
+					В этой статье будут написаны вкратце основы теории матричного исчисления и свойства определителей. Эти знания являются необходимыми для сдачи
+					вступительного экзамена в магистратуру МИРЭА. На них базируются вышестоящие теории Алгебры и геометрии, да и Матанализа тоже, такие темы как, например,
+					векторный анализ, линейные пространства и линейные операторы, билинейные и квадратичные функции в линейном пространстве. С помощью понятия определителя
+					можно вычислить например ротор градиента некоторой скалярной функции.
+				</p>
+				
+				<p style="font-size: 0.85rem"><i>
+					Эту всю жесть я написал, чтобы понять, что мне дальше учить :) Желаю удачи тебе, читатель, в постижении, хотя бы поверхностном,
+					этих тем! На экзамене тебе что-то да пригодится.
+				</i></p>
+				
+				<p>
+					Рекомендую также огромное множество учебников по линейной алгебре.
+					Например, пособие 2013-го года В. А. Феофановой и Ю. Г. Мартышенко "Линейная алгебра и аналитическая геометрия".
+					Ссылка: <a class="new-tab-link" href="https://elar.urfu.ru/bitstream/10995/27025/1/lin_alg2013.pdf" target="_blank">elar.urfu.ru</a>.
+					Также есть список рекомендованной литературы на сайте МИРЭА:
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2022/official/programs/prog_math_mag.pdf" target="_blank">priem.mirea.ru</a>.
+				</p>
+				
+				<h2>Матрицы</h2>
+				<p>
+					<b>Матрица</b> — это прямоугольная таблица чисел. Её общий вид записывают так:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">A = </span>
+					<table class="matrix">
+						<tr><td>a<sub>1</sub><sub>1</sub></td><td>a<sub>1</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>1</sub><sub>n</sub></td></tr>
+						<tr><td>a<sub>2</sub><sub>1</sub></td><td>a<sub>2</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>2</sub><sub>n</sub></td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>a<sub>m</sub><sub>1</sub></td><td>a<sub>m</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>m</sub><sub>n</sub></td></tr>
+					</table><span class="math"> = <i>( a<sub>i</sub><sub>j</sub> )</i>, <i>i</i> = 1, 2, ..., m, <i>j</i> = 1, 2, ..., n.</span>
+				</p>
+				
+				<p>
+				 Числа, составляющие матрицу, называют её <i>элементами</i>. Матрица, имеющая
+				 <span class="math">m</span> строк и <span class="math">n</span> столбцов, называется матрицей размера <span class="math">m x n</span>.
+				</p>
+				
+				<p>
+					Кроме того, матрица бывает <i>квадратной</i> (если <span class="math">m = n</span>), бывает вектором-строкой (<span class="math">m = 1</span>)
+					или вектором-столбцом (<span class="math">n = 1</span>).
+				</p>
+				
+				<p>
+					У квадратной матрицы есть <i>главная диагональ</i>:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<table class="matrix">
+						<tr><td style="background: orange; border-radius: 1em;">a<sub>1</sub><sub>1</sub></td><td>a<sub>1</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>1</sub><sub>n</sub></td></tr>
+						<tr><td>a<sub>2</sub><sub>1</sub></td><td style="background: orange; border-radius: 1em;">a<sub>2</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>2</sub><sub>n</sub></td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td style="background: orange; border-radius: 1em;">.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>a<sub>n</sub><sub>1</sub></td><td>a<sub>n</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td style="background: orange; border-radius: 1em;">a<sub>n</sub><sub>n</sub></td></tr>
+					</table>
+				</p>
+				
+				<p>
+					И есть <i>побочная диагональ</i>:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<table class="matrix">
+						<tr><td>a<sub>1</sub><sub>1</sub></td><td>a<sub>1</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td style="background: orange; border-radius: 1em;">a<sub>1</sub><sub>n</sub></td></tr>
+						<tr><td>a<sub>2</sub><sub>1</sub></td><td>a<sub>2</sub><sub>2</sub></td><td style="background: orange; border-radius: 1em;">.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>2</sub><sub>n</sub></td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td style="background: orange; border-radius: 1em;">.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td style="background: orange; border-radius: 1em;">a<sub>n</sub><sub>1</sub></td><td>a<sub>n</sub><sub>2</sub></td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>a<sub>n</sub><sub>n</sub></td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Выделяют так называемую <i>единичную матрицу</i>, главная диагональ которой содержит единицы, а остальные её элементы равны нулю:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">E = </span>
+					<table class="matrix">
+						<tr><td>1</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>0</td><td>1</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>1</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					И <i>нулевую</i> матрицу:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">O = </span>
+					<table class="matrix">
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+						<tr><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td></tr>
+						<tr><td>0</td><td>0</td><td>.&nbsp;&nbsp;.&nbsp;&nbsp;.</td><td>0</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Эти две матрицы в матричном исчислении играют роль обычных 0 и 1 в арифметике.
+				</p>
+				
+				<h3>Операции над матрицами</h3>
+				<p>
+					Матрицы можно складывать (вычитать), умножать на число, умножать друг на друга, транспонировать, производить над ними
+					элементарные преобразования, брать обратную матрицу из исходной.
+				</p>
+				
+				<p>
+					Большинство этих операций можно легко выполнить!
+				</p>
+				
+				<p>
+					Трудоёмкой для человека может оказаться лишь операция перемножения матриц и операция взятия обратной матрицы.
+					Главное, нужно просто запомнить, хотя бы на время, принцип умножения матриц. <i>Две матрицы можно умножить друг на друга только тогда,
+					когда число столбцов первой матрицы совпадает с числом строк второй:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center"><b>(m x n)</b> (можно умножить на) <b>(n x k)</b></span>
+				</p>
+				
+				<p>
+					Операция умножения матриц некоммутативна:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">A*B &ne; B*A</span>
+				</p>
+				
+				<p>
+					Хотя не исключают такое равенство. <i>Произведением</i> матрицы
+					<span class="math">A</span> <span class="math">(m x n)</span> на матрицу <span class="math">B</span> <span class="math">(n x k)</span>
+					является матрица <span class="math">C</span> размера уже <span class="math">(m x k)</span>.
+					Причём, элементы матрицы <span class="math">C</span> отыскиваются в общем виде по формуле:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">c<sub>i</sub><sub>j</sub> = <sup>m</sup>&sum;<sub>r = 1</sub> (a<sub>i</sub><sub>r</sub> * b<sub>r</sub><sub>j</sub>)</span>
+				</p>
+				
+				<p>
+					То есть для отыскания элемента матрицы <span class="math">C</span> в ячейке с координатами <span class="math">(i, j)</span>, нужно суммировать
+					попарные произведения всех элементов, находящихся в <span class="math">i-ой</span> строке матрицы <span class="math">A</span>, с элементами в <span class="math">j-ом</span>
+					столбце матрицы <span class="math">B</span>.
+				</p>
+				
+				<p>
+					У операции умножения матриц есть несколько дополнительных свойств:
+					<ol>
+						<li>
+						Сочетательное свойство:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">A * (B * C) = (A * B) * C;</span>
+						</li>
+						<li>
+						Распределительное свойство:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">A * (B + C) = A * B + A * C;</span><br>
+						<span class="math center">(A + B) * C = A * C + B * C;</span>
+						</li>
+						
+						<li>
+						Произведение матрицы на единичную матрицу <span class="math">E</span>:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">A * E = E * A = A;</span>
+						</li>
+						
+						<li>
+						Произведение матрицы на нулевую матрицу <span class="math">O</span>:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">A * O = O * A = O.</span>
+						</li>
+					</ol>
+				</p>
+				
+				<h2>Определители</h2>
+				<p>
+					Каждой квадратной матрице сопоставляется число, называемое <b>определителем</b> (детерминантом). Обозначается оно
+					как <span class="math">detA</span>, или <span class="math">|A|</span>, или иногда и знаком треугольника.
+				</p>
+				
+				<p>
+					Определителем матрицы 1-го порядка<br>
+					<span class="math center">A = (a<sub>1</sub>)</span><br>
+					является сам её элемент:<br>
+					<span class="math center">detA = a<sub>1</sub>.</span>
+				</p>
+				
+				<p>
+					Определителем матрицы 2-го порядка<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">A = 
+					<table class="matrix">
+						<tr><td>a<sub>1</sub><sub>1</sub></td><td>a<sub>1</sub><sub>2</sub></td></tr>
+						<tr><td>a<sub>2</sub><sub>1</sub></td><td>a<sub>2</sub><sub>2</sub></td></tr>
+					</table>
+					</span><br>
+					является выражение:<br>
+					<span class="math center">detA = a<sub>1</sub><sub>1</sub> * a<sub>2</sub><sub>2</sub> - a<sub>1</sub><sub>2</sub> * a<sub>2</sub><sub>1</sub>.</span>
+				</p>
+				
+				<p>
+					Определителю матрицы 3-го порядка<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">A = 
+					<table class="matrix">
+						<tr><td>a<sub>1</sub><sub>1</sub></td><td>a<sub>1</sub><sub>2</sub></td><td>a<sub>1</sub><sub>3</sub></td></tr>
+						<tr><td>a<sub>2</sub><sub>1</sub></td><td>a<sub>2</sub><sub>2</sub></td><td>a<sub>2</sub><sub>3</sub></td></tr>
+						<tr><td>a<sub>3</sub><sub>1</sub></td><td>a<sub>3</sub><sub>2</sub></td><td>a<sub>3</sub><sub>3</sub></td></tr>
+					</table>
+					</span><br>
+					соответствует более громоздкое выражение, которое можно вывести, следуя наглядным правилам, таким как правило треугольника и ему подобные:<br>
+					<span class="math center">detA = a<sub>1</sub><sub>1</sub>*a<sub>2</sub><sub>2</sub>*a<sub>3</sub><sub>3</sub>
+					+ a<sub>1</sub><sub>2</sub>*a<sub>2</sub><sub>3</sub>*a<sub>3</sub><sub>1</sub>
+					+ a<sub>2</sub><sub>1</sub>*a<sub>3</sub><sub>2</sub>*a<sub>1</sub><sub>3</sub>
+					- a<sub>3</sub><sub>1</sub>*a<sub>2</sub><sub>2</sub>*a<sub>1</sub><sub>3</sub>
+					- a<sub>2</sub><sub>1</sub>*a<sub>1</sub><sub>2</sub>*a<sub>3</sub><sub>3</sub>
+					- a<sub>3</sub><sub>2</sub>*a<sub>2</sub><sub>3</sub>*a<sub>1</sub><sub>1</sub>.
+					</span>
+				</p>
+				
+				<p>
+					Определители более высоких порядков обычно находятся путём <i>понижения порядка</i>. Это значительно экономит время при их вычислении. Для этого при помощи
+					элементарных преобразований над элементами определителя получают нули в определённой строке или столбце (где вам удобнее) и затем раскрывают определитель
+					по этой строке или столбцу, используя понятия <i>миноров</i> — определителей, получающихся из данного определителя, но более маленького порядка.
+				</p>
+				
+				<p>
+					В итоге, остаётся один минор, который на порядок меньше исходного определителя.
+				</p>
+				
+				<p>
+					Про разложение определителя по строке и столбцу можно почитать тут:
+					<a class="new-tab-link" href="http://www.mathprofi.ru/svoistva_opredelitelya_ponizhenie_poryadka_opredelitelya.html" target="_blank">mathprofi.ru</a>.
+				</p>
+				
+				<p>
+					Также хочу оставить тут и некоторые полезные свойства определителей:
+					<ol>
+						<li>
+						Строки и столбцы равноправны в определителе: если строку заменить столбцом и наоборот,
+						то определитель не изменится.
+						</li>
+						<li>
+						При перестановке двух столбцов (строк) определитель меняет знак.
+						</li>
+						<li>
+						Общий множитель элементов столбца (строки) определителя можно вынести за знак определителя.
+						</li>
+						<li>
+						Определитель, в котором есть пропорциональные (линейно-зависимые) строки или столбцы, равен нулю.
+						</li>
+						<li>
+						Определитель не изменится, если к элементам одного столбца (строки)
+						прибавить соответствующие элементы другого столбца
+						(строки), умноженные на любое число.
+						</li>
+						<li>
+						Определитель произведения не зависит от порядка умножения матриц:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">det(A*B) = det(B*A) = detA * detB</span>
+						</li>
+					</ol>
+				</p>
+				
+				<p>
+				Есть у определителей также свойство, связанное с понятиями <b>минора</b> и <b>алгебраического дополнения</b>
+				некоторого элемента определителя.
+				</p>
+				
+				<p>
+					<i>Минором</i> некоторого элемента <span class="math">a<sub>i</sub><sub>j</sub></span> определителя <span class="math">n-го</span> порядка
+					называется определитель <span class="math">n - 1-го</span> порядка, полученный из исходного путем
+					вычеркивания строки и столбца, на пересечении которых находится выбранный элемент.
+					Обозначается <span class="math">M<sub>i</sub><sub>j</sub></span>.
+				</p>
+				
+				<p>
+					<i>Алгебраическим дополнением</i> элемента <span class="math">a<sub>i</sub><sub>j</sub></span>
+					определителя <span class="math">n-го</span> порядка
+					называется его минор, взятый со знаком <span class="math">+</span>, если сумма
+					<span class="math">i + j</span> — четное число, и со знаком <span class="math">-</span>, если эта сумма нечетная.
+					Обозначается <span class="math">A<sub>i</sub><sub>j</sub></span>.
+				</p>
+				
+				<p>
+					При этом полезно иметь в виду схему
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<table class="deter">
+						<tr><td>+</td><td>-</td><td>+</td></tr>
+						<tr><td>-</td><td>+</td><td>-</td></tr>
+						<tr><td>+</td><td>-</td><td>+</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Это ещё одно свойство определителей звучит так: определитель равен сумме произведений элементов
+					некоторого столбца (строки) на соответствующие им алгебраические дополнения. Это и есть способ понижения порядка
+					определителя высокого порядка, упомянутый выше.
+				</p>
+				
+				<h2>Дополнительно</h2>
+				<p>
+					Также будет лучше, если познакомиться с понятиями (не)вырожденной матрицы, обратной матрицы, рангом матрицы,
+					немножко познакомиться с методами решения систем линейных уравнений, использующих матричное исчисление. На этом этот раздел можно завершить и
+					<b>пожелать вам, дорогой читатель, всего хорошего и успехов в ваших плодотворных делах!</b>
+				</p>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga1/maga1.php">Предыдущая статья</a></span><span class="next"><a href="../maga3/maga3.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga2/maga2.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

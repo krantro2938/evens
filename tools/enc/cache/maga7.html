@@ -1,0 +1,1041 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 03.07.2022</b></i></p>
+				<p><i><b>Исправлена и дополнена: 06.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Билинейные и квадратичные функции</h1>
+				<p>
+					Разбор вопроса <b><i>&laquo;Билинейные и квадратичные функции в линейном пространстве. Матрица
+					квадратичной функции. Квадратичные формы. Закон изменения матрицы
+					квадратичной функции. Приведение квадратичной формы к каноническому
+					и нормальному виду. Знакоопределённые квадратичные функции. Критерий
+					Сильвестра&raquo;.</i></b>
+				</p>
+				
+				<p>
+					На тему квадратичных форм (функций) есть несколько заданий в вариантах вступительных испытаний магистратуры
+					РТУ МИРЭА прошлых лет. Поэтому этой теме стоит уделить внимание — у Вас под рукой будет лишний хороший способ решить
+					некоторые задания из второй части, если они Вам попадутся. И бывает, что квадратичные формы ставят в первую часть.
+					Без знания квадратичных форм Вы, дорогой читатель, можете потерять лёгкие баллы в первой части. Будьте к этому внимательны.
+				</p>
+				
+				<p>
+					Рекомендую ознакомиться с прекрасным источником информации об этих видах функций: отличной презентацией
+					<b>Ю.Б. Мельникова</b>
+					(<a class="new-tab-link" href="https://lib.usue.ru/resource/free/10/MelnikovAlgebra3/00BilinFm01.pdf" target="_blank">00BilinFm01.pdf</a>, [<a href="#res1">1</a>]).
+				</p>
+				
+				<p>
+					Также хорошие статьи написал <b>Емелин Александр:</b>
+					<ul>
+						<li><a class="new-tab-link" href="http://www.mathprofi.ru/kvadratichnye_formy.html" target="_blank">Квадратичные формы (урок 1);</a></li>
+						<li><a class="new-tab-link" href="http://www.mathprofi.ru/kak_privesti_kf_k_kanonicheskomu_vidu.html" target="_blank">Метод Лагранжа (урок 2);</a></li>
+						<li><a class="new-tab-link" href="http://www.mathprofi.ru/metod_ortogonalnogo_preobrazovaniya_kf.html" target="_blank">Метод ортогональных преобразований (урок 3).</a></li>
+					</ul>
+				</p>
+				
+				<p>
+					Также, разумеется, перед прочтением этой статьи будет лучше, если Вы, любознательный посетитель этой странички,
+					хотя бы на невысоком уровне разбираетесь с линейными пространствами и линейными операторами.
+					Если Вы совсем не знаете, что такое линейное пространство, то начните, например, с этой статьи:
+					<a href="../maga4/maga4.php">Линейные пространства</a>.
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Билинейные формы</a></li>
+						<li><a href="#h2_2">Линейные формы</a></li>
+						<li><a href="#h2_3">Квадратичные формы</a></li>
+						<li><a href="#h2_4">Задачи по теме</a></li>
+						<li><a href="#h2_5">Заключение</a></li>
+						<li><a href="#h2_6">Список использованной литературы</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Билинейные формы</h2>
+				<p>
+					Если давать определение этому делу строго, то вот как это можно описать словами.
+				</p>
+				<p>
+					Пусть <span class="math">U</span> — линейное пространство, <span class="math">K</span> —
+					некоторое поле чисел (чаще всего, действительных или комплексных).
+					Тогда функция <span class="math">f : U × U —> K</span> называется <b>билинейной формой</b> тогда и
+					только тогда, когда она линейна по каждому из аргументов, то есть<br>
+					<span class="math center">f(λ<b>x</b> + µ<b>y</b>, <b>z</b>) = λf(<b>x</b>, <b>z</b>) + µf(<b>y</b>, <b>z</b>)</span>
+				</p>
+				<p>
+				и<br>
+				<span class="math center">f(<b>x</b>, λ<b>y</b> + µ<b>z</b>) = λf(<b>x</b>, <b>y</b>) + µf(<b>x</b>, <b>z</b>).</span>
+				</p>
+				
+				<p>
+					Также в своей презентации Мельников отмечает, что:
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					&laquo;Алгебра билинейных форм-функций — линейное пространство относительно операций
+					сложения функций и умножения функции на скаляр [<a href="#res1">1</a>, с.6]&raquo;.
+				</p>
+				
+				<p>
+					Это значит, что при, например, сложении или вычитании одной билинейной функции (формы) из
+					другой получится всё та же билинейная функция, определённая в том же линейном пространстве.
+				</p>
+				
+				<p>
+					В пространстве координат размерности <span class="math">n</span>
+					(<span class="math">R<sup>n</sup></span>) при выбранном базисе
+					<span class="math">{<b>e<sub>1</sub></b>, . . . , <b>e<sub>n</sub></b>}</span> билинейная форма принимает
+					вид:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(<b>x</b>, <b>y</b>) = f(
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>i=1</td></tr></table>
+						[<b>x<sub>i</sub></b><b>e<sub>i</sub></b>],
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>j=1</td></tr></table>
+						[<b>y<sub>j</sub></b><b>e<sub>j</sub></b>]) =<br>
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>i=1</td></tr></table>
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>j=1</td></tr></table>
+						<b>x<sub>i</sub></b> <b>y<sub>j</sub></b> f(<b>e<sub>i</sub>, e<sub>j</sub></b>) =<br>
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>i=1</td></tr></table>
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>j=1</td></tr></table>
+						<b>x<sub>i</sub></b> <b>y<sub>j</sub></b> f<sub>ij</sub>
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;<i>(1)</i>
+				</p>
+				
+				<p>
+					&laquo;На языке <b>многочленов</b> понятие билинейной формы можно
+					сформулировать следующим образом: многочлен <span class="math">p(x<sub>1</sub>, . . . , x<sub>n</sub>,
+					y<sub>1</sub>, . . . , y<sub>n</sub>)</span> называется билинейной формой,
+					если этот многочлен является формой первой степени как от переменных
+					<span class="math">(x<sub>1</sub>, . . . , x<sub>n</sub>)</span> (<span class="math">y<sub>i</sub></span> — фиксированы),
+					так и от переменных <span class="math">(y<sub>1</sub>, . . . , y<sub>n</sub>)</span> (<span class="math">x<sub>i</sub></span> фиксированы)&raquo;.
+				</p>
+				
+				<p>
+					Уравнение <i>(1)</i> устанавливает связь билинейной формы-многочлена
+					с билинейной формой-функцией [<a href="#res1">1</a>, с.27].
+				</p>
+				
+				<p>
+					Существует и более компактный <b>матричный</b> вид записи билинейной формы:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>i=1</td></tr></table>
+						<table class="fraction"><tr><td>n</td></tr><tr><td>&sum;</td></tr><tr><td>j=1</td></tr></table>
+						<b>x<sub>i</sub></b> <b>y<sub>j</sub></b> f<sub>ij</sub> =
+						<table class="matrix">
+							<tr><td>x<sub>1</sub></td><td>x<sub>2</sub></td><td>. . .</td><td>x<sub>n</sub></td></tr>
+						</table>
+						<table class="matrix">
+							<tr><td>f<sub>1</sub><sub>1</sub></td><td>f<sub>1</sub><sub>2</sub></td><td>. . .</td><td>f<sub>1</sub><sub>n</sub></td></tr>
+							<tr><td>f<sub>2</sub><sub>1</sub></td><td>f<sub>2</sub><sub>2</sub></td><td>. . .</td><td>f<sub>2</sub><sub>n</sub></td></tr>
+							<tr><td>. . .</td><td>. . .</td><td>. . .</td><td>. . .</td></tr>
+							<tr><td>f<sub>n</sub><sub>1</sub></td><td>f<sub>n</sub><sub>2</sub></td><td>. . .</td><td>f<sub>n</sub><sub>n</sub></td></tr>
+						</table>
+						<table class="matrix">
+							<tr><td>y<sub>1</sub></td></tr>
+							<tr><td>y<sub>2</sub></td></tr>
+							<tr><td>. . .</td></tr>
+							<tr><td>y<sub>n</sub></td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Матрицу
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						F =
+						<table class="matrix">
+							<tr><td>f<sub>1</sub><sub>1</sub></td><td>f<sub>1</sub><sub>2</sub></td><td>. . .</td><td>f<sub>1</sub><sub>n</sub></td></tr>
+							<tr><td>f<sub>2</sub><sub>1</sub></td><td>f<sub>2</sub><sub>2</sub></td><td>. . .</td><td>f<sub>2</sub><sub>n</sub></td></tr>
+							<tr><td>. . .</td><td>. . .</td><td>. . .</td><td>. . .</td></tr>
+							<tr><td>f<sub>n</sub><sub>1</sub></td><td>f<sub>n</sub><sub>2</sub></td><td>. . .</td><td>f<sub>n</sub><sub>n</sub></td></tr>
+						</table>,
+					</span>
+				</p>
+				
+				<p>
+					где <span class="math">f<sub>i</sub><sub>j</sub> = f(<b>e<sub>i</sub>, e<sub>j</sub></b>)</span>,
+					называют <b>матрицей билинейной формы</b> в базисе <span class="math">{<b>e<sub>1</sub></b>, . . . , <b>e<sub>n</sub></b>}</span>
+					(на языке теории линейных пространств) или <b>матрицей коэффициентов билинейной формы</b>
+					(на языке теории многочленов).
+				</p>
+				
+				<p>
+					Понятие матрицы билинейной формы
+					обобщает понятие матрицы Грама.
+				</p>
+				
+				<p>
+					Кроме того, Мельников в своей работе указывает теорему о
+					вычислении билинейной формы в координатах:
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					Если <span class="math">Б</span>
+					— базис линейного пространства <span class="math">U</span>,
+					<span class="math">F<sub>Б</sub></span> — матрица билинейной формы
+					<span class="math">f</span> в базисе <span class="math">Б</span>,
+					то для любых векторов <span class="math"><b>x, y</b></span> из
+					<span class="math">U</span> имеем<br>
+					<span class="math center">f(<b>x, y</b>) = <b>x<sub>Б</sub><sup>t</sup></b> F<sub>Б</sub> <b>y<sub>Б</sub></b>.</span>
+				</p>
+				
+				<p>
+					Кроме этой теоремы, есть теорема <b>о матрице билинейной формы
+					в разных базисах</b> и теорема <b>о матрице симметричной билинейной формы.</b>
+					См. их где угодно в Интернете или в презентации Мельникова [<a href="#res1">1</a>, с. 44, 68].
+				</p>
+				
+				<p>
+					Кратко говоря, первая теорема содержит уже знакомый из предыдущих тем закон [<a href="#res3">3</a>, с. 19]:<br>
+					<span class="math center">F' = C<sup>Т</sup> * F * C,</span>
+				</p>
+				
+				<p>
+					где <span class="math">C</span> — матрица перехода от базиса <span class="math">Б</span>
+					к базису <span class="math">Б'</span>, <span class="math">det C &ne; 0</span>; а <span class="math">F'</span>
+					— матрица билинейной формы <span class="math">f</span> в базисе <span class="math">Б'</span>.
+				</p>
+				
+				<p>
+					Кроме того, есть группа <b>симметрических (симметричных)</b> билинейных форм.
+					Билинейная форма <span class="math">f</span> называется <i>симметрической,</i> если для любых
+					векторов <span class="math"><b>x</b></span>, <span class="math"><b>y</b></span> &isin; <span class="math">U</span>
+					выполняется равенство <span class="math">f(<b>x</b>, <b>y</b>) = f(<b>y</b>, <b>x</b>)</span>. Это значит, что
+					матрица <span class="math">F = (f<sub>i</sub><sub>j</sub>)</span> симметрической билинейной формы
+					является также <b>симметрической.</b>
+				</p>
+				
+				<h2 id="h2_2">Линейная форма</h2>
+				<p>
+					Я вставил этот заголовок для лучшего понимания понятия билинейной формы.
+				</p>
+				<p>
+					Короче говоря, существует также просто <b>линейная форма</b>, помимо БИлинейной формы. Она, в отличие от билинейной формы,
+					зависит только от <i>одного</i> вектора линейного пространства, когда как билинейная форма зависит сразу
+					от пары векторов. Линейная форма является частным случаем <i>линейного оператора</i>
+					(более подробно см., например, Вики:
+					<a class="new-tab-link" href="https://ru.wikipedia.org/wiki/%D0%9B%D0%B8%D0%BD%D0%B5%D0%B9%D0%BD%D0%B0%D1%8F_%D1%84%D0%BE%D1%80%D0%BC%D0%B0" target="_blank">Линейная форма</a>).
+				</p>
+				
+				<p>
+					Согласно методичке <b>О.В. Якуниной</b> [<a href="#res3">3</a>, с.14-18],
+					линейной формой называется линейное отображение <span class="math">f : V —> <b>R</b></span>. Где
+					<span class="math">V</span> — векторное пространство над полем <span class="math"><b>R</b></span>
+					(действительных чисел), <span class="math">dim V = n</span>.
+				</p>
+				
+				<p>
+					В координатном представлении линейная форма выглядит как:<br>
+					<span class="math center">f(<b>x</b>) = <b>x<sub>1</sub></b>f<sub>1</sub> +
+					<b>x<sub>2</sub></b>f<sub>2</sub> + . . . + <b>x<sub>n</sub></b>f<sub>n</sub></span>
+				</p>
+				
+				<p>
+					Здесь <span class="math">f<sub>i</sub> (i = 1, ..., n)</span> — действительное число.
+				</p>
+				
+				<p>
+					А, для сравнения, билинейная форма задаётся равенством:<br>
+					<span class="math center">f(<b>x</b>, <b>y</b>) = <b>x<sub>1</sub></b><b>y<sub>1</sub></b>f<sub>1</sub><sub>1</sub> +
+					<b>x<sub>2</sub></b><b>y<sub>1</sub></b>f<sub>2</sub><sub>1</sub> +
+					<b>x<sub>1</sub></b><b>y<sub>2</sub></b>f<sub>1</sub><sub>2</sub> +
+					. . . + <b>x<sub>n</sub></b><b>y<sub>n</sub></b>f<sub>n</sub><sub>n</sub></span>
+				</p>
+				
+				<p>
+					Это просто раскрытый вид левой части уравнения <i>(1)</i> (см. его выше). Числа
+					<span class="math">f<sub>i</sub><sub>j</sub> (i,j = 1, ..., n)</span> называются <b>компонентами
+					билинейой формы</b> <span class="math">f</span> в некотором базисе
+					<span class="math">{<b>e<sub>1</sub></b>, . . . , <b>e<sub>n</sub></b>}</span>. Они составляют
+					<b>матрицу билинейной формы,</b> которая уже была изображена в предыдущем разделе. (Здесь линейная форма
+					и билинейная форма просто обозначены одной буквой; а так это относительно разные понятия.)
+				</p>
+				
+				<h2 id="h2_3">Квадратичные формы</h2>
+				<p>
+					Как гласит
+					<a class="new-tab-link" href="https://ru.wikipedia.org/wiki/%D0%9A%D0%B2%D0%B0%D0%B4%D1%80%D0%B0%D1%82%D0%B8%D1%87%D0%BD%D0%B0%D1%8F_%D1%84%D0%BE%D1%80%D0%BC%D0%B0" target="_blank">Википедия</a>:
+					&laquo;<b>Квадратичная форма</b> — функция на векторном пространстве,
+					задаваемая однородным многочленом второй степени от координат вектора&raquo;.
+				</p>
+				
+				<p>
+					Как я узнал впоследствии от Емелина Александра
+					(<a class="new-tab-link" href="https://mathprofi.ru" target="_blank">mathprofi.ru</a>)
+					<i>однородный</i> многочлен не содержит в себе <i>свободного члена</i>.
+					Кроме того, квадратичная форма зависит только от одного вектора, в отличие от билинейной формы, и,
+					благодаря этому, походя на линейную форму.
+				</p>
+				
+				<p>
+					Квадратичную форму можно определить как симметрическую билинейную форму, в которой аргументами
+					является один и тот же вектор [<a href="#res4">4</a>, с. 7]. Т.е.<br>
+					<span class="math center">&omega;(<b>x</b>) = f(<b>x</b>, <b>x</b>),</span>
+				</p>
+				
+				<p>
+					где <span class="math">f(<b>x</b>, <b>x</b>)</span> — симметрическая билинейная форма, заданная на линейном пространстве
+					<span class="math">V</span>, а <span class="math">&omega;(<b>x</b>)</span> — соответствующая квадратичная форма.
+				</p>
+				
+				<p>
+					Поэтому квадратичная форма может содержать в себе квадраты переменных. Также матрица квадратичной формы,
+					как уже можно понять, симметрична. И квадратичную форму записывают, например, так:<br>
+					<span class="math center">&omega;(x<sub>1</sub>, x<sub>2</sub>) = &alpha;<sub>11</sub>x<sub>1</sub><sup>2</sup> +
+					2&alpha;<sub>12</sub>x<sub>1</sub>x<sub>2</sub> + &alpha;<sub>22</sub>x<sub>2</sub><sup>2</sup>
+					</span>
+				</p>
+				
+				<p>
+					То есть пишут в многочлене числа, находящиеся только на одной стороне симметричной матрицы коэффициентов, и
+					умножают их на двойку. Так поступают при любом кол-ве пременных, не только при двух неизвестных,
+					как в только что приведённом примере.
+				</p>
+				
+				<p>
+					По аналогии с билинейной формой, также существует <b>формула перехода в другой базис</b> у матрицы квадратичной формы:<br>
+					<span class="math center">W' = C<sup>Т</sup> * W * C,</span>
+				</p>
+				
+				<p>
+					где <span class="math">W'</span> — это матрица квадратичной формы в новом базисе, <span class="math">C</span>
+					— матрица перехода из одного базиса в другой базис (<span class="math">C<sup>Т</sup></span> — транспонированная
+					матрица перехода).
+				</p>
+				
+				<p>
+					<b>Ранг</b> матрицы квадратичной формы <b>сохраняется</b> (инвариантен) при переходе из одного базиса в другой.
+					Поэтому ранг матрицы квадратичной
+					формы называют ещё просто <b>рангом квадратичной формы.</b>
+				</p>
+				
+				<p>
+					Существуют также <b>положительно определённые</b> квадратичные формы и <b>отрицательно определённые</b>
+					квадратичные формы. Первые при любых значениях переменных дадут положительный результат, а вторые,
+					наоборот — отрицательный. Выделяют также и <b>знакопеременные</b> (индефинитные) квадратичные формы, которые
+					принимают как положительные, так и отрицательные значения. Если форма ещё и равна нулю, то она называется
+					<b>полуопределённой.</b>
+				</p>
+				
+				<p>
+					Есть связанный с последними понятиями <b>критерий Сильвестра,</b> который правдиво утверждает, что
+					форма <i>положительно определена,</i> если все её угловые миноры положительны. И <i>отрицательно определена,</i> если
+					знаки угловых миноров чередуются, причём первый угловой минор (первого порядка) меньше нуля.
+				</p>
+				
+				<h2 id="h2_4">Упражнения</h2>
+				<h3>Условие задачи 1</h3>
+				<p>
+					Это задание взято из демонстрационного варианта
+					вступительного экзамена в магистратуру с сайта МИРЭА:
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_201.pdf" target="_blank">вариант № 201-19.</a>
+					
+					Кривая второго порядка задана уравнением <span class="math">5x<sup>2</sup> + 6xy + 2y<sup>2</sup> - 14x - 8y - 15 = 0</span>.
+					Определить тип кривой и её уравнение в каноническом виде. Выписать какое-либо преобразование координат,
+					приводящее уравнение кривой к каноническому виду.
+				</p>
+				
+				<h3>Подготовка</h3>
+				<p>
+					Итак, похожая задача уже решалась в разделе <a href="../maga3/maga3.php">&laquo;Линии на плоскости. Прямые, кривые и сами плоскости. Поверхности&raquo;.</a>
+					Только другим универсальным методом, который в данном случае, честно говоря, оказался бы значительно проще и выгоднее по времени, чем настоящий метод.
+				</p>
+				
+				<p>
+					Тот метод, напомню Вам, дорогой читатель, предложен в учебнике <b>Н.В. Ефимова</b> &laquo;Краткий курс аналитической геометрии&raquo;.
+					Он очень удобен и, самое главное, работает всегда. В отличие от некоторых других методов решения задачи приведения уравнения кривой второго порядка к каноническому виду.
+				</p>
+				
+				<p>
+					Метод, который будет применён далее, тоже универсальный, и называется
+					он как метод <b>&laquo;Ортогонального преобразования квадратичной формы&raquo;.</b>
+					Он, как понятно из названия, включает в себя знания линейной алгебры о квадратичных формах.
+					Так как тема этого раздела посвящена квадратичным формам, то и решение будет приведено соответствующее.
+				</p>
+				
+				<p>
+					Но Вы, дорогой читатель, вольны выбирать тот метод, который Вы хорошо знаете и который выглядит эффективнее для Вас
+					для получения верного результата.
+				</p>
+				
+				<p>
+					Подробнее про метод ортогонального преобразования квадратичной формы смотрите на замечательном сайте <b>Емелина Александра</b>
+					<a class="new-tab-link" href="http://www.mathprofi.ru/metod_ortogonalnogo_preobrazovaniya_kf.html" target="_blank">mathprofi.ru</a>.
+				</p>
+				<h3>Решение</h3>
+				<p>
+					Во всех подробностях объяснять слишком муторно, поэтому здесь будут приведены самые основные моменты хода решения задачи.
+					За вопросами обращайтесь в Вк: <a class="new-tab-link" href="https://vk.com/timsaffron" target="_blank">Тимофей Шафранов</a>.
+				</p>
+				<p>
+					У каждой квадратичной формы есть её <b>канонический вид,</b> который выглядит так:<br>
+					<span class="math center">
+					f(x<sub>1</sub>, x<sub>2</sub>,. . ., x<sub>n</sub>) =
+					&lambda;<sub>1</sub>x<sub>1</sub><sup>2</sup> + &lambda;<sub>2</sub>x<sub>2</sub><sup>2</sup> + . . . +
+					&lambda;<sub>n</sub>x<sub>n</sub><sup>2</sup>
+					</span>
+				</p>
+				
+				<p>
+					Здесь <span class="math">&lambda;<sub>1</sub>, &lambda;<sub>2</sub>, . . ., &lambda;<sub>n</sub></span> —
+					<a href="../maga6/maga6.php">собственные числа</a> матрицы этой квадратичной формы.
+				</p>
+				
+				<p>
+					А разве левая часть уравнения является квадратичной формой?, спросите Вы. И это очень хороший вопрос! Квадратичной формой
+					в <a href="#condition0">уравнении условия задачи</a> является только тройка первых его членов:<br>
+					<span class="math center">
+						5x<sup>2</sup> + 6xy + 2y<sup>2</sup>
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;<i>(2)</i>
+				</p>
+				
+				<p>
+					И метод ортогонального преобразования будет применён лишь в <i>первой части</i> решения этой задачи. Следущий шаг, второй,
+					будет стандартным шагом уже алгоритма, предложенного <i>Н.В. Ефимовым</i> в его курсе. Который был применён
+					в предшествующем разделе этого сайта про кривые второго порядка.
+				</p>
+				
+				<p>
+					С помощью ортогонального преобразования квадратичной формы <i>(2)</i> будет убран её член <span class="math">6xy</span>,
+					который является лишним в каноническом уравнении. А с помощью уже второго шага, который не является, по сути, работой с
+					квадратичной формой, будут убраны члены <span class="math">-14x</span> и <span class="math">-8y</span>, а также, в самом конце,
+					и свободный член.
+				</p>
+				
+				<p>
+					Таким образом, взору предстанет истинный канонический вид всей кривой второго порядка, заданной <a href="#condition0">уравнением в условии.</a>
+				</p>
+				
+				<p>
+					Итак, <u style="font-size:1.4em">1-ая часть.</u>
+				</p>
+				
+				<p>
+					Здесь, наглядно говоря, заданная кривая будет повёрнута на некоторый угол относительно оси абсцисс.
+				</p>
+				
+				<p>
+					Матрица квадратичной формы <i>(2)</i> выглядит так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						A =
+						<table class="matrix">
+							<tr><td>5</td><td>3</td></tr>
+							<tr><td>3</td><td>2</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Определитель этой матрицы будет равен:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						|A| =
+						<table class="deter">
+							<tr><td>5</td><td>3</td></tr>
+							<tr><td>3</td><td>2</td></tr>
+						</table> =
+						10 - 9 = 1 &gt; 0
+					</span>
+				</p>
+				
+				<p>
+					Так как определитель квадратичной формы больше нуля, то
+					исходная кривая есть линия эллиптического типа (т.е. либо эллипс, либо мнимый эллипс, либо, что редко —
+					пара пересекающихся мнимых прямых).
+				</p>
+				
+				<p>
+					Вычисляются собственные значения квадратичной формы:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						|A - E&lambda;| =
+						<table class="deter">
+							<tr><td>5 - &lambda;</td><td>3</td></tr>
+							<tr><td>3</td><td>2 - &lambda;</td></tr>
+						</table> =
+						(5 - &lambda;)(2 - &lambda;) - 9 =
+						&lambda;<sup>2</sup> - 7&lambda; + 1 = 0;<br>
+						D = 45;<br>
+						&lambda;<sub>1, 2</sub> =
+						<table class="fraction"><tr><td>7 <b>+-</b> 3&radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					После нахождения собственных чисел необходимо подобрать по одному собственному вектору каждого числа. Причём порядок этих
+					векторов имеет огромное значение на результат. Не все такие порядки подойдут для получения нужного результата.
+					За этим нужно следить, дорогой читатель!
+				</p>
+				
+				<p>
+					Пусть первым будет вектор собственного числа<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">
+						&lambda;<sub>1</sub> =
+						<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>———</td></tr><tr><td align="center">2</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					После решения уравнения:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						A * <b>v<sub>1</sub></b> = &lambda;<sub>1</sub> * <b>v<sub>1</sub></b>;<br>
+						<table class="matrix">
+							<tr><td>5</td><td>3</td></tr>
+							<tr><td>3</td><td>2</td></tr>
+						</table> *
+						<table class="matrix">
+							<tr><td>x<sub>1</sub></td></tr>
+							<tr><td>y<sub>1</sub></td></tr>
+						</table> =
+						<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table> *
+						<table class="matrix">
+							<tr><td>x<sub>1</sub></td></tr>
+							<tr><td>y<sub>1</sub></td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Выясняется, что этому собственному числу подходят все векторы, координаты у которых соотносятся как:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						x<sub>1</sub> = (<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table> -
+						2)y<sub>1</sub> *
+						<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					Подставляя единицу вместо <span class="math">y<sub>1</sub></span>, получается следующий вектор:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>v<sub>1, 0</sub></b> =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1 + &radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table></td></tr>
+							<tr><td>1</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Аналогичным образом находится и подбирается второй собственный вектор, соответствующий собственному числу
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math">
+						&lambda;<sub>2</sub> =
+						<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>———</td></tr><tr><td align="center">2</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					Был взят вектор<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>v<sub>2, 0</sub></b> =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1 - &radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table></td></tr>
+							<tr><td>1</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Следующим шагом выясняются длины этих двух векторов, чтобы впоследствии нормировать их:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						|<b>v<sub>1, 0</sub></b>| =
+						&radic;[ (<table class="fraction"><tr><td>1 + &radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>)<sup>2</sup>
+						+ 1<sup>2</sup> ] =
+						&radic;(<table class="fraction"><tr><td>5 + &radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>)
+					</span><br>
+					<span class="math center">
+						|<b>v<sub>2, 0</sub></b>| =
+						&radic;[ (<table class="fraction"><tr><td>1 - &radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>)<sup>2</sup>
+						+ 1<sup>2</sup> ] =
+						&radic;(<table class="fraction"><tr><td>5 - &radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>)
+					</span>
+				</p>
+				
+				<p>
+					Затем эти два вектора нормируются (при этом каждая координата делится на длину вектора), и после этого составляется
+					<b>ортогональная матрица преобразования</b> квадратичной формы <i>(2)</i> из координат получившихся (только что)
+					<b>ортонормированных</b> векторов:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						P =
+						<table class="matrix">
+							<tr><td>e<sub>1,1</sub></td><td>e<sub>2,1</sub></td></tr>
+							<tr><td>e<sub>1,2</sub></td><td>e<sub>2,2</sub></td></tr>
+						</table> =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 + &radic;5)</td></tr></table></td>
+							<td><table class="fraction"><tr><td>&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 - &radic;5)</td></tr></table></td></tr>
+							
+							<tr><td>&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 + &radic;5</td></tr></table></td>
+							<td>&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 - &radic;5</td></tr></table></td></tr>
+							
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					В задаче такого типа необходимо, чтобы определитель матрицы <span class="math">P</span> был равен строго единице,
+					тогда такое преобразование успешно сработает. Определитель текущей матрицы <span class="math">P</span> действительно
+					равен единице. Если матрица <span class="math">P</span> имеет другой определитель, то необходимо поменять местами
+					вектора, составляющие матрицу ортогонального преобразования. И попробовать отыскать определитель ещё раз. Рано или поздно
+					определитель станет равным единице!
+				</p>
+				
+				<p>
+					Преобразования координат, соответствующие матрице <span class="math">P</span>, можно указать в ответе:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						x =
+							<table class="fraction"><tr><td>&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 + &radic;5)</td></tr></table>x' +
+							<table class="fraction"><tr><td>&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 - &radic;5)</td></tr></table>y'<br><br>
+						y =
+							&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 + &radic;5</td></tr></table>x' +
+							&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 - &radic;5</td></tr></table>y'
+					</span>
+				</p>
+				
+				<p>
+					В итоге, метод ортогонального преобразования нам даёт такое уравнение:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>x'<sup>2</sup> +
+						<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>y'<sup>2</sup> -
+						14x - 8y - 15 = 0;
+					</span><br>
+					<span class="math center">
+						<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>x'<sup>2</sup> +
+						<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>y'<sup>2</sup> -<br>
+						- 14(<table class="fraction"><tr><td>&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 + &radic;5)</td></tr></table>x' +
+						<table class="fraction"><tr><td>&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 - &radic;5)</td></tr></table>y') -<br>
+						- 8(&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 + &radic;5</td></tr></table>x' +
+						&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 - &radic;5</td></tr></table>y')
+						- 15 = 0;
+					</span><br>
+					<span class="math center">
+						<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>x'<sup>2</sup> +
+						<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>y'<sup>2</sup> -<br>
+						- (14 * <table class="fraction"><tr><td>&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 + &radic;5)</td></tr></table> +
+						8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 + &radic;5</td></tr></table>)x' -<br>
+						- (14 * <table class="fraction"><tr><td>&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 - &radic;5)</td></tr></table> +
+						8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 - &radic;5</td></tr></table>)y'
+						- 15 = 0;
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;<i>(3)</i>
+				</p>
+				
+				<p>
+					Как видно из уравнения <i>(3)</i>, член со смешанным произведением неизвестных — <span class="math">6xy</span> —
+					исчез! Метод ортогонального преобразования повернул график на некоторый угол и тем самым уничтожил один из ненужных членов.
+				</p>
+				
+				<p>
+					<u style="font-size:1.4em">2-ая часть.</u>
+				</p>
+				
+				<p>
+					Теперь нужно перенести центр кривой в начало координат. Этим уничтожатся члены с координатой в первой степени в уравнении <i>(3)</i>.
+				</p>
+				
+				<p>
+					По аналогии с решением задачи в разделе <a href="../maga3/maga3.php">&laquo;Линии на плоскости. Прямые, кривые и сами плоскости. Поверхности&raquo;</a>
+					производится вторая замена переменных:<br>
+					<span class="math center">x' = x'' + x<sub>0</sub>; y' = y'' + y<sub>0</sub></span>
+				</p>
+				
+				<p>
+					Уравнение <i>(3)</i> преобразуется к уравнению:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>x''<sup>2</sup> +
+						<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>————</td></tr><tr><td>2</td></tr></table>y''<sup>2</sup> +<br>
+						+ [ (7 + 3&radic;5)x<sub>0</sub> - <table class="fraction"><tr><td>7&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 + &radic;5)</td></tr></table> - 8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>—————</td></tr><tr><td>5 + &radic;5</td></tr></table> ]x'' +<br>
+						+ [ (7 - 3&radic;5)y<sub>0</sub> - <table class="fraction"><tr><td>7&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 - &radic;5)</td></tr></table> - 8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>—————</td></tr><tr><td>5 - &radic;5</td></tr></table> ]y'' +<br>
+						+ [ <table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>—————</td></tr><tr><td>2</td></tr></table>x<sub>0</sub><sup>2</sup> +
+						<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>—————</td></tr><tr><td>2</td></tr></table>y<sub>0</sub><sup>2</sup> -
+						<table class="fraction"><tr><td>7&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 + &radic;5)</td></tr></table>x<sub>0</sub> -
+						8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>—————</td></tr><tr><td>5 + &radic;5</td></tr></table>x<sub>0</sub> -
+						<table class="fraction"><tr><td>7&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 - &radic;5)</td></tr></table>y<sub>0</sub> -
+						8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>—————</td></tr><tr><td>5 - &radic;5</td></tr></table>y<sub>0</sub>
+						- 15 ] = 0;
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;<i>(4)</i>
+				</p>
+				
+				<p>
+					Уравнение <i>(4)</i> можно наглядно представить так (для Вашего понимания):<br>
+					<span class="math center">Ax''<sup>2</sup> + By''<sup>2</sup> + Cx'' + Dy'' + E = 0</span>
+				</p>
+				
+				<p>
+					Вот члены <span class="math">Cx''</span> и <span class="math">Dy''</span> и надо сейчас убрать.
+				</p>
+				
+				<p>
+					Для этого коэффициенты в этих двух членах приравниваются к нулю и решается система из двух уравнений
+					относительно <span class="math">x<sub>0</sub></span> и <span class="math">y<sub>0</sub></span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					(7 + 3&radic;5)x<sub>0</sub> - <table class="fraction"><tr><td>7&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 + &radic;5)</td></tr></table> - 8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>—————</td></tr><tr><td>5 + &radic;5</td></tr></table> = 0<br><br>
+					(7 - 3&radic;5)y<sub>0</sub> - <table class="fraction"><tr><td>7&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 - &radic;5)</td></tr></table> - 8 * &radic;<table class="fraction"><tr><td>2</td></tr><tr><td>—————</td></tr><tr><td>5 - &radic;5</td></tr></table> = 0
+					</span>
+				</p>
+				
+				<p>
+					Значения переменных <span class="math">x<sub>0</sub></span> и <span class="math">y<sub>0</sub></span> уже сразу
+					получаются. И центр исходной эллиптической, как стало понятно ещё на самом первом шаге, кривой получается таким:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					x<sub>0</sub> = <table class="fraction"><tr><td>15&radic;2 + 7&radic;10</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 + &radic;5)(7 + 3&radic;5)</td></tr></table><br><br>
+					y<sub>0</sub> = <table class="fraction"><tr><td>15&radic;2 - 7&radic;10</td></tr><tr><td>—————</td></tr><tr><td>&radic;(5 - &radic;5)(7 - 3&radic;5)</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					Что приблизительно равно (для ясного представления на плоскости координат кривой):<br>
+					<span class="math center">
+						(&asymp;1.18; &asymp;-1.88)
+					</span>
+				</p>
+				
+				<p>
+					Далее значения <span class="math">x<sub>0</sub>, y<sub>0</sub></span> подставляются в уравнение <i>(4)</i>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>7 + 3&radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>x''<sup>2</sup> +
+					<table class="fraction"><tr><td>7 - 3&radic;5</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>y''<sup>2</sup> - 25 = 0;
+					</span>
+				</p>
+				
+				<p>
+					Последним шагом убирается свободный член:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x''<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td><table class="fraction"><tr><td>50</td></tr><tr><td>———</td></tr><tr><td>7 + 3&radic;5</td></tr></table></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y''<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td><table class="fraction"><tr><td>50</td></tr><tr><td>———</td></tr><tr><td>7 - 3&radic;5</td></tr></table></td></tr></table>
+					= 1
+					</span>
+				</p>
+				
+				<p>
+					Считая на калькуляторе значения знаменателей дробей, получается:
+					<span class="math">a<sup>2</sup> &gt; 0</span> и <span class="math">b<sup>2</sup> &gt; 0</span>.
+					Значит, это уравнение есть уравнение эллипса.
+					Но это ещё не каноническое уравнение эллипса, потому что здесь <span class="math">a<sup>2</sup> &lt; b<sup>2</sup></span>.
+					Это значит, что эллипс нужно развернуть ещё на 90 градусов,
+					просто поменяв <span class="math">a<sup>2</sup></span> и <span class="math">b<sup>2</sup></span> местами.
+				</p>
+				
+				<p>
+					Только тогда получится каноническое уравнение эллипса:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x'''<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td><table class="fraction"><tr><td>50</td></tr><tr><td>———</td></tr><tr><td>7 - 3&radic;5</td></tr></table></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y'''<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td><table class="fraction"><tr><td>50</td></tr><tr><td>———</td></tr><tr><td>7 + 3&radic;5</td></tr></table></td></tr></table>
+					= 1.
+					</span>
+				</p>
+				
+				<p>
+					<b>
+					ОТВЕТ:<br>
+					Каноническое уравнение кривой второго порядка:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x'''<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td><table class="fraction"><tr><td>50</td></tr><tr><td>———</td></tr><tr><td>7 - 3&radic;5</td></tr></table></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y'''<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td><table class="fraction"><tr><td>50</td></tr><tr><td>———</td></tr><tr><td>7 + 3&radic;5</td></tr></table></td></tr></table>
+					= 1.
+					</span><br>
+					Вид кривой: эллипс.<br>
+					Сделанное преобразование координат:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						x =
+							<table class="fraction"><tr><td>&radic;2(1 + &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 + &radic;5)</td></tr></table>x' +
+							<table class="fraction"><tr><td>&radic;2(1 - &radic;5)</td></tr><tr><td>—————</td></tr><tr><td>2&radic;(5 - &radic;5)</td></tr></table>y'<br><br>
+						y =
+							&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 + &radic;5</td></tr></table>x' +
+							&radic;<table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>5 - &radic;5</td></tr></table>y'
+					</span>
+					</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Как видно из рисунка ниже, каноническое уравнение эллипса подобрано верно!
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="mathway.com" alt="Графики обычного уравнения и канонического уравнения, нарисованные онлайн-сервисом mathway.com"></td></tr>
+					<tr><td>Рисунок 1 — График исходной функции</td></tr>
+					<tr><td>и функций, полученных в процессе решения</td></tr>
+				</table>
+				</p>
+				
+				<h3>Выводы</h3>
+				<p>
+					Таким образом, в процессе решения этой задачи квадратичная форма <i>(2)</i>
+					была приведена к каноническому виду. Затем и всё <a href="#condition0">уравнение в условии задачи</a>
+					приведено к каноническому виду.
+				</p>
+				
+				<p>
+					То есть касательно темы квадратичных форм, можно использовать универсальный
+					метод ортогонального преобразования для приведения квадратичной формы к каноническому виду. Есть и другие способы
+					получения канонической формулы квадратичной формы: метод Лагранжа, метод инвариантов и прямой метод, описанный, например,
+					в учебнике Н.В. Ефимова.
+					Выбирайте, дорогой читатель, любой на Ваш вкус.
+				</p>
+				
+				<h3>Условие задачи 2</h3>
+				<p>
+					Найти наименьшее собственное значение матрицы квадратичной формы<br>
+					<span class="math center">Q(x, y, z) = -x<sup>2</sup> + y<sup>2</sup> + 4z<sup>2</sup> + 8xy - 4xz + 4yz;</span>
+				</p>
+				
+				<p>
+					Это задание было в варианте вступительного экзамена в 2021-м году.
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Предыдущий номер был в разы объёмнее по сравнению с этим.
+				</p>
+				
+				<p>
+					Итак, строится матрица заданной квадратичной формы:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						A =
+						<table class="matrix">
+							<tr><td>-1</td><td>4</td><td>-2</td></tr>
+							<tr><td>4</td><td>1</td><td>2</td></tr>
+							<tr><td>-2</td><td>2</td><td>4</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Не забывайте делить на два коэффициенты при смешанных произведениях координат (которые
+					не на главной диагонали)!
+				</p>
+				
+				<p>
+					Теперь составляется характеристическое уравнение:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						|A - &lambda;E| =
+						<table class="deter">
+							<tr><td>-1 - &lambda;</td><td>4</td><td>-2</td></tr>
+							<tr><td>4</td><td>1 - &lambda;</td><td>2</td></tr>
+							<tr><td>-2</td><td>2</td><td>4 - &lambda;</td></tr>
+						</table> = 0;
+					</span>
+				</p>
+				
+				<p>
+					После чего, оно решается и выясняются все собственные числа матрицы этой квадратичной формы:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						-2 *
+						<table class="deter">
+							<tr><td>4</td><td>-2</td></tr>
+							<tr><td>1 - &lambda;</td><td>2</td></tr>
+						</table> - 2 *
+						<table class="deter">
+							<tr><td>-1 - &lambda;</td><td>-2</td></tr>
+							<tr><td>4</td><td>2</td></tr>
+						</table> + (4 - &lambda;) *
+						<table class="deter">
+							<tr><td>-1 - &lambda;</td><td>4</td></tr>
+							<tr><td>4</td><td>1 - &lambda;</td></tr>
+						</table> =
+						(4 - &lambda;)(-&lambda;<sup>2</sup> + 25) = 0;
+					</span>
+				</p>
+				
+				<p>
+					Значит, <span class="math">&lambda;<sub>1, 2, 3</sub></span> равны:
+					<span class="math">5, -5</span> и <span class="math">4</span>.
+				</p>
+				
+				<p>
+					<b>Наименьшее собственное значение <span class="math">= -5</span></b>.
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Как решает онлайн-калькулятор <a class="new-tab-link" href="https://matrixcalc.org/vectors.html" target="_blank">matrixcalc.org</a>, ответ
+					действительно такой (см. <a href="#pic2">рис. 2</a>)!
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="Калькулятор matrixcalc.org" alt="Решение этой задачи на сайте matrixcalc.org с похожим ответом"></td></tr>
+					<tr><td>Рисунок 2 — Онлайн-решение задачи на</td></tr>
+					<tr><td>отыскание собственных чисел</td></tr>
+				</table>
+				</p>
+				
+				<h2 id="h2_5">Заключение</h2>
+				
+				<p>
+					<b>Всё, отдыхайте, любопытный читатель! Если Вам сейчас сложно и непонятно, то не переживайте, сделайте
+					тайм-брейк и только потом продолжайте разбираться. Никуда не торопясь — у Вас всё получится! Плодотворного Вам дня :)</b>
+				</p>
+				<h2 id="h2_6">Список использованной литературы</h2>
+				<ol>
+					<li id="res1">Билинейные и квадратичные формы // lib.usue.ru URL:
+					https://lib.usue.ru/resource/free/10/MelnikovAlgebra3/00BilinFm01.pdf (дата обращения: 27.06.2022).</li>
+					<li id="res2">А.В. Татаринцев Программа вступительного испытания по высшей математике. -
+					Москва: РТУ МИРЭА, 2021. - 7 с.</li>
+					<li id="res3">Внешние формы : учеб. пособие / О. В. Якунина. — Пенза : Изд-во ПГУ, 2013. — 48 с.</li>
+					<li id="res4">Линейная алгебра. Квадратичные формы и их свойства: учеб. пособие /
+					А. И. Мадунц – СПб.: Изд-во Политехн. ун-та, 2012. – 50 с.</li>
+					<li id="res5">Высшая математика для заочников и не только // Высшая математика – просто и доступно!
+					URL: http://www.mathprofi.ru/ (дата обращения: 03.07.2022).</li>
+					<li id="res6">Ефимов Н. В. Краткий курс аналитической геометрии. — 13-е изд., стереот. — М.: ФИЗМАТЛИТ,
+					2006. — 240 с.</li>
+				</ol>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga6/maga6.php">Предыдущая статья</a></span><span class="next"><a href="../maga8/maga8.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga7/maga7.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

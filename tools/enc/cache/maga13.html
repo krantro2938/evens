@@ -1,0 +1,931 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 19.07.2022</b></i></p>
+				<p><i><b>Дополнена: 20.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Неопределённый интеграл</h1>
+				<p>
+					В этом разделе разбирается тема <b>&laquo;Неопределённый интеграл. Интегрирование некоторых классов функций.
+					Определённый интеграл. Свойства опредёленного интеграла и теорема
+					Ньютона-Лейбница. Приложения определённого интеграла&raquo;.</b>
+				</p>
+				
+				<p>
+					Главным источником для этой статьи является книга <b>Николая Семеновича Пискунова</b> &laquo;Дифференциальное и интегральное исчисления&raquo; (том 1-й,
+					главы 10, 11 и 12).
+				</p>
+				
+				<p>
+					Также была использована лучшая книга <b>Д.Т. Письменного</b> &laquo;Конспект лекций по высшей математике&raquo;! :)
+				</p>
+				
+				<p>
+					Приятного Вам чтения, любознательный читатель!
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Неопределённый интеграл</a>
+							<ul>
+								<li><a href="#another0">Определение неопределённого интеграла</a></li>
+								<li><a href="#another1">Таблица интегралов</a></li>
+								<li><a href="#another2">Свойства неопределённых интегралов</a></li>
+								<li><a href="#another3">Методы интегрирования</a></li>
+							</ul>
+						</li>
+						<li><a href="#h2_2">Упражнения</a>
+						<li><a href="#h2_3">Заключение</a>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Неопределённый интеграл</h2>
+				<h3>Определение неопределённого интеграла</h3>
+				<p>
+					<a href="../maga11/maga11.php">Дифференцирование</a> и <b>интегрирование</b> — взаимно обратные задачи математики.
+					<i>Проинтегрировать</i> некоторую функцию <span class="math">f(x)</span>, это значит найти такую функцию <span class="math">F(x)</span>,
+					производная которой равна функции <span class="math">f(x)</span>. И функция <span class="math">F(x)</span> называется <b>первообразной</b> по отношению
+					к функции <span class="math">f(x)</span>. Т.е.<br>
+					<span class="math center">
+						F'(x) = f(x).
+					</span>
+				</p>
+				
+				<p>
+					И выражение<br>
+					<span class="math center">
+						&int; f(x)dx = F(x) + C
+					</span>
+				</p>
+				
+				<p>
+					определяет <b>неопределённый интеграл</b> от функции <span class="math">f(x)</span>.
+				</p>
+				
+				<p>
+					Например, первообразной для функции <span class="math">f(x) = x<sup>2</sup></span> является функция<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						F(x) = <sup><sup><table class="fraction"><tr><td>x<sup>3</sup></td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					потому что<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						F'(x) = (<sup><sup><table class="fraction"><tr><td>x<sup>3</sup></td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup>)' =
+						x<sup>2</sup> = f(x).
+					</span>
+				</p>
+				
+				<p>
+					Но первообразной для функции <span class="math">f(x) = x<sup>2</sup></span> является также функция и<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						F(x) = <sup><sup><table class="fraction"><tr><td>x<sup>3</sup></td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup> + 5
+					</span>
+				</p>
+				
+				<p>
+					Да и в целом:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						F(x) = <sup><sup><table class="fraction"><tr><td>x<sup>3</sup></td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup> + C
+					</span>
+				</p>
+				
+				<p>
+					где <span class="math">C</span> — это некоторая числовая константа.
+				</p>
+				
+				<p>
+					Поэтому неопределённым интегралом для функции <span class="math">f(x) = x<sup>2</sup></span> является целое <b>семейство функций</b>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; x<sup>2</sup>dx = <sup><sup><table class="fraction"><tr><td>x<sup>3</sup></td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup> + C
+					</span>
+				</p>
+				
+				<p>
+					Неопределённый интеграл можно найти не для всякой функции. Но установлено точно, что <i>для любой <b>непрерывной</b> на отрезке функции
+					всегда существует первообразная — неопределённый интеграл.</i>
+				</p>
+				
+				<p>
+					Вдобавок, сам процесс нахождения первообразной называется <b>интегрированием.</b>
+				</p>
+				
+				<h3>Таблица интегралов</h3>
+				<p>
+					Математиками выведены конкретные формулы для нахождения основных типов неопределённых интегралов (см. <a href="#pic1">рис. 1</a>). Их можно
+					проверить, найдя производную от правой части и сравнив её с подынтегральной функцией левой части. Например, производная константы равна нулю,
+					поэтому первая формула на <a href="#pic1">рисунке 1</a> справедлива.
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="900igr.net" alt="18 основных формул взятия неопределённых интегралов от функций"></td></tr>
+					<tr><td>Рисунок 1 — Таблица всех основных формул интегрирования (900igr.net)</td></tr>
+				</table>
+				</p>
+				
+				<h3>Свойства неопределённых интегралов</h3>
+				<p>
+					Существуют также два <i>свойства неопределённых интегралов,</i> первый из которых гласит, что <b>интеграл от алгебраической суммы двух функций
+					равен сумме интегралов от каждой из этих функций:</b><br>
+					<span class="math center">
+						&int; [f(x) + g(x)] = &int; f(x) + &int; g(x).
+					</span>
+				</p>
+				
+				<p>
+					Второй говорит о том, что <b>любую константу можно выносить за знак интеграла.</b>
+				</p>
+				
+				<p>
+					Доказательства этих свойств см., например, в книге Н.С. Пискунова &laquo;Дифференциальное и интегральное исчисления&raquo; (том 1-й,
+					глава 10, параграф 3).
+				</p>
+				
+				<h3>Методы интегрирования</h3>
+				<p>
+					<ol style="margin-bottom: 5vh;">
+						<li><a href="#h4_1">Метод замены переменной и метод подведения под знак дифференциала</a></li>
+						<li><a href="#h4_2">Интегрирование функций с квадратными трёхчленами</a></li>
+						<li><a href="#h4_3">Интегрирование рациональных дробей</a></li>
+						<li><a href="#h4_4">Интегрирование по частям, интегрирование иррациональных функций и тригонометрических функций</a></li>
+					</ol>
+				</p>
+				
+				<p id="h4_1"><u><b>Метод замены переменной и метод подведения под знак дифференциала.</b></u></p>
+				<p>
+					В основе методов интегрирования самых разных функций лежит метод <b>замены переменной (подстановки).</b>
+				</p>
+				
+				<p>
+					<b id="example1">Пример 1.</b> пусть требуется найти неопределённый интеграл от функции<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>xdx</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					Положим, <span class="math">t = x<sup>2</sup> + 5</span>. Тогда<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						dt = d(x<sup>2</sup> + 5) = 2xdx &rArr;<br>
+						&rArr; xdx =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>dt;
+					</span>
+				</p>
+				
+				<p>
+					Значит, интеграл принимает вид:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>xdx</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup>
+						=
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup>dt</td></tr><tr><td>———</td></tr><tr><td>t</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dt</td></tr><tr><td>———</td></tr><tr><td>t</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> ln|t| + C =<br>
+						= <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> ln|x<sup>2</sup> + 5| + C =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> ln(x<sup>2</sup> + 5) + C.
+					</span>
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> ln(x<sup>2</sup> + 5) + C.
+					</span></b>
+				</p>
+				
+				<p>
+					Здесь была использована формула №4 на <a href="#pic1">рис. 1</a>. Проверить справедливость полученного ответа можно его дифференцированием —
+					результат должен совпадать с подынтегральной функцией <span class="math">x/(x<sup>2</sup> + 5)</span>.
+				</p>
+				
+				<p>
+					Николай Семенович в своей книге &laquo;Дифференциальное и интегральное исчисления&raquo; (том 1-й,
+					глава 10, параграф 3) указал также общую формулу-подсказку для вычисления подобных интегралов:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; f(ax + b)dx = <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table></sup></sup>
+						F(ax + b) + C.
+					</span>
+				</p>
+				
+				<p>
+					В <a href="#example1">примере выше</a> это работает так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup>)</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>1</td></tr></table></sup></sup>ln|1x<sup>2</sup> + 5| + C.
+					</span>
+				</p>
+				
+				<p>
+					(За знаком интеграла также стоит вынесенная константа <span class="math">1/2</span>.)
+				</p>
+				
+				<p>
+					Способ <b>подведения функции под знак дифференциала</b> в неопределённом интеграле является аналогом метода замены переменной. <a href="#example1">Предыдущий пример</a>
+					записался бы этим методом следующим образом:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>xdx</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup>
+						=
+						&int;
+						<sup><sup><table class="fraction"><tr><td><sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>d(x<sup>2</sup>)</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>
+						&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup>)</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>
+						&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup> + 5)</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + 5</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>ln(x<sup>2</sup> + 5) + C.
+					</span>
+				</p>
+				
+				<p>
+				Здесь активно применяются свойства <i>дифференциала функции</i> <span class="math">dx = d(x + C)</span> и <span class="math">d(x<sup>2</sup>) = 2xdx</span>
+				(см. подробнее, например, статью этого сайта <a href="../maga11/maga11.php#h2_5">&laquo;Производная и дифференциал&raquo;</a>, если
+				у Вас возникают затруднения в понимании этого способа).
+				</p>
+				
+				<p>
+					Способ замены переменной, равно как и подведения под знак дифференциала, в неопределённом интеграле нарабатывается только практикой, дорогой читатель. Нужно подобрать такую удачную замену, чтобы
+					исходный интеграл привёлся к табличному виду (см. <a href="#pic1">рис. 1</a>). Иногда одной замены бывает недостаточно, и делается вторая и т.д., пока
+					интеграл не будет приведён к табличному.
+				</p>
+				
+				<p>
+					Все перечисленные далее методы нахождения первообразной основаны на методе замены переменной!
+				</p>
+				
+				<p id="h4_2"><u><b>Интегрирование функций с квадратными трёхчленами.</b></u></p>
+				<p>
+					Интеграл вида<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span id="int1" class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>—————</td></tr><tr><td>ax<sup>2</sup> + bx + c</td></tr></table></sup></sup>
+					<span style="float: right;">(1)</span></span>
+				</p>
+				
+				<p>
+					решается так. Нужно сначала привести многочлен, стоящий в знаменателе, к полному квадрату (т.е. выделить в многочлене полный квадрат).
+					Затем сделать замену переменной, и перед Вашими глазами
+					предстанет интеграл табличного вида, который по нужной формуле (см. <a href="#pic1">рис. 1</a>) можно легко разрешить.
+				</p>
+				
+				<p>
+					<b id="example2">Пример 2.</b> Вычислить интеграл<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>—————</td></tr><tr><td>3x<sup>2</sup> + 13x + 5</td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					Имеем:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>—————</td></tr><tr><td>3x<sup>2</sup> + 13x + 5</td></tr></table></sup></sup>
+						=
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>———————</td></tr><tr><td>3(x<sup>2</sup> + <sup><table class="fraction"><tr><td>13</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup>x + <sup><table class="fraction"><tr><td>5</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup>)</td></tr></table></sup></sup>
+						=<br>=
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>————————————</td></tr><tr><td>3(x<sup>2</sup> + <sup><table class="fraction"><tr><td>13</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup>x + <sup><table class="fraction"><tr><td>169</td></tr><tr><td>—</td></tr><tr><td>36</td></tr></table></sup> - <sup><table class="fraction"><tr><td>169</td></tr><tr><td>—</td></tr><tr><td>36</td></tr></table></sup> + <sup><table class="fraction"><tr><td>5</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup>)</td></tr></table></sup></sup>
+						=
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>———————————</td></tr><tr><td>3 * (x + <sup><table class="fraction"><tr><td>13</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table></sup>)<sup>2</sup> - 3 * <sup><table class="fraction"><tr><td>109</td></tr><tr><td>—</td></tr><tr><td>36</td></tr></table></sup></td></tr></table></sup></sup>
+						=<br>=
+						<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>—————————</td></tr><tr><td>(x + <sup><table class="fraction"><tr><td>13</td></tr><tr><td>—</td></tr><tr><td>6</td></tr></table></sup>)<sup>2</sup> - <sup><table class="fraction"><tr><td>109</td></tr><tr><td>—</td></tr><tr><td>36</td></tr></table></sup></td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					Теперь делается замена <span class="math">t = x + 13/6</span>, и интеграл получается стандартного вида:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						-<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dt</td></tr><tr><td>—————————</td></tr><tr><td>(<sup><table class="fraction"><tr><td>&radic;109</td></tr><tr><td>——</td></tr><tr><td>6</td></tr></table></sup>)<sup>2</sup> - t<sup>2</sup></td></tr></table></sup></sup>
+						=
+						-<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>——</td></tr><tr><td>&radic;109</td></tr></table></sup></sup>ln|<sup><sup><table class="fraction"><tr><td>&radic;109 + 6x + 13</td></tr><tr><td>—————————</td></tr><tr><td>&radic;109 - 6x - 13</td></tr></table></sup></sup>| + C.
+					</span>
+				</p>
+				
+				<p>
+					— см. формулу 18, в правом нижнем углу <a href="#pic1">рисунка 1</a>.
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+						-<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>——</td></tr><tr><td>&radic;109</td></tr></table></sup></sup>ln|<sup><sup><table class="fraction"><tr><td>&radic;109 + 6x + 13</td></tr><tr><td>—————————</td></tr><tr><td>&radic;109 - 6x - 13</td></tr></table></sup></sup>| + C.
+					</span></b>
+				</p>
+				
+				<p>
+					Вот так решаются интегралы вида <a href="#int1">(1)</a>. Кроме этих интегралов, существуют ещё три типа интегралов с трёхчленом в знаменателе:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span id="int2" class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>Ax + B</td></tr><tr><td>—————</td></tr><tr><td>ax<sup>2</sup> + bx + c</td></tr></table></sup></sup>dx
+					<span style="float: right;">(2)</span></span>
+					<span id="int3" class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>—————</td></tr><tr><td>&radic;(ax<sup>2</sup> + bx + c)</td></tr></table></sup></sup>
+					<span style="float: right;">(3)</span></span>
+					<span id="int4" class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>Ax + B</td></tr><tr><td>—————</td></tr><tr><td>&radic;(ax<sup>2</sup> + bx + c)</td></tr></table></sup></sup>dx
+					<span style="float: right;">(4)</span></span>
+				</p>
+				
+				<p>
+					Тип <a href="#int2">(2)</a> обычно разделяется на два суммирующихся интеграла, первый из которых является табличным интегралом, а второй — интегралом вида (1), который
+					Вы теперь, дорогой читатель, должны понимать, как решать.
+				</p>
+				
+				<p>
+					<b id="example3">Пример 3.</b> Вычислить интеграл<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>3x + 6</td></tr><tr><td>—————</td></tr><tr><td>2x<sup>2</sup> + 4x + 10</td></tr></table></sup></sup>dx
+					</span>
+				</p>
+				
+				<p>
+					Сначала, после того как тройка и двойка были вынесены за знак интеграла, числитель и знаменатель умножаются на число <span class="math">2</span>:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>3x + 6</td></tr><tr><td>—————</td></tr><tr><td>2x<sup>2</sup> + 4x + 10</td></tr></table></sup></sup>dx
+						=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>x + 2</td></tr><tr><td>—————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>dx
+						=<br>=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>2 * (x + 2)</td></tr><tr><td>———————</td></tr><tr><td>2 * (x<sup>2</sup> + 2x + 5)</td></tr></table></sup></sup>dx
+						=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>2x + 4</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>dx
+					</span>
+				</p>
+				
+				<p>
+					Теперь образуются те два интеграла, которые упомянались перед этим примером:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>2x + 2</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>dx
+						+
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>2dx</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					Первый интеграл можно решить, например, методом подведения под знак дифференциала, а второй подобно тому, что решался в <b><a href="#example2">примере 2</a></b>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup> + 2x)</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>
+						+
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>
+						=<br>=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup> + 2x + 5)</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>
+						+
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>———————</td></tr><tr><td>(x + 1)<sup>2</sup> + 4</td></tr></table></sup></sup>
+						=<br>=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup> + 2x + 5)</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>
+						+
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dt</td></tr><tr><td>———————</td></tr><tr><td>t<sup>2</sup> + 2<sup>2</sup></td></tr></table></sup></sup>
+						=<br>=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>d(x<sup>2</sup> + 2x + 5)</td></tr><tr><td>———————</td></tr><tr><td>x<sup>2</sup> + 2x + 5</td></tr></table></sup></sup>
+						+
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>&int; <sup><sup><table class="fraction"><tr><td>dt</td></tr><tr><td>———————</td></tr><tr><td>t<sup>2</sup> + 2<sup>2</sup></td></tr></table></sup></sup>
+						=<br><br>=
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>ln|x<sup>2</sup> + 2x + 5| +
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>arctg(<sup><sup><table class="fraction"><tr><td>x + 1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>)
+						+ C.
+					</span>
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>ln|x<sup>2</sup> + 2x + 5| +
+						<sup><sup><table class="fraction"><tr><td>3</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table></sup></sup>arctg(<sup><sup><table class="fraction"><tr><td>x + 1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>)
+						+ C.
+					</span></b>
+				</p>
+				
+				<p>
+					Интегралы <a href="#int3">(3)</a> и <a href="#int4">(4)</a> типов решаются аналогично, просто табличные формулы выбираются содержащими квадратный
+					корень (см. <a href="#pic1">рис. 1</a>, формулу №16 слева). Причём, интеграл <a href="#int4">(4)</a> также разбивается на два интеграла, один
+					из которых интеграл <a href="#int3">(3)-его</a> типа.
+				</p>
+				
+				<p id="h4_3"><u><b>Интегрирование рациональных дробей.</b></u></p>
+				<p>
+					Это очень важная тема неопределённого интеграла, которая должна научить Вас, любопытный читатель, навыкам работы с
+					<b>правильными рациональными дробями.</b>
+				</p>
+				
+				<p style="border-top: 0.2em solid red; border-right: 0.2em solid red; border-left: 0.2em solid red; padding: 0.5em">
+						<b>Теорема 1.</b> <i>Всякую неправильную рациональную дробь <span class="math">P(x)/Q(x)</span> можно, путём деления числителя на знаменатель,
+						представить в виде суммы многочлена <span class="math">L(x)</span> и правильной рациональной дроби <span class="math">R(x)/Q(x)</span>,
+						т.е.
+					</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="border-right: 0.2em solid red; border-left: 0.2em solid red; padding: 0.5em; border-bottom: 0.2em solid red" class="math center">
+						<sup><sup><table class="fraction"><tr><td>P(x)</td></tr><tr><td>——</td></tr><tr><td>Q(x)</td></tr></table></sup></sup> =
+						L(x) +
+						<sup><sup><table class="fraction"><tr><td>R(x)</td></tr><tr><td>——</td></tr><tr><td>Q(x)</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					<b>Пример</b> применения этой теоремы см. в учебнике <b>Дмитрия Письменного</b> &laquo;Конспект лекций по высшей математике&raquo;, откуда
+					взята эта теорема (и следующая) (глава 7, параграф 31).
+				</p>
+				
+				<p>
+					Это при интегрировании и надо делать перед всем остальным! Если перед Вами стоит <i>неправильная</i> рациональная дробь.
+				</p>
+				
+				<p>
+					Также полезной может оказаться <b><a href="#theorem2">теорема 2</a></b>.
+				</p>
+				
+				<p id="theorem2" style="border-top: 0.2em solid red; border-right: 0.2em solid red; border-left: 0.2em solid red; padding: 0.5em">
+						<b>Теорема 2.</b> <i>Всякую <i>правильную</i> рациональную дробь <span class="math">P(x)/Q(x)</span>, знаменатель которой
+						разложен на множители</i><br>
+						<span class="math center">
+							Q(x) = (x - x<sub>1</sub>)<sup>k<sub>1</sub></sup> * (x - x<sub>2</sub>)<sup>k<sub>2</sub></sup> &lt;. . .&gt;
+							(x<sup>2</sup> + p<sub>1</sub>x + q<sub>1</sub>)<sup>s<sub>1</sub></sup> &lt;. . .&gt;
+							(x<sup>2</sup> + p<sub>n</sub>x + q<sub>n</sub>)<sup>s<sub>n</sub></sup>
+						</span>
+				</p>
+				<p style="border-right: 0.2em solid red; border-left: 0.2em solid red; padding: 0.5em">
+					<i>можно представить (и притом единственным образом) в виде следующей суммы простейших дробей:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>P(x)</td></tr><tr><td>——</td></tr><tr><td>Q(x)</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>A<sub>1</sub></td></tr><tr><td>————</td></tr><tr><td>(x - x<sub>1</sub>)</td></tr></table></sup></sup> +
+						<sup><sup><table class="fraction"><tr><td>A<sub>2</sub></td></tr><tr><td>————</td></tr><tr><td>(x - x<sub>1</sub>)<sup>2</sup></td></tr></table></sup></sup> +
+						&lt;. . .&gt;
+						+ <sup><sup><table class="fraction"><tr><td>A<sub>k<sub>1</sub></sub></td></tr><tr><td>————</td></tr><tr><td>(x - x<sub>1</sub>)<sup>k<sub>1</sub></sup></td></tr></table></sup></sup> +<br>
+						
+						+<sup><sup><table class="fraction"><tr><td>B<sub>1</sub></td></tr><tr><td>————</td></tr><tr><td>(x - x<sub>2</sub>)</td></tr></table></sup></sup> +
+						<sup><sup><table class="fraction"><tr><td>B<sub>2</sub></td></tr><tr><td>————</td></tr><tr><td>(x - x<sub>2</sub>)<sup>2</sup></td></tr></table></sup></sup> +
+						&lt;. . .&gt;
+						+ <sup><sup><table class="fraction"><tr><td>B<sub>k<sub>2</sub></sub></td></tr><tr><td>————</td></tr><tr><td>(x - x<sub>2</sub>)<sup>k<sub>2</sub></sup></td></tr></table></sup></sup> +<br>
+						+ &lt;. . .&gt; +<br>
+						
+						+ <sup><sup><table class="fraction"><tr><td>C<sub>1</sub>x + D<sub>1</sub></td></tr><tr><td>————</td></tr><tr><td>x<sup>2</sup> + p<sub>1</sub>x + q<sub>1</sub></td></tr></table></sup></sup> +
+						<sup><sup><table class="fraction"><tr><td>C<sub>2</sub>x + D<sub>2</sub></td></tr><tr><td>————</td></tr><tr><td>(x<sup>2</sup> + p<sub>1</sub>x + q<sub>1</sub>)<sup>2</sup></td></tr></table></sup></sup> +<br>
+						+ &lt;. . .&gt; +
+						<sup><sup><table class="fraction"><tr><td>C<sub>s<sub>1</sub></sub>x + D<sub>s<sub>1</sub></sub></td></tr><tr><td>————</td></tr><tr><td>(x<sup>2</sup> + p<sub>1</sub>x + q<sub>1</sub>)<sup>s<sub>1</sub></sup></td></tr></table></sup></sup> +
+						&lt;. . .&gt; +
+						<sup><sup><table class="fraction"><tr><td>M<sub>1</sub>x + N<sub>1</sub></td></tr><tr><td>————</td></tr><tr><td>x<sup>2</sup> + p<sub>n</sub>x + q<sub>n</sub></td></tr></table></sup></sup> +
+						<sup><sup><table class="fraction"><tr><td>M<sub>2</sub>x + N<sub>2</sub></td></tr><tr><td>————</td></tr><tr><td>(x<sup>2</sup> + p<sub>n</sub>x + q<sub>n</sub>)<sup>2</sup></td></tr></table></sup></sup> +<br>
+						+ &lt;. . .&gt; +
+						<sup><sup><table class="fraction"><tr><td>M<sub>s<sub>n</sub></sub>x + N<sub>s<sub>n</sub></sub></td></tr><tr><td>————</td></tr><tr><td>(x<sup>2</sup> + p<sub>n</sub>x + q<sub>n</sub>)<sup>s<sub>n</sub></sup></td></tr></table></sup></sup>,
+					</span>
+				</p>
+				
+				<p style="border-right: 0.2em solid red; border-bottom: 0.2em solid red; border-left: 0.2em solid red; padding: 0.5em;">
+					<i>где </i><span class="math">A<sub>1</sub>, A<sub>2</sub>, . . ., A<sub>k<sub>1</sub></sub>, B<sub>1</sub>, B<sub>2</sub>, . . ., B<sub>k<sub>2</sub></sub> и т.д.</span><i> —
+					некоторые действительные коэффициенты.</i>
+				</p>
+				
+				<p>
+					Эта теорема позволяет после того, как неправильная дробь представлена в виде правильной (если она неправильная),
+					разложить её на сумму простейших рациональных дробей. Такими простейшими правильными рациональными дробями являются
+					дроби четырёх типов:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>I.</b> <sup><sup><table class="fraction"><tr><td>A</td></tr><tr><td>———</td></tr><tr><td>x - a</td></tr></table></sup></sup>;<br>
+						<b>II.</b> <sup><sup><table class="fraction"><tr><td>A</td></tr><tr><td>———</td></tr><tr><td>(x - a)<sup>k</sup></td></tr></table></sup></sup> (k &ge; 2, k &isin; <b>N</b>);<br>
+						<b>III.</b> <sup><sup><table class="fraction"><tr><td>Mx + N</td></tr><tr><td>———</td></tr><tr><td>x<sup>2</sup> + px + q</td></tr></table></sup></sup> (корни знаменателя комплексные, т.е. p<sup>2</sup> - 4q &lt; 0);<br>
+						<b>IV.</b> <sup><sup><table class="fraction"><tr><td>Mx + N</td></tr><tr><td>———</td></tr><tr><td>(x<sup>2</sup> + px + q)<sup>k</sup></td></tr></table></sup></sup> (k &ge; 2, корни знаменателя комплексные);<br>
+					</span>
+				</p>
+				
+				<p>
+					где <span class="math">A, a, M, N, p, q</span> — действительные числа.
+				</p>
+				
+				<p>
+					И <a href="#theorem2">теорема 2</a> как раз позволяет представить такую сумму. Это очень помогает при интегрировании дробей.
+				</p>
+				
+				<p>
+					<b id="example4">Пример 4.</b> Вычислить интеграл<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>5x<sup>4</sup> + 2x<sup>3</sup> + 3x<sup>2</sup> - x + 5</td></tr><tr><td>—————————————</td></tr><tr><td>x<sup>3</sup> + 5x<sup>2</sup> - 6x - 30</td></tr></table></sup></sup>dx
+					</span>
+				</p>
+				
+				<p>
+					Т.к. степень многочлена в числителе больше степени многочлена в знаменателе, то эта дробь неправильная. Нужно её привести к правильной дроби.
+					Для этого выполняется деление числителя на знаменатель &laquo;уголком&raquo;, и получается в итоге:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; (5x - 23)dx +
+						&int; <sup><sup><table class="fraction"><tr><td>148x<sup>2</sup> + 11x - 685</td></tr><tr><td>——————————</td></tr><tr><td>x<sup>3</sup> + 5x<sup>2</sup> - 6x - 30</td></tr></table></sup></sup>dx.
+					</span>
+				</p>
+				
+				<p>
+					Первый интеграл легко находится. Второй можно можно попытаться разложить на сумму простейших дробей. Т.к. знаменатель можно представить как<br>
+					<span class="math center">
+						x<sup>3</sup> + 5x<sup>2</sup> - 6x - 30 = 5(x<sup>2</sup> - 6) + x(x<sup>2</sup> - 6) =<br>
+						= (5 + x)(x<sup>2</sup> - 6) = (5 + x)(x - &radic;6)(x + &radic;6),
+					</span>
+				</p>
+				
+				<p>
+					то дробь второго интеграла можно представить в виде суммы трёх простейших дробей первого типа (см. типы дробей чуть выше):<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>148x<sup>2</sup> + 11x - 685</td></tr><tr><td>——————————</td></tr><tr><td>(x + &radic;6)(x - &radic;6)(x + 5)</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>A</td></tr><tr><td>———</td></tr><tr><td>x + 5</td></tr></table></sup></sup> +
+						<sup><sup><table class="fraction"><tr><td>B</td></tr><tr><td>———</td></tr><tr><td>x - &radic;6</td></tr></table></sup></sup> +
+						<sup><sup><table class="fraction"><tr><td>C</td></tr><tr><td>———</td></tr><tr><td>x + &radic;6</td></tr></table></sup></sup>;
+					<span style="float: right;">(5)</span></span>
+				</p>
+				
+				<p>
+					Неопределённые коэффициенты <span class="math">A</span>, <span class="math">B</span> и <span class="math">C</span> можно найти приведя правую часть уравнения (5) к общему знаменателю:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>148x<sup>2</sup> + 11x - 685</td></tr><tr><td>——————————</td></tr><tr><td>(x + &radic;6)(x - &radic;6)(x + 5)</td></tr></table></sup></sup> =
+						<sup><sup><table class="fraction"><tr><td>x<sup>2</sup>(A + B + C) + x(5C - &radic;6C + 5B + &radic;6B) + (5&radic;6B - 6A - 5&radic;6C)</td></tr><tr><td>———————————————————————————</td></tr><tr><td>(x + &radic;6)(x - &radic;6)(x + 5)</td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					Нужно решить систему трёх уравнений:<br>
+					<span class="math center">
+						A + B + C = 148,<br>
+						5C - &radic;6C + 5B + &radic;6B = 11,<br>
+						5&radic;6B - 6A - 5&radic;6C = -685;<br>
+					</span>
+				</p>
+				
+				<p>
+					Методом Крамера получается следующее единственное решение:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						A = <sup><sup><table class="fraction"><tr><td>2960</td></tr><tr><td>——</td></tr><tr><td>19</td></tr></table></sup></sup>;<br>
+						B = <sup><sup><table class="fraction"><tr><td>888 - 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></sup>;<br>
+						C = <sup><sup><table class="fraction"><tr><td>888 + 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					То есть второй интеграл можно представить как сумму трёх следующих интегралов:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>148x<sup>2</sup> + 11x - 685</td></tr><tr><td>——————————</td></tr><tr><td>x<sup>3</sup> + 5x<sup>2</sup> - 6x - 30</td></tr></table></sup></sup>dx
+						=
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>2960</td></tr><tr><td>———</td></tr><tr><td>19</td></tr></table></sup></td></tr><tr><td>———</td></tr><tr><td>5 + x</td></tr></table></sup></sup>dx
+						+
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>888 - 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></td></tr><tr><td>———</td></tr><tr><td>x - &radic;6</td></tr></table></sup></sup>dx
+						+
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>888 + 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></td></tr><tr><td>———</td></tr><tr><td>x + &radic;6</td></tr></table></sup></sup>dx.
+					</span>
+				</p>
+				
+				<p>
+					Они легко берутся, если помнить табличную формулу с натуральным логарифмом (см. <a href="#pic1">рис. 1</a>). В итоге,<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>5x<sup>4</sup> + 2x<sup>3</sup> + 3x<sup>2</sup> - x + 5</td></tr><tr><td>—————————————</td></tr><tr><td>x<sup>3</sup> + 5x<sup>2</sup> - 6x - 30</td></tr></table></sup></sup>dx =
+						&int; (5x - 23)dx +
+						&int; <sup><sup><table class="fraction"><tr><td>148x<sup>2</sup> + 11x - 685</td></tr><tr><td>——————————</td></tr><tr><td>x<sup>3</sup> + 5x<sup>2</sup> - 6x - 30</td></tr></table></sup></sup>dx =<br>=
+						&int; (5x - 23)dx +
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>2960</td></tr><tr><td>———</td></tr><tr><td>19</td></tr></table></sup></td></tr><tr><td>———</td></tr><tr><td>5 + x</td></tr></table></sup></sup>dx
+						+
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>888 - 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></td></tr><tr><td>———</td></tr><tr><td>x - &radic;6</td></tr></table></sup></sup>dx
+						+<br>+
+						&int; <sup><sup><table class="fraction"><tr><td><sup><table class="fraction"><tr><td>888 + 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></td></tr><tr><td>———</td></tr><tr><td>x + &radic;6</td></tr></table></sup></sup>dx
+						=<br>=
+						<sup><sup><table class="fraction"><tr><td>5</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>x<sup>2</sup> -
+						23x +
+						<sup><sup><table class="fraction"><tr><td>2960</td></tr><tr><td>———</td></tr><tr><td>19</td></tr></table></sup></sup>ln|5 + x| +<br>+
+						<sup><sup><table class="fraction"><tr><td>888 - 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></sup>ln|x - &radic;6| +<br>+
+						<sup><sup><table class="fraction"><tr><td>888 + 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></sup>ln|x + &radic;6| + C.
+					</span>
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+						<sup><sup><table class="fraction"><tr><td>5</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>x<sup>2</sup> -
+						23x +
+						<sup><sup><table class="fraction"><tr><td>2960</td></tr><tr><td>———</td></tr><tr><td>19</td></tr></table></sup></sup>ln|5 + x| +
+						<sup><sup><table class="fraction"><tr><td>888 - 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></sup>ln|x - &radic;6| +<br>+
+						<sup><sup><table class="fraction"><tr><td>888 + 949&radic;6</td></tr><tr><td>——————</td></tr><tr><td>-228</td></tr></table></sup></sup>ln|x + &radic;6| + C.
+					</span></b>
+				</p>
+				
+				<p>
+					Таким образом берутся интегралы от рациональных дробей. <b>Но, опять же, дорогой читатель, всё зависит от Вашей практики —
+					чем больше Вы практикуетесь, решая разного рода интегралы, тем больше вы знаете и умеете! Удачи Вам! :)</b>
+				</p>
+				
+				<p id="h4_4"><u><b>Интегрирование по частям, интегрирование иррациональных функций и тригонометрических функций.</b></u></p>
+				<p>
+					Всё, что было показано выше — лишь часть от всей совокупности методов и приёмов взятия неопределённых интегралов!
+					Есть ещё формула <b>интегрирования по частям,</b><br>
+					<span class="math center">
+						&int; udv = uv - &int; vdu.
+					</span>
+				</p>
+				
+				<p>
+					Она применяется тогда, когда выгоднее представить исходную функцию как произведение двух отдельных функций <span class="math">u</span>
+					и <span class="math">v</span>, чем вычислять интеграл другими способами.
+				</p>
+				
+				<p>
+					Так, интегрирование по частям хорошо применяется в случае некоторых классов функций. В частности, это функции вида:<br>
+					<span class="math center">
+						<b>&int; P(x) * e<sup>kx</sup>dx,</b><br>
+						<b>&int; P(x) * sin(kx)dx</b><br> и
+						<b>&int; P(x) * cos(kx)dx</b><br>(удобно положить <b>u</b> = P(x), а за dv принять всё остальное);
+					</span>
+					<span class="math center">
+						<b>&int; P(x) * arcsin(x)dx,</b><br>
+						<b>&int; P(x) * arccos(x)dx,</b><br>
+						<b>&int; P(x) * ln(x)dx,</b><br>
+						<b>&int; P(x) * arctg(x)dx</b><br>и<br>
+						<b>&int; P(x) * arcctg(x)dx</b>
+						<br>(удобно положить dv = P(x)dx, а <b>u</b> присвоить всё остальное);
+					</span>
+					<span class="math center">
+						<b>&int; e<sup>ax</sup> * sin(bx)dx,</b><br>
+						<b>&int; e<sup>ax</sup> * cos(bx)dx,</b><br>
+						(за <b>u</b> принимают функцию e<sup>ax</sup>).
+					</span>
+				</p>
+				
+				<p>
+					Также полезно знать приёмы интегрирования тригонометрических функций, в том числе <b>универсальную тригонометрическую подстановку</b> и
+					некоторые другие иногда очень полезные подстановки в интегралах типа <span class="math">&int; R(sin(x); cos(x))dx</span>,
+					<span class="math">&int; sin<sup>m</sup>(x) * cos<sup>n</sup>(x)dx</span>, <span class="math">&int; sin(ax) * cos(bx)dx</span> и
+					<span class="math">&int; cos(ax) * cos(bx)dx</span>.
+				</p>
+				
+				<p>
+					Кроме того, встречаются и интегралы от иррациональных функций вида <span class="math">&int; R(x; &radic;(ax<sup>2</sup> + bx + c))dx</span>, которые
+					можно решать как двумя так называемыми <b>подстановками Эйлера</b>, так и некоторыми тригонометрическими подстановками.
+				</p>
+				
+				<p>
+					Есть ещё интегралы и от других иррациональных функций, которые также имеют свои особенности
+					(например, интеграл от функции <span class="math">&int; R(x; &radic;(a<sup>2</sup> &plusmn; x<sup>2</sup>))dx</span> и т.д.).
+					См., например, параграф 33, главу 7 учебника <b>Дмитрия Трофимовича Письменного</b> &laquo;Конспект лекций по высшей математике&raquo;, если ты хочешь
+					узнать про интегрирование иррациональных функций различного вида подробнее. Плюс, в <a href="#h2_2">разделе ниже</a> есть пример на интегрирование иррациональной функции.
+				</p>
+				
+				<h2 id="h2_2">Упражнения</h2>
+				<h3>Условие задачи 1</h3>
+				<p>
+					Эта задача взята из
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_301.pdf" target="_blank">демоварианта №301 2019-го года.</a>
+				</p>
+				
+				<p>
+					Вычислить интеграл:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>2</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr><tr><td>0</td></tr></table></sup></sup>
+						&radic;(4 - x<sup>2</sup>)dx
+					</span>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					В данном случае интеграл определённый, т.к. вверху и внизу стоят <b>пределы интегрирования</b> в виде нуля и двойки.
+					Но в этом разделе будет приведено решение <b>неопределённого интеграла</b> с похожей подынтегральной функцией. Значение исходного
+					определённого интеграла будет вытекать из приведённого решения.
+				</p>
+				
+				<p>
+					Перед Вами, дорогой читатель, здесь находится
+					интеграл вида <span class="math">&int; R(x; &radic;(a<sup>2</sup> - x<sup>2</sup>))dx</span>. Это интеграл от иррациональной функции.
+					Он берётся соответствующей тригонометрической подстановкой <span class="math">x = a sin(t)</span> (см. пункт 3
+					параграфа 33 главы 7 учебника <b>Дмитрия Письменного</b> &laquo;Конспект лекций по высшей математике&raquo;).
+				</p>
+				
+				<p>
+					В этом случае, получается:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; &radic;(4 - x<sup>2</sup>)dx &rArr;<br><br>
+						&rArr; <b>x = 2 sin(t),<br>
+						dx = 2 cos(t)dt,<br>
+						t = arcsin(<sup><sup><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>)</b> &rArr;<br><br>
+						&rArr; &int; &radic;(4 - x<sup>2</sup>)dx = &int; &radic;(4 - 4 sin<sup>2</sup>(t)) * 2cos(t)dt;
+					</span>
+				</p>
+				
+				<p>
+					Дальше можно смело заменить <span class="math">&radic;(4 - 4 sin<sup>2</sup>(t))</span> как
+					<span class="math">2cos(t)</span> (получающийся в конце квадрат косинуса это позволяет сделать)
+					и применить далее формулу <i>понижения степени</i> для косинуса.
+					В итоге, получится:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; 2cos(t) * 2cos(t)dt = &int; 4 cos<sup>2</sup>(t)dt =<br>
+						= 2&int; (1 + cos(2t))dt = 2&int;dt + &int; cos(2t)d(2t) =<br>
+						= 2t + sin(2t) + C =<br>
+						= 2 arcsin(<sup><sup><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>) +
+						sin(2 arcsin<sup><sup><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>) + C.
+					</span>
+				</p>
+				
+				<p>
+					Последнее слагаемое в последнем выражении можно упростить дальше, воспользовавшись формулой <i>синуса двойного угла</i>
+					и определением <i>арксинуса</i>
+					и <i>арккосинуса.</i> Но можно и оставить так. Так как упрощать далее в условии задачи не требуется.
+				</p>
+				
+				<p>
+					Если Вы, любопытный читатель, уже разбираетесь с определёнными интегралами, то из полученного результата
+					Вы сможете найти, что ответом из исходного условия задачи будет число <span class="math">&pi;</span>.
+				</p>
+				
+				<p>
+					Этот же интеграл можно было вычислить <b>методом сведения интеграла к самому себе,</b> описанном
+					на старом-добром сайте <b>Александра Емелина</b>
+					<a class="new-tab-link" href="http://www.mathprofi.ru/slozhnye_integraly.html" target="_blank">mathprofi.ru</a>.
+					Этот метод включает в себя метод <a href="#h4_4">интегрирования по частям,</a> при котором в этой задаче — среди прочего
+					получится интеграл, равный исходному. И его можно будет перенести в левую часть и прибавить к исходному интегралу,
+					а остальные слагаемые станут ответом. Очень интересный подход!
+				</p>
+				
+				<p>
+					И ответ у Александра к этому же интегралу получился тот же!
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+						2 arcsin(<sup><sup><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>) +
+						sin(2 arcsin<sup><sup><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup>) + C (неопределённый интеграл);<br><br>
+						<span class="math">&pi;</span> — решение заданного в условии задачи определённого интеграла.
+					</span></b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Действительно, прекрасно проработанные онлайн-сервисы <a class="new-tab-link" href="https://www.mathway.com/ru/Calculus" target="_blank">mathway.com</a>
+					и <a class="new-tab-link" href="https://mathdf.com/int/ru/" target="_blank">mathdf.com</a> дают такие же результаты (см. <a href="#pic2">рис. 2</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="mathway.com" alt="Решение от сервиса mathway.com по нахождению первообразной заданной функции"></td></tr>
+					<tr><td>Рисунок 2 — Результат, полученный сервисом mathway.com</td></tr>
+				</table>
+				</p>
+				
+				<h2 id="h2_3">Заключение</h2>
+				<p>
+					<b>На этом всё, дорогой читатель! Определённые интегралы будут разбираться в следующей статье во избежание чрезмерного размера
+					этих разделов. Спасибо тебе за внимание и успехов во всех твоих делах! :)</b>
+				</p>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga12/maga12.php">Предыдущая статья</a></span><span class="next"><a href="../maga14/maga14.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga13/maga13.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

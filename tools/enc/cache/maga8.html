@@ -1,0 +1,993 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 06.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Евклидово пространство. Ортогональные операторы</h1>
+				<p>
+					Разбор вопроса <b><i>&laquo;Евклидово пространство. Матрица Грама. Неравенство Коши–Буняковского.
+					Ортонормированный базис. Метод ортогонализации базиса.
+					Ортогональные операторы в евклидовом пространстве. Ортогональные
+					матрицы. Симметричный линейный оператор в евклидовом пространстве.
+					Построение ортонормированного базиса из собственных векторов
+					симметричного оператора&raquo;.</i></b>
+				</p>
+				
+				<p>
+					Тема про евклидовы пространства есть, например,
+					в методичке <a class="new-tab-link" href="http://www.uic.unn.ru:8103/~zny/algebra/lectures/lectures/14_EuclidSpaces.pdf" target="_blank">uic.unn.ru</a>.
+					Также см. список литературы <a href="#h2_10">ниже</a>.
+				</p>
+				
+				<p>
+					Это заключительная тема раздела алгебры и геометрии в программе вуза. На неё есть по крайней мере одно задание —
+					одно из самых сложных в вариантах прошлых лет.
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Евклидовы пространства</a></li>
+						<li><a href="#h2_2">Неравенство Коши–Буняковского</a></li>
+						<li><a href="#h2_3">Ортонормированный базис</a></li>
+						<li><a href="#h2_4">Ортогональная матрица</a></li>
+						<li><a href="#h2_5">Ортогональные операторы</a></li>
+						<li><a href="#h2_6">Процесс ортогонализации Грама–Шмидта</a></li>
+						<li><a href="#h2_7">Симметричный оператор</a></li>
+						<li><a href="#h2_8">Упражнения</a></li>
+						<li><a href="#h2_9">Заключение</a></li>
+						<li><a href="#h2_10">Список использованной литературы</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Евклидовы пространства</h2>
+				<h3>Скалярное произведение</h3>
+				<p>
+					<b>Евклидовым пространством</b> называется линейное вещественное пространство <span class="math">V</span>,
+					в котором задано отображение <span class="math">V × V —> <b>R</b></span>, ставящее каждой паре векторов
+					<span class="math">x, y &isin; V</span> число <span class="math">(x, y) &isin; <b>R</b></span>,
+					называемое <b>скалярным произведением.</b>
+				</p>
+				
+				<p>
+					Скалярное произведение обладает следующими свойствами:<br>
+					<ol>
+						<li><span class="math">(x, y) = (y, x),</span></li>
+						<li><span class="math">(x + y, z) = (x, z) + (y, z),</span></li>
+						<li><span class="math">(αx, y) = α(x, y),</span></li>
+						<li><span class="math">x &ne; 0 => (x, x) &gt; 0</span></li>
+					</ol>
+				</p>
+				
+				<p>
+					Скалярное произведение в евклидовом пространстве есть положительно определенная симметричная билинейная функция.
+					И наоборот, любую положительно определенную симметричную функцию можно выбрать в качестве скалярного произведения (см.
+					методичку <a class="new-tab-link" href="http://www.uic.unn.ru:8103/~zny/algebra/lectures/lectures/14_EuclidSpaces.pdf" target="_blank">uic.unn.ru</a>).
+					Про билинейные функции читайте <a href="../maga7/maga7.php">здесь.</a>
+				</p>
+				
+				<h3>Матрица Грама</h3>
+				<p>
+					Квадратная симметрическая матрица <span class="math">G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>)</span>,
+					составленная из скалярных произведений системы векторов <span class="math">e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub></span>
+					называется <b>матрицей Грама.</b>
+				</p>
+				
+				<p>
+					Т.е. матрица Грама выглядит так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>) =
+						<table class="matrix">
+							<tr><td>(e<sub>1</sub>, e<sub>1</sub>)</td><td>(e<sub>1</sub>, e<sub>2</sub>)</td><td>. . .</td><td>(e<sub>1</sub>, e<sub>n</sub>)</td></tr>
+							<tr><td>(e<sub>2</sub>, e<sub>1</sub>)</td><td>(e<sub>2</sub>, e<sub>2</sub>)</td><td>. . .</td><td>(e<sub>2</sub>, e<sub>n</sub>)</td></tr>
+							<tr><td>. . .</td><td>. . .</td><td>. . .</td><td>. . .</td></tr>
+							<tr><td>(e<sub>n</sub>, e<sub>1</sub>)</td><td>(e<sub>n</sub>, e<sub>2</sub>)</td><td>. . .</td><td>(e<sub>n</sub>, e<sub>n</sub>)</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Матрицу Грама можно представить как произведение матрицы <span class="math">A</span>, составленной из координат
+					некоторой системы векторов, и её транспонированной версии:<br>
+					<span class="math center">G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>) = A * A<sup>T</sup></span>
+				</p>
+				
+				<p>
+					Матрица Грама имеет большое прикладное значение. Она может быть использована для выяснения линейной зависимости системы векторов;
+					нахождения объёма n-мерного параллелепипеда, построенного на этих векторах; вычисления расстояния от конца вектора до некоторого 
+					подпространства векторов (и угла между вектором и подпространством) (подробнее см.
+					<a class="new-tab-link" href="http://mathhelpplanet.com/static.php?p=matritsa-i-opredelitel-grama" target="_blank">mathhelpplanet.com</a>).
+				</p>
+				
+				<p>
+					Можно также вывести формулу <b>изменения матрицы Грама</b> при переходе от одного базиса <span class="math">e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub></span>
+					к другому базису <span class="math">e'<sub>1</sub>, e'<sub>2</sub>, . . ., e'<sub>n</sub></span>:<br>
+					<span class="math center">
+						G(e'<sub>1</sub>, e'<sub>2</sub>, . . ., e'<sub>n</sub>) = S<sup>T</sup> * G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>) * S
+					</span>
+				</p>
+				
+				<p>
+					Где матрица <span class="math">S</span> является переходной от базиса <span class="math">e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub></span> к
+					базису <span class="math">e'<sub>1</sub>, e'<sub>2</sub>, . . ., e'<sub>n</sub></span>.
+				</p>
+				
+				<p>
+					Матрица Грама позволяет записать выражение скалярного произведения через координаты векторов
+					(в базисе <span class="math">e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub></span>):<br>
+					<span class="math center">
+						(x, y) = x<sup>T</sup> * G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>) * y
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(1)
+				</p>
+				
+				<p>
+					Матрицы Грама <b>ортонормированных базисов единичные.</b>
+				</p>
+				
+				<p>
+					Определитель матрицы <span class="math">G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>)</span>
+					называется <b>определителем Грама.</b> Он имеет несколько полезных свойств.
+				</p>
+				
+				<p>
+					Во-первых, именно с помощью определителя Грама можно выявить линейную независимость системы векторов:
+					<i>система векторов <span class="math">v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub></span> <b>линейно
+					зависима</b> тогда и только тогда, когда определитель Грама этой системы равен нулю:</i><br>
+					<span class="math center">
+						det G(v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub>) = 0
+					</span>
+				</p>
+				
+				<p>
+					Также ещё говорят, что система векторов линейно зависима, когда матрица Грама положительно полуопределена
+					(см. критерий Сильвестра <a href="../maga7/maga7.php">в предыдущем разделе</a>).
+					Это более широкая по смыслу трактовка первого свойства определителя Грама.
+				</p>
+				
+				<p>
+					Во-вторых, определитель Грама <span class="math">det G(v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub>)</span> не изменяется
+					в процессе <a href="#h2_2">ортогонализации системы векторов</a> <span class="math">v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub></span>.
+				</p>
+				
+				<p>
+					Кроме этого, определитель Грама векторов <span class="math">v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub></span>
+					равен квадрату <span class="math">n</span>-мерного объема параллелепипеда, построенного на этих векторах.
+					В этом заключается геометрический смысл определителя Грама
+					(читайте подробнее тут:
+					<a class="new-tab-link" href="http://mathhelpplanet.com/static.php?p=matritsa-i-opredelitel-grama" target="_blank">mathhelpplanet.com</a>). То есть:<br>
+					<span class="math center">
+						det G(v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub>) = V<sup>2</sup><sub>v<sub>1</sub>, v<sub>2</sub>, . . ., v<sub>n</sub></sub>
+					</span>
+				</p>
+				
+				<h2 id="h2_2">Неравенство Коши–Буняковского</h2>
+				<p>
+					Величина <span class="math">|x| = &radic;(x, x)</span> называется <b>длиной</b>
+					или <b>нормой</b> вектора <span class="math">x</span>.
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<i>Для любых векторов <span class="math">a, b</span> евклидова пространства <span class="math">V</span>
+					выполнено неравенство<br>
+					<span class="math center">
+						|(a, b)| &le; |a| * |b|,
+					</span></i>
+				</p>
+				
+				<p>
+					причем равенство имеет место тогда и только тогда, когда векторы <span class="math">a</span>
+					и <span class="math">b</span> линейно зависимы.
+				</p>
+				
+				<p>
+					Доказательство теоремы см. тут
+					<a class="new-tab-link" href="http://www.uic.unn.ru:8103/~zny/algebra/lectures/lectures/14_EuclidSpaces.pdf" target="_blank">uic.unn.ru</a>,
+					стр. 3.
+				</p>
+				
+				<h2 id="h2_3">Ортонормированный базис</h2>
+				<p>
+					Векторы <span class="math">a, b</span> называются <b>ортогональными</b>
+					(в пространствах <span class="math">V<sub>2</sub></span> и <span class="math">V<sub>3</sub></span> —
+					<i>перпендикулярными</i>), если <span class="math">(a, b) = 0</span>. Обозначение: <span class="math">a&perp;b</span>.
+				</p>
+				
+				<p>
+					Система векторов <span class="math">a<sub>1</sub>, a<sub>2</sub>, . . ., a<sub>k</sub></span> называется <b>ортогональной,</b>
+					если <span class="math">a<sub>i</sub>&perp;a<sub>j</sub></span> при
+					<span class="math">i &ne; j</span>,
+					<span class="math">i = 1, . . . , k</span>, <span class="math">j = 1, . . . , k</span>.
+				</p>
+				
+				<p>
+					Система векторов <span class="math">a<sub>1</sub>, a<sub>2</sub>, . . ., a<sub>k</sub></span>
+					называется <b>ортонормированной,</b> если<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						(a<sub>i</sub>, a<sub>j</sub>) =
+						<table class="fraction"><tr><td>0 при i &ne; j (т.е. a<sub>i</sub>&perp;a<sub>j</sub>),</td></tr><tr><td></td></tr><tr><td>1 при i = j (т.е. |a<sub>i</sub>| = 1)</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					Существуют следующие утверждения. Ортогональная система ненулевых векторов линейно независима.
+					Ортонормированная система линейно независима. Доказательство см.
+					<a class="new-tab-link" href="http://www.uic.unn.ru:8103/~zny/algebra/lectures/lectures/14_EuclidSpaces.pdf" target="_blank">uic.unn.ru</a>,
+					стр. 5.
+				</p>
+				
+				<p>
+					Базис <span class="math">{e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>}</span> называется <b>ортогональным
+					(ортонормированным),</b> если он представляет собой ортогональную (соответственно ортонормированную) систему.
+				</p>
+				
+				<p>
+					Матрица Грама в ортогональном базисе диагональная:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<table class="matrix">
+							<tr><td style="background: orange; border-radius: 1em;">a<sub>1, 1</sub> &ne; 0</td><td>0</td><td>0</td><td>. . .</td><td>0</td></tr>
+							<tr><td>0</td><td style="background: orange; border-radius: 1em;">a<sub>2, 2</sub> &ne; 0</td><td>0</td><td>. . .</td><td>0</td></tr>
+							<tr><td>. . .</td><td>. . .</td><td>. . .</td><td>. . .</td><td>. . .</td></tr>
+							<tr><td>0</td><td>0</td><td>0</td><td>. . .</td><td style="background: orange; border-radius: 1em;">a<sub>n, n</sub> &ne; 0</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					А в ортонормированном базисе, как уже говорилось выше — единичная:<br>
+					<span class="math center">
+						G<sub>ort</sub> = E
+					</span>
+				</p>
+				
+				<p>
+					И поэтому скалярное произведение двух векторов с координатами в ортонормированном базисе
+					<span class="math">{e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>}</span>
+					можно записать как:<br>
+					<span class="math center">
+						(x, y) = x<sup>T</sup> * G(e<sub>1</sub>, e<sub>2</sub>, . . ., e<sub>n</sub>) * y =
+						1 * x<sub>1</sub> * y<sub>1</sub> + 1 * x<sub>2</sub> * y<sub>2</sub> + . . . +
+						1 * x<sub>n</sub> * y<sub>n</sub>.
+					</span>
+				</p>
+				
+				<p>
+					см. формулу <i>(1)</i> выше.
+				</p>
+				
+				<h2 id="h2_4">Ортогональная матрица</h2>
+				<p>
+					<b>Ортогональная матрица</b> <span class="math">A</span> — матрица, которая обязательно имеет
+					обратную матрицу <span class="math">A<sup>-1</sup></span>, которая в свою очередь
+					равна транспонированной матрице <span class="math">A<sup>T</sup></span>.
+				</p>
+				
+				<p>
+					Иными словами:<br>
+					<span class="math center">
+						A * A<sup>-1</sup> = A<sup>-1</sup> * A = A * A<sup>T</sup> = A<sup>T</sup> * A = E
+					</span>
+				</p>
+				
+				<p>
+					Определитель ортогональной матрицы равен <span class="math">&plusmn; 1</span>, что следует
+					из свойств определителей.
+				</p>
+				
+				<p>
+					<b>Пример.</b> <b>Матрица оператора поворота</b> является частным случаем ортогональной матрицы [<a href="#res3">3</a>, с. 17].
+					При этом определитель матрицы поворота равен именно <span class="math">+1</span>, что относит её к специальному
+					классу ортогональных матриц — к <i>группе вращений</i> <span class="math">n</span>-мерного арифметического вещественного
+					пространства.
+				</p>
+				
+				<p>
+					То есть оператор вращения с такой матрицей поворачивает систему векторов (либо один вектор) на заданный угол
+					в пространстве.
+				</p>
+				
+				<p>
+					Кроме того, матрицей перехода из одного ортонормированного базиса в другой ортонормированный базис
+					является всегда ортогональная матрица.
+				</p>
+				
+				<h2 id="h2_5">Ортогональные операторы</h2>
+				<p>
+					<b>Ортогональные операторы</b> образуют один из нескольких классов операторов в евклидовом пространстве (и только в нём).
+				</p>
+				
+				<p>	
+					Существуют ещё так называемые <b>сопряжённые и самосопряжённые</b> линейные операторы в евклидовом пространстве. Каждый из этих
+					классов преобразований обладает своими уникальными свойствами. Например, самосопряжённые (симметрические) операторы обладают
+					симметрическими матрицами. Это является их главным признаком. См. подробнее про все виды операторов в евклидовом пространстве тут:
+					<a class="new-tab-link" href="https://mipt.ru/education/chair/mathematics/study/d_obuch/vesenniy-semestr/2021/1-kurs/umnov/la-c/14.pdf" target="_blank">mipt.ru/.../1-kurs/umnov/...</a>
+				</p>
+				
+				<p>
+					Линейный оператор <span class="math">Q</span>, действующий в евклидовом пространстве <span class="math">E</span>,
+					называется <b>ортогональным</b> (или изометрическим), если <span class="math">&forall;x, y &isin; E</span>
+					имеет место равенство <span class="math">(<b>Q</b>x, <b>Q</b>y) = (x, y)</span>.
+				</p>
+				
+				<p>
+					Т.е. ортогональный оператор не меняет скалярного произведения векторов. Он
+					сохраняет норму элементов евклидова пространства и угол между ними.
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<i>Матрица ортогонального оператора в каждом ортонормированном базисе всегда ортогональная.</i>
+				</p>
+				
+				<p>
+					<b>Пример.</b> В пространствах <span class="math">V<sub>2</sub>, V<sub>3</sub></span> линейный оператор
+					поворота (тот же, что и <a href="#h2_4">в предыдущем параграфе</a>) вектора на фиксированный угол
+					является ортогональным, так как при повороте длины векторов не изменяются.
+				</p>
+				
+				<p>
+					Оператор, обратный к ортогональному, тоже является ортогональным. Кроме того,
+					корни характеристического уравнения (собственные числа) ортогонального
+					оператора равны <span class="math">±1</span>.
+				</p>
+				
+				<h2 id="h2_6">Процесс ортогонализации Грама–Шмидта</h2>
+				<p>
+					Напоследок, следует запомнить, что есть такой метод отыскания ортогонального базиса
+					<span class="math">b<sub>1</sub>, b<sub>2</sub>, . . ., b<sub>k</sub></span>
+					по произвольно заданному базису <span class="math">a<sub>1</sub>, a<sub>2</sub>, . . ., a<sub>k</sub></span>.
+				</p>
+				
+				<p>
+					В базисе <span class="math">b<sub>1</sub>, b<sub>2</sub>, . . ., b<sub>k</sub></span> векторы, как уже
+					должно быть понятно, попарно ортогональны векторам из исходного базиса
+					<span class="math">a<sub>1</sub>, a<sub>2</sub>, . . ., a<sub>k</sub></span>. Значит,
+					<span class="math">b<sub>i</sub> = ort a<sub>i</sub></span> можно вычислять по формуле<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span><br>
+					<span class="math center">
+						b<sub>i</sub> = a<sub>i</sub> —
+						<table class="fraction"><tr><td>(a<sub>i</sub>, a<sub>1</sub>)</td></tr><tr><td>—————</td></tr><tr><td>(a<sub>1</sub>, a<sub>1</sub>)</td></tr></table> * a<sub>1</sub>
+						<b>—</b>
+						<table class="fraction"><tr><td>(a<sub>i</sub>, a<sub>2</sub>)</td></tr><tr><td>—————</td></tr><tr><td>(a<sub>2</sub>, a<sub>2</sub>)</td></tr></table> * a<sub>2</sub>
+						<b>—</b> . . . <b>—</b><br><br>
+						<b>—</b>
+						<table class="fraction"><tr><td>(a<sub>i</sub>, a<sub>i - 1</sub>)</td></tr><tr><td>—————</td></tr><tr><td>(a<sub>i - 1</sub>, a<sub>i - 1</sub>)</td></tr></table> * a<sub>i - 1</sub>
+					</span>
+				</p>
+				
+				<p>
+					Построение ортогонального базиса по этим формулам называется <b>процессом ортогонализации Грама–Шмидта.</b>
+				</p>
+				
+				<p>
+					Подробнее см.
+					<a class="new-tab-link" href="http://www.uic.unn.ru:8103/~zny/algebra/lectures/lectures/14_EuclidSpaces.pdf" target="_blank">uic.unn.ru</a>,
+					стр. 15.
+				</p>
+				
+				<h2 id="h2_7">Симметричный оператор</h2>
+				<p>
+					Линейный оператор <span class="math">A</span>, действующий в евклидовом векторном
+					пространстве <span class="math">E</span>, называется <b>симметричным,</b>
+					если для любых векторов <span class="math">x, y &isin; E</span> выполняется соотношение <span class="math">(<b>A</b>x, y) = (x, <b>A</b>y)</span>.
+				</p>
+				
+				<p>
+					Все собственные числа симметричного оператора являются <b>действительными числами.</b> То есть характеристический многочлен,
+					составленный из матрицы симметричного оператора, имеет только действительные корни и не имеет комплексных.
+				</p>
+				
+				<p>
+					Собственные векторы симметрического линейного оператора,
+					соответствующие его различным собственным значениям, <b>ортогональны между собой.</b>
+				</p>
+				
+				<p>
+					Для любого симметрического линейного оператора евклидова векторного пространства <b>существует
+					ортонормированный базис, составленный из собственных векторов этого оператора.</b>
+				</p>
+				
+				<h2 id="h2_8">Упражнения</h2>
+				<h3>Условие задачи №1</h3>
+				<p>
+					Это задание взято из варианта 2019-го года: <a class="new-tab-link" target="_blank" href="https://priem.mirea.ru/docs/2020/samples/math_mag_101.pdf">math_mag_101.pdf.</a>
+				</p>
+				<p>
+					Оператор поворота <span class="math">A</span> относительно некоторой прямой
+					в пространстве <span class="math">R<sup>3</sup></span> задан
+					в каноническом базисе матрицей:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<table class="matrix">
+							<tr>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Найти направляющий вектор этой прямой и угол поворота.
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Поначалу это задание действительно нелегко решить начинающему математику. Но посидев и подумав, почитав некоторое время
+					справочную литературу и посты людей на форумах по этой теме,
+					решение обязательно придёт!
+				</p>
+				
+				<p>
+					Сначала необходимо найти <i>направляющий вектор прямой,</i> относительно которой вращаются вектора в пространстве этим оператором.
+					Следующим шагом необходимо будет вычислить два недостающих вектора, которые вместе с выбранным направляющим вектором
+					будут составлять <i>ортогональный базис</i> пространства <span class="math">R<sup>3</sup></span>.
+				</p>
+				
+				<p>
+					Затем следует нормировать этот базис и привести его к <i>ортонормированному</i> базису. Из координат векторов
+					этого базиса строится <i>матрица перехода</i>
+					из первоначального базиса в полученный только что новый ортонормированный базис.
+				</p>
+				
+				<p>
+					После этого, известным соотношением получается матрица оператора уже в выбранном <i>новом</i> ортонормированном базисе.
+				</p>
+				
+				<p>
+					Эта матрица и будет содержать информацию об угле поворота!
+				</p>
+				
+				<p>
+					Итак, согласно написанному алгоритму. Нужно найти какой-нибудь <b>собственный вектор</b> оператора <span class="math">A</span>.
+					Это будет тот вектор, который по определению не изменяется данным оператором. И значит, он будет искомым направляющим вектором,
+					вокруг которого и вертятся остальные векторы пространства.
+				</p>
+				
+				<p>
+					Известно, что у ортогонального оператора действительные собственные числа бывают только <span class="math">+1</span>
+					или <span class="math">-1</span> (см. параграф выше <a href="#h2_5">&laquo;Ортогональные операторы&raquo;</a>).
+					У оператора поворота собственным числом всегда является <span class="math">+1</span>.
+					Таким образом, вычисляя<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						A<b>x</b> = &lambda;<b>x</b>&nbsp;&nbsp;&rArr;&nbsp;&nbsp;A<b>x</b> = <b>x</b>&nbsp;&nbsp;&rArr;&nbsp;&nbsp;<br><br>
+						<table class="matrix">
+							<tr>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+						</table> *
+						<table class="matrix">
+							<tr><td>x</td></tr>
+							<tr><td>y</td></tr>
+							<tr><td>z</td></tr>
+						</table>
+						=
+						<table class="matrix">
+							<tr><td>x</td></tr>
+							<tr><td>y</td></tr>
+							<tr><td>z</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Получится однородная система линейных уравнений:<br>
+					<span class="math center">
+						-x + y + z = 0,<br>
+						-x - 2y + z = 0,<br>
+						x - y - z = 0;
+					</span>
+				</p>
+				
+				<p>
+					Т.к. система однородная, то она имеет хотя бы одно тривиальное решение. И т.к.
+					ранг матрицы системы (<span class="math">rang(B) = 2</span>) меньше кол-ва неизвестных (<span class="math">n = 3</span>),
+					то она имеет бесконечное множество решений и не ограничивается одним тривиальным решением.
+				</p>
+				
+				<p>
+					Таким образом, решением системы будут все векторы, у которых<br>
+					<span class="math center">
+						y = 0,<br>
+						x = z.
+					</span>
+				</p>
+				
+				<p>
+					Теперь выбирается какой-нибудь один вектор. Пусть это будет<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>v</b> =
+						<table class="matrix">
+							<tr><td>1</td></tr>
+							<tr><td>0</td></tr>
+							<tr><td>1</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Вектор <span class="math"><b>v</b></span> и является искомым направляющим вектором.
+				</p>
+				
+				<p>
+					Рассуждая далее. Чтобы найти угол поворота оператора <span class="math">A</span>, нужно
+					перевести матрицу оператора в другой базис, в котором, грубо говоря, происходит вращение векторов.
+				</p>
+				
+				<p>
+					Частью этого нового базиса уже является направляющий вектор <span class="math"><b>v</b></span>. Необходимо
+					построить ещё два вектора, вместе с которыми вектор <span class="math"><b>v</b></span> будет составлять
+					ортогональную систему.
+				</p>
+				
+				<p>
+					Их найти можно любым способом, который Вам, любопытный читатель, кажется удобнее всего. В этом
+					решении второй вектор базиса будет найден, исходя из понимания скалярного произведения двух векторов. А третий —
+					будет векторным произведением двух полученных ранее.
+				</p>
+				
+				<p>
+					Значит:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						(<b>v</b>, <b>v'</b>) = 0;<br><br>
+						<table class="fraction"><tr><td>x<sub><b>v'</b></sub> * 1 + y<sub><b>v'</b></sub> * 0 + z<sub><b>v'</b></sub> * 1</sub></td></tr><tr><td>—————————</td></tr><tr><td>&radic;2 * &radic;2</td></tr></table> = 0;<br><br>
+						<table class="fraction"><tr><td>x<sub><b>v'</b></sub> + z<sub><b>v'</b></sub></sub></td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table> = 0;
+					</span>
+				</p>
+				
+				<p>
+					Т.е.<br>
+					<span class="math center">
+						x<sub><b>v'</b></sub> = -z<sub><b>v'</b></sub>.
+					</span>
+				</p>
+				
+				<p>
+					Пусть такой вектор будет таким:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>v'</b> =
+						<table class="matrix">
+							<tr><td>1</td></tr>
+							<tr><td>0</td></tr>
+							<tr><td>-1</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Третий же вектор будет<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>v''</b> = <b>v</b> x <b>v'</b> =
+						<table class="deter">
+							<tr><td><b>i</b></td><td><b>j</b></td><td><b>k</b></td></tr>
+							<tr><td>1</td><td>0</td><td>1</td></tr>
+							<tr><td>1</td><td>0</td><td>-1</td></tr>
+						</table> = 0<b>i</b> + 2<b>j</b> + 0<b>k</b>;<br>
+						<b>v''</b> =
+						<table class="matrix">
+							<tr><td>0</td></tr>
+							<tr><td>2</td></tr>
+							<tr><td>0</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Построена ортогональная система трёх векторов, которая является так же базисом пространства:
+					<span class="math">{<b>v</b>, <b>v'</b>, <b>v''</b>} =
+						{(1; 0; 1), (1; 0; -1), (0; 2; 0)}
+					</span>.
+				</p>
+				
+				<p>
+					Затем полученный базис нормируется, при этом координаты всех его векторов делятся
+					на длину соответствующего вектора.
+				</p>
+				
+				<p>
+					Матрица перехода из исходного базиса <span class="math">{<b>i</b>, <b>j</b>, <b>k</b>}</span> в
+					ортонормированный базис:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>u</b> =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td></tr>
+							<tr><td>0</td></tr>
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td></tr>
+						</table>;<br>
+						<b>u'</b> =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td></tr>
+							<tr><td>0</td></tr>
+							<tr><td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td></tr>
+						</table><br>
+						<b>u''</b> =
+						<table class="matrix">
+							<tr><td>0</td></tr>
+							<tr><td>1</td></tr>
+							<tr><td>0</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					получится такой:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						T =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td></tr>
+							<tr><td>0</td><td>0</td><td>1</td></tr>
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td></tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Теперь матрица оператора переводится в другой ортонормированный базис. Причём стоит заметить, что
+					матрица перехода <span class="math">T</span>, ортогональная. Потому что она переводит координаты из одного
+					ортонормированного базиса в другой тоже ортонормированный базис (см. параграф выше <a href="#h2_4">&laquo;Ортогональная матрица&raquo;</a>).
+					А значит, обратная ей матрица <span class="math">T<sup>-1</sup></span> будет равна транспонированной <span class="math">T<sup>T</sup></span>, что облегчает вычисления.
+				</p>
+				
+				<p>
+					Итак:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						A<sub>new</sub> = T<sup>-1</sup> * A * T =
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td></tr>
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td><td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td></tr>
+							<tr><td>0</td><td>1</td><td>0</td></tr>
+						</table> *
+						<table class="matrix">
+							<tr>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+						</table> *
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td></tr>
+							<tr><td>0</td><td>0</td><td>1</td></tr>
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td></tr>
+						</table>
+						=
+						<table class="matrix">
+							<tr>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td>
+								<td>0</td>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3&radic;2</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2&radic;2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>3&radic;2</td></tr></table></td>
+							</tr>
+							<tr>
+								<td><table class="fraction"><tr><td>-2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+						</table> *
+						<table class="matrix">
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td></tr>
+							<tr><td>0</td><td>0</td><td>1</td></tr>
+							<tr><td><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>&radic;2</td></tr></table></td><td>0</td></tr>
+						</table> =
+						<table class="matrix">
+							<tr>
+								<td>1</td>
+								<td>0</td>
+								<td>0</td>
+							</tr>
+							<tr>
+								<td>0</td>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>2&radic;2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+							<tr>
+								<td>0</td>
+								<td><table class="fraction"><tr><td>-2&radic;2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+								<td><table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></td>
+							</tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					Полученная матрица оператора в новом базисе <span class="math">A<sub>new</sub></span> выглядит,
+					соответствуя стандартному шаблону поворота:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+					<table class="matrix">
+							<tr>
+								<td>1</td>
+								<td>0</td>
+								<td>0</td>
+							</tr>
+							<tr>
+								<td>0</td>
+								<td>cos &alpha;</td>
+								<td>-sin &alpha;</td>
+							</tr>
+							<tr>
+								<td>0</td>
+								<td>sin &alpha;</td>
+								<td>cos &alpha;</td>
+							</tr>
+						</table>
+					</span>
+				</p>
+				
+				<p>
+					А это значит, что угол поворота оператора <span class="math">A</span> равен:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						cos &alpha; = <table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>;<br>
+						&alpha; = arccos(<table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>).
+					</span>
+				</p>
+				
+				<p>
+					<b>
+						ОТВЕТ:
+						направляюший вектор обсуждаемой прямой:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<b>v</b> =
+							<table class="matrix">
+								<tr><td>1</td></tr>
+								<tr><td>0</td></tr>
+								<tr><td>1</td></tr>
+							</table>
+						</span><br>
+						угол поворота оператора:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							&alpha; = arccos(<table class="fraction"><tr><td>-1</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table>).
+						</span>
+					</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					На форуме [<a href="#res1">1</a>] два ответивших на вопрос о нахождении угла поворота
+					пользователя привели схожие алгоритмы решения подобной задачи. Пользователь <b>Poncho</b>
+					процитировал решение таких задач <b>Д. В. Беклемишевым</b> из его книги &laquo;Решение задач из курса
+					аналитической геометрии и линейной алгебры&raquo;. Общая формула<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						cos &alpha; = <table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table> *
+						(след(A) - 1)
+					</span>
+				</p>
+				
+				<p>
+					Беклемишева даёт такой же результат для угла поворота!
+				</p>
+				
+				<p>
+					И отдельное спасибо пользователю <b>falcao</b> за предоставленные наводящие рассуждения.
+				</p>
+				
+				<p>
+					Кроме того, наглядное изображение поворотов векторов в онлайн-системе
+					<a class="new-tab-link" target="_blank" href="https://www.geogebra.org/3d">geogebra.org</a>
+					даёт понять, что решение действительно логичное и верное (см. <a href="#pic1">рисунок 1</a> и
+					<a href="#pic2">рисунок 2</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="Онлайн построение векторов сервисом geogebra.org" alt="Изображение в пространственной декартовой системе координат некоторых получающихся по ходу вычислений векторов"></td></tr>
+					<tr><td>Рисунок 1 — Онлайн-построение векторов,</td></tr>
+					<tr><td>получающихся в процессе решения задачи</td></tr>
+				</table>
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="Онлайн построение векторов сервисом geogebra.org" alt="Изображение в пространственной декартовой системе координат некоторых получающихся по ходу вычислений векторов"></td></tr>
+					<tr><td>Рисунок 2 — Изображение плоскости вращения векторов</td></tr>
+				</table>
+				</p>
+				
+				<h2 id="h2_9">Заключение</h2>
+				<p>
+					<b>На этом решения задач линейной алгебры и аналитической геометрии и разбор теории на сайте
+					заканчивается, дорогой читатель. Спасибо тебе за внимание и вкусных пряников! Больше позитива!
+					Никогда не сдавайся, иди к своей заветной мечте и завоёвывай друзей и уважение всех вокруг своими поступками!</b>
+				</p>
+				
+				<p>
+					<b>Увидимся в разделе математического анализа, ахаха! :)</b>
+				</p>
+				
+				<h2 id="h2_10">Список использованной литературы</h2>
+				<ol>
+					<li id="res1">линейная-алгебра - Выразить угол поворота трехмерного пространства через матрицу оператора вращения пространства // Математика URL:
+					<a class="new-tab-link" href="http://math.hashcode.ru/questions/61091/%D0%BB%D0%B8%D0%BD%D0%B5%D0%B9%D0%BD%D0%B0%D1%8F-%D0%B0%D0%BB%D0%B3%D0%B5%D0%B1%D1%80%D0%B0-%D0%B2%D1%8B%D1%80%D0%B0%D0%B7%D0%B8%D1%82%D1%8C-%D1%83%D0%B3%D0%BE%D0%BB-%D0%BF%D0%BE%D0%B2%D0%BE%D1%80%D0%BE%D1%82%D0%B0-%D1%82%D1%80%D0%B5%D1%85%D0%BC%D0%B5%D1%80%D0%BD%D0%BE%D0%B3%D0%BE-%D0%BF%D1%80%D0%BE%D1%81%D1%82%D1%80%D0%B0%D0%BD%D1%81%D1%82%D0%B2%D0%B0-%D1%87%D0%B5%D1%80%D0%B5%D0%B7-%D0%BC%D0%B0%D1%82%D1%80%D0%B8%D1%86%D1%83-%D0%BE%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D0%BE%D1%80%D0%B0-%D0%B2%D1%80%D0%B0%D1%89%D0%B5%D0%BD%D0%B8%D1%8F-%D0%BF%D1%80%D0%BE%D1%81%D1%82%D1%80%D0%B0%D0%BD%D1%81%D1%82%D0%B2%D0%B0" target="_blank">http://math.hashcode.ru/</a>
+					(дата обращения: 06.07.2022).</li>
+					<li id="res2">В.Л. Панков, А.В. Татаринцев Программа вступительного испытания по высшей математике.
+					- Москва: РТУ МИРЭА Система менеджмента качества обучения, 2021. - 7 с.</li>
+					<li id="res3">Линейные операторы: Метод. указания к домашней контрольной работе по курсу
+					«Линейная алгебра и аналитическая геометрия». Часть 1 /
+					Моск. гос. ин-т электроники и математики; Сост.: И.К. Бусяцкая, К.К. Андреев. М., 2005. – 23 с.</li>
+					<li id="res4">Вектор // GeoGebra 3D Calculator URL: https://www.geogebra.org/3d (дата обращения: 06.07.2022).</li>
+					<li id="res5">Ефимов Н. В. Краткий курс аналитической геометрии. — 13-е изд., стереот. — М.: ФИЗМАТЛИТ,
+					2006. — 240 с.</li>
+					<li id="res6">Алгебра // Mathway URL: https://www.mathway.com/ru/Algebra (дата обращения: 06.07.2022).</li>
+					<li id="res7">Умножение матриц онлайн // Mathforyou URL:
+					https://mathforyou.net/online/matrices/multiplication/ (дата обращения: 06.07.2022).</li>
+					<li id="res8">Ортогональная матрица // Википедия URL:
+					<a class="new-tab-link" href="https://ru.wikipedia.org/wiki/%D0%9E%D1%80%D1%82%D0%BE%D0%B3%D0%BE%D0%BD%D0%B0%D0%BB%D1%8C%D0%BD%D0%B0%D1%8F_%D0%BC%D0%B0%D1%82%D1%80%D0%B8%D1%86%D0%B0" target="_blank">https://ru.wikipedia.org/wiki/Ортогональная_матрица</a>
+					(дата обращения: 06.07.2022).</li>
+				</ol>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga7/maga7.php">Предыдущая статья</a></span><span class="next"><a href="../maga9/maga9.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga8/maga8.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

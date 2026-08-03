@@ -1,0 +1,444 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 10.07.2022</b></i></p>
+				<p><i><b>Обновлена: 29.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Решение остальных заданий</h1>
+				<p>
+					В этом разделе собраны решения других заданий, которые не были разобраны
+					ранее в процессе обсуждения основных тем программы математики в бакалавриате.
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Первая группа заданий</a></li>
+						<li><a href="#h2_2">Вторая группа заданий</a></li>
+						<li><a href="#h2_3">Третья группа заданий</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Задания 1</h2>
+				<p>
+					Ниже идут первые три задания первой части в демонстрационном варианте <b>2018-го года:</b>
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2019/samples/math_mag_202.pdf" target="_blank">math_mag_202.pdf.</a>
+				</p>
+				
+				<h3>Условие задачи №1</h3>
+				<p>
+					Найти длину биссектрисы, проведённой из вершины <span class="math">A</span> треугольника
+					<span class="math">ABC</span> с вершинами <span class="math">A(-1;0)</span>, <span class="math">B(7;4)</span> и
+					<span class="math">C(3;-2)</span>.
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Не зная <b>теорему о биссектрисе</b> и <b>теорему косинусов,</b> решить это задание будет невозможно!
+				</p>
+				
+				<p>
+					На <a href="#pic1">рисунке 1</a> приведён чертёж и содержание теоремы о биссектрисе (см., например,
+					<a class="new-tab-link" target="_blank" href="https://ru.wikipedia.org/wiki/%D0%A2%D0%B5%D0%BE%D1%80%D0%B5%D0%BC%D0%B0_%D0%BE_%D0%B1%D0%B8%D1%81%D1%81%D0%B5%D0%BA%D1%82%D1%80%D0%B8%D1%81%D0%B5">ru.wikipedia.org/wiki/Теорема_о_биссектрисе</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="Отредактировано в GIMP" alt="Условие задачи и чертёж исходного треугольника с неизвестной биссектрисой угла A"></td></tr>
+					<tr><td>Рисунок 1 — Начальные условия задачи и чертёж треугольника</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Итак, получается:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center"><sup><table class="fraction"><tr><td>AC</td></tr><tr><td>——</td></tr><tr><td>AB</td></tr></table></sup> =
+							<sup><table class="fraction"><tr><td>CA'</td></tr><tr><td>——</td></tr><tr><td>A'B</td></tr></table></sup> =
+							<sup><table class="fraction"><tr><td>&radic;20</td></tr><tr><td>——</td></tr><tr><td>&radic;80</td></tr></table></sup> =
+							<sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup>
+						</span>
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(1)
+				</p>
+				
+				<p>
+					Из равенства (1) дальше находится одна из частей стороны <span class="math">BC</span>, которую делит биссектриса <span class="math">AA'</span>:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center">
+							CA' = <sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup>BA';<br>
+							BA' + CA' = BC;<br>
+							BA' + <sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup>BA' = &radic;52;<br>
+							BA' = <sup><table class="fraction"><tr><td>2</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup>&radic;52.
+						</span>
+					</span>
+				</p>
+				
+				<p>
+					Дальше нужно по теореме косинусов найти косинус угла <span class="math">B</span> треугольника:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center">
+							cos<b>B</b> = <sup><table class="fraction"><tr><td>AB<sup>2</sup> + BC<sup>2</sup> - AC<sup>2</sup></td></tr><tr><td>——————</td></tr><tr><td>2 * AB * BC</td></tr></table></sup>;<br><br>
+							cos<b>B</b> = <sup><table class="fraction"><tr><td>7</td></tr><tr><td>———</td></tr><tr><td>&radic;13&radic;5</td></tr></table></sup>;
+						</span>
+					</span>
+				</p>
+				
+				<p>
+					И опять же по теореме косинусов находится сама биссектриса,
+					но только с использованием уже других найденных частей треугольника:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center">
+							AA'<sup>2</sup> = AB<sup>2</sup> + A'B<sup>2</sup> - 2*AB*A'B*cos<b>B</b> =
+							<sup><table class="fraction"><tr><td>256</td></tr><tr><td>——</td></tr><tr><td>9</td></tr></table></sup>;
+						</span>
+					</span>
+				</p>
+				
+				<p>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center">
+							AA' = <sup><table class="fraction"><tr><td>16</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup> = 5<sup><table class="fraction"><tr><td>1</td></tr><tr><td>——</td></tr><tr><td>3</td></tr></table></sup>
+						</span>
+					</span>
+				</p>
+				
+				<p>
+				<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center">
+						ОТВЕТ:
+						<sup><table class="fraction"><tr><td>16</td></tr><tr><td>—</td></tr><tr><td>3</td></tr></table></sup>.
+						</span>
+					</span>
+				</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Очень сильно помог этот рисунок в Интернете:
+					<a class="new-tab-link" target="_blank" href="https://yandex.ru/images/search?pos=1&text=%D0%BD%D0%B0%D0%B9%D1%82%D0%B8%20%D0%B4%D0%BB%D0%B8%D0%BD%D1%83%20%D0%B1%D0%B8%D1%81%D1%81%D0%B5%D0%BA%D1%82%D1%80%D0%B8%D1%81%D1%8B%20%D0%BF%D1%80%D0%BE%D0%B2%D0%B5%D0%B4%D1%91%D0%BD%D0%BD%D0%BE%D0%B9&img_url=https%3A%2F%2Fcf.ppt-online.org%2Ffiles%2Fslide%2Fb%2Fbhvc5WS3xBNAYjlJsLe8taoTiH4FDEQgkRXGPq%2Fslide-11.jpg&source=serp&rpt=simage&lr=213">ПРИМЕР 5 из ЕГЭ</a>
+					(источник: <a class="new-tab-link" target="_blank" href="https://en.ppt-online.org/12735">ppt-online.org</a>).
+				</p>
+				
+				<h3>Условие задачи №2</h3>
+				<p>
+					Вычислить предел
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<span href="math center">
+							<b><table class="fraction"><tr><td style="font-size: 1.5em">lim</td></tr><tr><td></td></tr><tr><td>n —> +&infin;</td></tr></table></b>
+							[<sup>3</sup>&radic;(8n<sup>3</sup> - 7n<sup>2</sup> + 1) - 2n]
+						</span>
+					</span>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					В задании такого типа появляется неопределённость вида <span class="math">[&infin; - &infin;]</span>, которую убирают
+					посредством приведения выражения к полному квадрату (или к сумме/разности кубов, как в этом задании) (см. <a href="#pic2">рис. 2</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="MSPaint" alt="Решение предела (с условием в верху рисунка)"></td></tr>
+					<tr><td>Рисунок 2 — Вычисление предела</td></tr>
+				</table>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Проверить правильность этого решения можно в любом онлайн-калькуляторе пределов,
+					например
+					<a class="new-tab-link" target="_blank" href="https://mathdf.com/lim/ru/">MathDF.</a>
+				</p>
+				
+				<h3>Условие 3 задания</h3>
+				<p>
+				<table class="img" id="pic3">
+					<tr><td><img src="3.jpg" title="MSPaint" alt="Условие 3-его задания демоварианта 2018-го года"></td></tr>
+				</table>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+				<table class="img" id="pic4">
+					<tr><td><img src="4.jpg" title="MSPaint" alt="Решение 3-его задания"></td></tr>
+					<tr><td>Рисунок 4 — Решение 3-его задания про бассейн</td></tr>
+				</table>
+				</p>
+				
+				<h3 style="visibility: hidden; position: absolute;">Проверка</h3>
+				
+				<h2 id="h2_2">Задания 2</h2>
+				<h3>Условие задачи 4</h3>
+				<p>
+					Это задание было взято из демоварианта 2019-го года:
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_201.pdf" target="_blank">math_mag_201.pdf.</a>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Это самый простой вид дифференциального уравнения — <b>дифур с разделяющимися переменными</b>
+					(см. <a href="#pic5">рис. 5</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic5">
+					<tr><td><img src="5.jpg" title="MSPaint" alt="Интегрирование дифференциального уравнения"></td></tr>
+					<tr><td>Рисунок 5 — Интегрирование дифференциального уравнения</td></tr>
+				</table>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Можно попробовать решить этот дифур на онлайн-калькуляторе (но там не все дифуры решаются) или
+					проверить на правильность самому — путём дифференцирования общего решения и его подстановки в исходное уравнение.
+					Должно получится верное равенство.
+				</p>
+				
+				<h3>Условие задачи 5</h3>
+				<p>
+					Это задание было взято из демоварианта 2019-го года:
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_101.pdf" target="_blank">math_mag_101.pdf.</a>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Это задание школьного типа на вероятности (см. <a href="#pic6">рис. 6</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic6">
+					<tr><td><img src="6.jpg" title="MSPaint" alt="Вероятности"></td></tr>
+					<tr><td>Рисунок 6 — Нахождение вероятности некоторого события</td></tr>
+				</table>
+				</p>
+				
+				<h3 style="visibility: hidden; position: absolute;">Проверка</h3>
+				
+				<h2 id="h2_3">Задания блока №3</h2>
+				<h3>Условие задачи 6</h3>
+				<p>
+					Это задание взято из варианта вступительного
+					экзамена в магистратуру 2017-го года:
+				</p>
+				
+				<p>
+				<table class="img" id="pic7">
+					<tr><td><img src="7.jpg" title="Вариант экзамена 2017-го года" alt="Найти вычеты комплексной функции в двух точках"></td></tr>
+					<tr><td>Рисунок 7 — Условие задачи №6</td></tr>
+				</table>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Комплексная функция<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<span href="math center">
+								f(z) = <sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">e<sup>-2z</sup> + 1</td></tr><tr><td>—————</td></tr><tr><td style="font-size: 1.5em">z<sup>2</sup> - 3z</td></tr></table></sup></sup> =
+								<sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">e<sup>-2z</sup> + 1</td></tr><tr><td>—————</td></tr><tr><td style="font-size: 1.5em">z(z - 3)</td></tr></table></sup></sup>
+							</span>
+						</span>
+				</p>
+				
+				<p>
+					Имеет две особые точки: <span class="math">z<sub>0</sub> = 0</span> и <span class="math">z<sub>0</sub> = 3</span>.
+					Эти точки являются <i>полюсами первого порядка</i> вследствие теоремы:
+				</p>
+				
+				<p style="border-top: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+					<i>Для того чтобы точка <span class="math">z<sub>0</sub></span> была полюсом порядка <span class="math">n</span> функции
+					<span class="math">f(z)</span>, необходимо и достаточно, чтобы ее можно было записать в виде</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center" style="border-bottom: 0.2em solid red;">
+								f(z) = <sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">&phi;(z)</td></tr><tr><td>————</td></tr><tr><td style="font-size: 1.5em">(z - z<sub>0</sub>)<sup>n</sup></td></tr></table></sup></sup>,
+								(&phi;(z<sub>0</sub>) &ne; 0).
+						</span>
+				</p>
+				
+				<p>
+					Точка <span class="math">z<sub>0</sub> = 1</span>, данная <a href="#pic7">в условии задачи</a>,
+					является <i>правильной</i> точкой, а потому вычет в ней равен нулю (по свойству вычетов).
+				</p>
+				
+				<p>
+					Вычет в особой точке <span class="math">z<sub>0</sub> = 3</span> (как уже было отмечено, полюсе первого порядка)
+					равен:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<span href="math center">
+								<table class="fraction"><tr><td>res f(z)</td></tr><tr><td></td></tr><tr><td style="font-size: 0.85em">z<sub>0</sub> = 3</td></tr></table> =
+								<table class="fraction"><tr><td style="font-size: 1.25em">lim</td></tr><tr><td></td></tr><tr><td style="font-size: 0.85em">z —> 3</td></tr></table> f(z)(z - 3) =
+								<br><br>=
+								<sup><table class="fraction"><tr><td style="font-size: 1.5em">lim</td></tr><tr><td></td></tr><tr><td>z —> 3</td></tr></table></sup> <sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">e<sup>-2z</sup> + 1</td></tr><tr><td>—————</td></tr><tr><td style="font-size: 1.5em">z</td></tr></table></sup></sup> =
+								<sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">e<sup>-6</sup> + 1</td></tr><tr><td>————</td></tr><tr><td style="font-size: 1.5em">3</td></tr></table></sup></sup>.
+							</span>
+						</span>
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+						<table class="fraction"><tr><td>res f(z)</td></tr><tr><td></td></tr><tr><td style="font-size: 0.85em">z<sub>0</sub> = 1</td></tr></table> = 0;<br>
+						<table class="fraction"><tr><td>res f(z)</td></tr><tr><td></td></tr><tr><td style="font-size: 0.85em">z<sub>0</sub> = 3</td></tr></table> =
+						<sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">e<sup>-6</sup> + 1</td></tr><tr><td>————</td></tr><tr><td style="font-size: 1.5em">3</td></tr></table></sup></sup>.
+					</span></b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Прекрасный онлайн-сервис
+					<a class="new-tab-link" href="http://upbyte.net/news/najti_vychety_funkcii_kompleksnogo_peremennogo_onlajn/2016-10-30-916" target="_blank">upbyte.net</a>
+					показывает точно такие же результаты (см. <a href="#pic8">рис. 8</a> и <a href="#pic9">рис. 9</a> ниже).
+				</p>
+				
+				<p>
+				<table class="img" id="pic8">
+					<tr><td><img src="8.jpg" title="http://upbyte.net/news/najti_vychety_funkcii_kompleksnogo_peremennogo_onlajn/2016-10-30-916" alt="Результат онлайн-калькулятора upbyte.net сходится с ответом этой статьи"></td></tr>
+					<tr><td>Рисунок 8 — Вычет в точке z<sub>0</sub> = 1</td></tr>
+				</table>
+				</p>
+				
+				<p>
+				<table class="img" id="pic9">
+					<tr><td><img src="9.jpg" title="http://upbyte.net/news/najti_vychety_funkcii_kompleksnogo_peremennogo_onlajn/2016-10-30-916" alt="Результат онлайн-калькулятора upbyte.net сходится с ответом этой статьи"></td></tr>
+					<tr><td>Рисунок 9 — Вычет в точке z<sub>0</sub> = 3</td></tr>
+				</table>
+				</p>
+				
+			</div>
+			<div>
+				<span class="previous"><a href="../maga8/maga8.php">Предыдущая статья</a></span><span class="next"><a href="../maga10/maga10.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga9/maga9.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

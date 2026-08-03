@@ -1,0 +1,9 @@
+# The downloaded figures. ~8.6 MB of JPEG that nothing needs after the first
+# build: packFigure writes content/enc/img/, that IS committed, and it skips
+# any figure already there. So a fresh clone rebuilds the whole pack without
+# ImageMagick and without the site being up.
+#
+# The article HTML next to this is NOT ignored, on purpose — it is 600 KB, it
+# is the actual source of every converted formula, and matesspace.h1n.ru is one
+# person's shared host with no archive behind it.
+cache/img/

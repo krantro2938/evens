@@ -1,0 +1,1229 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 09.06.2022</b></i></p>
+				<p><i><b>Исправлена и расширена: 01.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Линии на плоскости. Прямые, кривые и сами плоскости. Поверхности</h1>
+				<p>
+					В процессе написания этого параграфа был использован материал из книги
+					Н.В. Ефимова &laquo;Краткий курс аналитической геометрии&raquo; 2002-го года издания.
+				</p>
+				
+				<p>
+					Здесь обсуждаются темы согласно вопросу из методички РТУ МИРЭА
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2022/official/programs/prog_math_mag.pdf" target="_blank">Программа
+					вступительного испытания по высшей математике</a> — &laquo;Линии на плоскости.
+					Кривые второго порядка. Прямая и плоскость в пространстве. Поверхности второго порядка&raquo;.
+				</p>
+				
+				<h2>Линии первого порядка</h2>
+				<h3>Уравнение линии</h3>
+				<p>
+					<b>Уравнением данной линии</b> (в выбранной системе координат) называется такое уравнение
+					<span class="math">F(x, y) = 0</span> с двумя переменными, которому удовлетворяют
+					координаты <span class="math">x</span> и <span class="math">y</span> каждой
+					точки, лежащей на этой линии, и не удовлетворяют координаты
+					никакой точки, не лежащей на ней.
+				</p>
+				
+				<p>
+					Линии в аналитической геометрии (более обширной по сравнению с элементарной школьной геометрией)
+					исследуются при помощи анализа их уравнений.
+				</p>
+				
+				<p>
+					Линия, определяемая уравнением вида <span class="math">y = f(x)</span> (которое получается из уравнения
+					<span class="math">F(x, y) = 0</span>), называется <b>графиком</b>
+					функции <span class="math">y = f(x)</span>.
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="F(x, y) = x - y = 0 (mathway.com)" alt="График функции f(x) = x, нарисованный сервисом mathway.com"></td></tr>
+					<tr><td>Рисунок 1 — Пример линии на плоскости F(x, y) = x - y = 0</td></tr>
+				</table>
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="F(x, y) = x^2 + y^2 - 9 = 0 (mathway.com)" alt="График функции y = sqrt(9 - x^2), нарисованный сервисом mathway.com"></td></tr>
+					<tr><td>Рисунок 2 — Пример линии на плоскости F(x, y) = x<sup>2</sup> + y<sup>2</sup> - 9 = 0</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Также выделяют (если копать глубже, что вряд ли вам пригодится на вступительном экзамене в магу)
+					задачу о <i>пересечении двух линий</i> (решение системы уравнений этих линий); <i>параметрические уравнения</i>
+					линии
+					(как в физике, точнее в механике, когда координаты движущейся материальной точки
+					<span class="math">(x, y)</span> зависят от времени <span class="math">t</span>); и совсем
+					&laquo;задротские&raquo; <i>алгебраические уравнения</i>, которые включают в себя многочлены
+					определённого порядка, к примеру:<br>
+					<span class="math center">Ax<sup>2</sup> + Bxy + Cy<sup>2</sup> + Dx + Ey + F</span><br>
+					— это общее уравнение второй степени (второго порядка), у которого коэффициенты
+					<span class="math">A</span>, <span class="math">B</span> и <span class="math">C</span> не
+					имеют права быть равными нулю (иначе это будет уравнение первой степени).
+				</p>
+				
+				<h3>Линии первого порядка</h3>
+				<p>
+					Короче говоря, <b>линии первого порядка есть прямые</b>. Они задаются <b>уравнением первой степени</b>:<br>
+					<span class="math center">Ax + By + C = 0.</span><span align="right"><i>(1)</i></span>
+				</p>
+				
+				<p>
+					Из уравнения <i>(1)</i> получаются, в частности, уравнения<br>
+					<span class="math center">y = kx + b,</span><br>
+					где <span class="math">k</span> — это так называемый <i>угловой коэффициент</i>, который
+					определяет угол наклона прямой к оси абсцисс <span class="math">Ox</span> (см. <a href="#pic3">рис. 3</a>)
+					(<span class="math">k = tg&alpha;</span>); а число <span class="math">b</span>, это
+					величина отрезка, который отсекает прямая на оси ординат <span class="math">Oy</span>.
+				</p>
+				
+				<p>
+					Также из уравнения <i>(1)</i> получается прямая<br>
+					<span class="math center">x = a,</span><br>
+					параллельная оси ординат <span class="math">Oy</span>, и<br>
+					<span class="math center">y = b,</span><br>
+					или прямая, параллельная уже оси абсцисс <span class="math">Ox</span>.
+				</p>
+				
+				<p>
+				<table class="img" id="pic3">
+					<tr><td><img src="3.jpg" title="y = 2x - 2 (mathway.com)" alt="График функции y = 2x - 2, изображённый сервисом mathway.com"></td></tr>
+					<tr><td>Рисунок 3 — График функции y = 2x - 2</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Существует также уравнение прямой <i>&laquo;в отрезках&raquo;:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>
+					+
+					<table class="fraction"><tr><td>y</td></tr><tr><td>—</td></tr><tr><td>b</td></tr></table>
+					= 1.
+					</span><br>
+					Такой вид уравнения очень удобен
+					в некоторых прикладных задачах.
+				</p>
+				
+				<p>
+					Также упомяну, на всякий случай, <i>нормальное уравнение</i> прямой:<br>
+					<span class="math center">x cos&alpha; + y sin&alpha; - p = 0.</span><br>
+					Это уравнение позволяет легко вычислить расстояние от некоторой точки на плоскости
+					до заданной уравнением прямой (иными словами, вычислить <i>отклонение точки от прямой</i>).
+				</p>
+				
+				<p>
+					В нём <span class="math">&alpha;</span> обозначает полярный угол нормали (см. <a href="#pic4">рис. 4</a>), а
+					<span class="math">p</span> — расстояние от начала координат до заданной прямой.
+				</p>
+				
+				<p>
+				<table class="img" id="pic4">
+					<tr><td><img src="4.jpg" title="mathway.com" alt="Рисунок, полученный инструментами сайта mathway.com"></td></tr>
+					<tr><td>Рисунок 4 — Графическое представление нормального уравнения прямой</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Посчитать отклонение &delta; точки <span class="math">M*</span> с координатами
+					<span class="math">(x*, y*)</span>
+					от прямой, заданной нормальным уравнением<br>
+					<span class="math center">x cos&alpha; + y sin&alpha; - p = 0,</span><br>
+					можно через формулу:<br>
+					<span class="math center">&delta; = x* cos&alpha; + y* sin&alpha; - p = 0.</span><br>
+				</p>
+				
+				<p>
+					Также существует уравнение так называемого <i>пучка прямых</i>, но я сомневаюсь, что это будет
+					на экзамене. Так что это просто к сведению вам, дорогой читатель! :) Главное, понять, что <b>прямая — это
+					линия первого порядка, и она задаётся уравнением первой степени</b> (см. формулу <i>(1)</i> выше).
+				</p>
+				
+				<h2>Линии второго порядка</h2>
+				<p>
+					Или кривые второго порядка. Это три фигуры: <b>эллипс, гипербола и парабола.</b>
+				</p>
+				
+				<h3>Эллипс</h3>
+				<p>
+					<b>Эллипсом</b> называется геометрическое место точек, для которых сумма расстояний от двух фиксированных
+					точек плоскости, называемых <i>фокусами</i>, есть постоянная величина; требуется, чтобы эта постоянная была больше
+					расстояния между фокусами (иначе, получится простой отрезок с концами в этих фокусах, а не эллипс).
+					Фокусы эллипса принято обозначать через <span class="math">F<sub>1</sub></span> и
+					<span class="math">F<sub>2</sub></span>.
+				</p>
+				
+				<p>
+					У эллипса есть (см. <a href="#pic5">рис. 5</a>):
+					<ul>
+						<li><i>расстояние между фокусами</i>, которое обозначается через <span class="math">2c</span>;</li>
+						<li>два <i>фокальных радиуса</i> любой точки этого эллипса. Постоянная сумма фокальных радиусов обозначается через
+						<span class="math">2a</span>.</li>
+					</ul>
+				</p>
+				
+				<p>
+				<table class="img" id="pic5">
+					<tr><td><img src="5.jpg" title="Частный случай эллипса (mathway.com)" alt="График, полученный инструментами сайта mathway.com"></td></tr>
+					<tr><td>Рисунок 5 — Эллипс и его элементы</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Таким образом, из <a href="#pic5">рисунка 5</a>:<br>
+					<span class="math center">F<sub>1</sub>F<sub>2</sub> = 2c;</span><br>
+					<span class="math center">r<sub>1</sub> + r<sub>2</sub> = 2a.</span><br>
+				</p>
+				
+				<p>
+					По условию, что сумма расстояний какой-либо точки эллипса до фокусов больше
+					расстояния между фокусами (см. определение эллипса в начале этого пункта), получается, что<br>
+					<span class="math center">2a &gt; 2c;</span><br>
+					<span class="math center">a &gt; c.</span><br>
+				</p>
+				
+				<p>
+					Введя ещё одну переменную<br>
+					<span class="math center">b = &radic;(a<sup>2</sup> - c<sup>2</sup>),</span><br>
+					можно получить каноническое уравнение эллипса:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>a<sup>2</sup></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>b<sup>2</sup></td></tr></table>
+					= 1.
+					</span><br>
+				</p>
+				
+				<p>
+					Число <span class="math">b</span>, это маленький радиус эллипса, а <span class="math">a</span> — большой радиус. Например,
+					на <a href="#pic5">рисунке 5</a> <span class="math">b = 3</span>, <span class="math">a = 5</span>.
+				</p>
+				
+				<p>
+					Из свойств эллипса можно приметить то, что он симметричен как относительно оси <span class="math">Ox</span>,
+					так и относительно оси <span class="math">Oy</span>. Кроме того, если фокусы эллипса находятся на оси <span class="math">Ox</span>
+					(как на <a href="#pic5">рис. 5</a>), то <span class="math">a &gt; b</span>.
+				</p>
+				
+				<p>
+					Если <span class="math">a = b</span>, то эллипс становится окружностью, задаваемой уравнением<br>
+					<span class="math center">x<sup>2</sup> + y<sup>2</sup> = a<sup>2</sup>.</span><br>
+					То есть окружность, это частный случай эллипса.
+				</p>
+				
+				<p>
+					<b>Эксцентриситетом</b> эллипса называется отношение расстояния между фокусами этого эллипса
+					<span class="math">2c</span> к длине его большой оси <span class="math">2a</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&epsilon; =
+					<table class="fraction"><tr><td>c</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>
+					</span><br>
+				</p>
+				
+				<p>
+					Эксцентриситет <span class="math">&epsilon;</span> всегда меньше единицы. Из формулы<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>b</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>
+					= &radic;(1 - &epsilon;<sup>2</sup>)
+					</span><br>
+					следует, что чем больше эксцентриситет, тем более эллипс вытянут. В случае окружности
+					<span class="math">b = a</span> и <span class="math">&epsilon; = 0</span>.
+				</p>
+				
+				<p>
+					Через эксцентриситет можно также удобно выразить фокальные радиусы эллипса (см. <a href="#pic5">рис. 5</a>):<br>
+					<span class="math center">r<sub>1</sub> = a + &epsilon;x,</span><br>
+					<span class="math center">r<sub>2</sub> = a - &epsilon;x.</span><br>
+				</p>
+				
+				<p>
+					Плюс, можно добавить к этому, что эллипс имеет и своё параметрическое уравнение, выглядящее так:<br>
+					<span class="math center">x = a cos(t),<br>
+					y = b sin(t).</span><br>
+				</p>
+				
+				<p>
+					В учебнике Н.В. Ефимова также доказывается, что <b>проекция окружности на произвольную плоскость является эллипсом</b>.
+					Кроме того,
+					примечается, что <b>каждое сечение круглого цилиндра плоскостью, не параллельной его оси, есть эллипс (см. <a href="#pic6">рис. 6</a>)</b>.
+				</p>
+				
+				<p>
+				<table class="img" id="pic6">
+					<tr><td><img src="6.jpg" title="Эллипс как сечение цилиндра" alt="https://kopilkaurokov.ru/matematika/uroki/plan-uroka-po-matiematikie-ploshchad-povierkhnosti-i-obiem-tsilindra"></td></tr>
+					<tr><td>Рисунок 6 — Сечение круглого цилиндра плоскостью под углом есть эллипс</td></tr>
+				</table>
+				</p>
+				
+				<h3>Гипербола и парабола</h3>
+				<p>
+					Как продолжение темы кривых второго порядка на плоскости поговорим дальше о гиперболе и параболе.
+					Чуть более сжато.
+					Потому что эти две линии имеют, конечно, свои особенности, но в целом это легко понять позже, если это
+					вам, дорогой читатель,
+					нужно будет.
+				</p>
+				
+				<p>
+					<b>Гиперболой</b> называется геометрическое место точек, для которых разность
+					расстояний от двух фиксированных точек плоскости, называемых <i>фокусами</i>, есть
+					постоянная величина; кроме того, требуется, чтобы она была меньше расстояния между фокусами и отлична от
+					нуля (см. <a href="#pic7">рис. 7</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic7">
+					<tr><td><img src="7.jpg" title="Частный случай гиперболы (mathway.com)" alt="Изображение с сайта https://www.mathway.com/ru/graph"></td></tr>
+					<tr><td>Рисунок 7 — Пример гиперболы, её элементы</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Разность фокальных радиусов у гиперболы (см. <a href="#pic7">рис. 7</a>
+					<span class="math">r<sub>1</sub></span> и <span class="math">r<sub>2</sub></span>) по определению есть постоянная величина, и её принято обозначать как
+					<span class="math">2a</span>. Расстояние между двумя фокусами <span class="math">F<sub>1</sub></span> и
+					<span class="math">F<sub>2</sub></span> гиперболы
+					обозначают также через <span class="math">2c</span>.
+				</p>
+				
+				<p>
+					Тут всё аналогично (почти) эллипсу (см. раздел выше):<br>
+					<span class="math center">F<sub>1</sub>M - F<sub>2</sub>M = 2a (если точка M ближе к фокусу F<sub>2</sub>)</span><br>
+					<span class="math center">или F<sub>2</sub>M - F<sub>1</sub>M = 2a (если точка M ближе к фокусу F<sub>1</sub>).</span><br>
+					Так как<br>
+					<span class="math center">F<sub>1</sub>M - F<sub>2</sub>M &lt; F<sub>1</sub>F<sub>2</sub>,</span><br>
+					и<br>
+					<span class="math center">F<sub>2</sub>M - F<sub>1</sub>M &lt; F<sub>1</sub>F<sub>2</sub>,</span><br>
+					то<br>
+					<span class="math center">2a &lt; 2c;</span><br>
+					<span class="math center">a &lt; c.</span><br>
+				</p>
+				
+				<p>
+					Каноническое уравнение гиперболы:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>a<sup>2</sup></td></tr></table>
+					-
+					<table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>b<sup>2</sup></td></tr></table>
+					= 1.
+					</span><br>
+				</p>
+				
+				<p>
+					Причём,<br>
+					<span class="math center">b = &radic;(c<sup>2</sup> - a<sup>2</sup>).</span>
+				</p>
+				
+				<p>
+					Глядя на него, вспоминаем, что гипербола, как и эллипс — <b>линия второго порядка</b>.
+				</p>
+				
+				<p>
+					<b>Эксцентриситет</b> гиперболы выражается формулой:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">&epsilon; =
+					<table class="fraction"><tr><td>c</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>
+					</span><br>
+				</p>
+				
+				<p>
+					Здесь эксцентриситет также влияет на форму гиперболы, как и в случае с эллипсом.
+				</p>
+				
+				<p>
+					Из свойств гиперболы ещё можно сказать, что она имеет две <i>асимптоты;</i> две симметричные относительно
+					одной из координатных осей <i>директрисы.</i> Читайте подробнее для интереса в Интернете или учебниках
+					по аналитической геометрии.
+				</p>
+				
+				<p>
+					<b>Парабола</b> — это геометрическое место точек, для каждой из которых расстояние
+					до некоторой фиксированной точки плоскости, называемой <i>фокусом</i>, равно расстоянию до некоторой
+					фиксированной прямой, называемой <i>директрисой</i>. (Предполагается, что
+					эта прямая не проходит через фокус).
+				</p>
+				
+				<p>
+				<table class="img" id="pic8">
+					<tr><td><img src="8.jpg" title="Частный случай параболы (mathway.com)" alt="Изображение с сайта https://www.mathway.com/ru/graph"></td></tr>
+					<tr><td>Рисунок 8 — Пример параболы</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Фокус параболы принято обозначать буквой <span class="math">F</span>, расстояние
+					от фокуса до директрисы — буквой <span class="math">p</span>.
+				</p>
+				
+				<p>
+					По определению:<br>
+					<span class="math center">r = d.</span><br>
+				</p>
+				
+				<p>
+					Также есть формула<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">d = x +
+					<table class="fraction"><tr><td>p</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table>.
+					</span><br>
+				</p>
+				
+				<p>
+					Каноническое уравнение параболы:<br>
+					<span class="math center">y<sup>2</sup> = 2px.</span><span align="right"><i>(2)</i></span><br>
+				</p>
+				
+				<p>
+					Парабола всегда имеет <b>эксцентриситет, равный единице:</b><br>
+					<span class="math center">&epsilon; = 1.</span>
+				</p>
+				
+				<p>
+					Из школьной геометрии мы точно помним также тот факт, что
+					парабола — это график квадратного трёхчлена:<br>
+					<span class="math center">y = ax<sup>2</sup> + bx + c (a &ne; 0).</span><br>
+				</p>
+				
+				<p>
+					Уравнение выше это частный случай уравнения <i>(2)</i>. При этом парабола строится уже на оси
+					ординат <span class="math">Oy</span>, а не абсцисс <span class="math">Ox</span>
+					(см. <a href="#pic8">рис. 8</a>), как вы, дорогой посетитель, знаете.
+				</p>
+				
+				<h2>Поверхности в пространстве</h2>
+				<h3>Прямая и плоскость в пространстве</h3>
+				<p>
+					В пространстве система координат отличается от системы координат на плоскости.
+					Добавляется, вдобавок к оси ординат и оси абсцисс, <b>ось аппликат</b>. Координаты точки
+					в пространстве задаются действительными числами <span class="math">x</span>,
+					<span class="math">y</span> и <span class="math">z</span>.
+				</p>
+				
+				<p>
+					Три плоскости <span class="math">Oxy</span>, <span class="math">Oxz</span> и <span class="math">Oyz</span>
+					разделяют пространство на восемь пронумерованных по определённому порядку частей — <b>координатных октант.</b>
+				</p>
+				
+				<p>
+					Примером поверхностей в пространстве может служить плоскость, сфера, цилиндр, конус, параллелепипед и т.д.
+				</p>
+				
+				<p>
+					<b>Уравнением данной поверхности</b> называется такое уравнение с тремя переменными, которому удовлетворяют
+					координаты каждой точки, лежащей на этой поверхности, и не удовлетворяют координаты никакой точки,
+					не лежащей на ней.
+				</p>
+				
+				<p>
+					В пространстве также, как и на плоскости, поверхности разделяют на <i>поверхности первого порядка</i>
+					(плоскости и их прямые),
+					<i>поверхности второго порядка</i> (эллипсоиды, гиперболоиды, параболоиды, а кроме того —
+					конус и цилиндр второго порядка) и т.п.
+				</p>
+				
+				<p>
+					<b>Уравнение первой степени определяет плоскость; каждая плоскость в пространстве
+					определяется уравнением первой степени.</b> Это две доказывающихся
+					теоремы в одном предложении. То есть:<br>
+					<span class="math center">Ax + By + Cz + D = 0,</span><br>
+					это выражение плоскости.
+				</p>
+				
+				<p>
+					Аналогично, как и прямые в двумерном пространстве, плоскости могут иметь неполные уравнения, например<br>
+					<span class="math center">Ax + By + Cz = 0,</span><br>
+					или<br>
+					<span class="math center">Ax + D = 0.</span><br>
+				</p>
+				
+				<p>
+					Есть и уравнения плоскостей <i>&laquo;в отрезках&raquo;:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>a</td></tr></table>
+					+
+					<table class="fraction"><tr><td>y</td></tr><tr><td>—</td></tr><tr><td>b</td></tr></table>
+					+
+					<table class="fraction"><tr><td>z</td></tr><tr><td>—</td></tr><tr><td>c</td></tr></table>
+					= 1.
+					</span>
+				</p>
+				
+				<p>
+					Этот специальный вид уравнения плоскости может быть полезен в некоторых ситуациях
+					(просто возьмите себе это на заметку, это запоминать не нужно).
+				</p>
+				
+				<p>
+					Также, как и с прямой на плоскости, у плоскостей в пространстве есть <i>нормальные уравнения</i> (см. Интернет,
+					книжки или вообще не смотрите :D — как вы считаете нужным). Это слишком редкая ситуация, когда на практике будет
+					использоваться такое уравнение плоскости, особенно на вступительном экзамене.
+				</p>
+				
+				<p>
+					<b>Прямая линия в пространстве</b> есть пересечение двух плоскостей. И она, как можно понять,
+					определяется системой из двух уравнений первого порядка:<br>
+					<span class="math center">A<sub>1</sub>x + B<sub>1</sub>y + C<sub>1</sub>z + D<sub>1</sub> = 0,<br>
+					A<sub>2</sub>x + B<sub>2</sub>y + C<sub>2</sub>z + D<sub>2</sub> = 0.</span><span align="right"><i>&nbsp;&nbsp;&nbsp;&nbsp;(3)</i></span><br>
+				</p>
+				
+				<p>
+					К слову, через одну прямую может проходить сколько угодно плоскостей (см. <a href="#pic9">рис. 9</a>),
+					поэтому отдельные уравнения в системе <i>(3)</i>
+					можно менять на более простые. Достаточно следовать такой интересной формуле:<br>
+					<span class="math center">&alpha;(A<sub>1</sub>x + B<sub>1</sub>y + C<sub>1</sub>z + D<sub>1</sub>)
+					+ &beta;(A<sub>2</sub>x + B<sub>2</sub>y + C<sub>2</sub>z + D<sub>2</sub>) = 0.</span><br>
+				</p>
+				
+				<p>
+					Она означает, что чтобы получить уравнение какой-нибудь другой плоскости, проходящей через ту же прямую,
+					нужно два имеющихся многочлена умножить по отдельности на любые два числа (не равные одновременно нулю):
+					<span class="math">&alpha;</span> и <span class="math">&beta;</span>, и приравнять сумму к нулю.
+					В итоге, получится уравнение третьей плоскости, проходящей через
+					ту же прямую в пространстве. Это на заметку.
+				</p>
+				
+				<p>
+					<table class="img" id="pic9">
+					<tr><td><img src="9.jpg" title="Пересечение трёх плоскостей в одной прямой: geogebra.org" alt="Изображение с сайта https://www.geogebra.org/3d"></td></tr>
+					<tr><td>Рисунок 9 — Пересечение трёх плоскостей в одной прямой</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Также у прямой в пространстве существует <b>направляющий вектор</b>,
+					который лежит на данной прямой или параллелен ей. Пусть он обозначается так:<br>
+					<span class="math center"><b>a</b> = {l; m; n}.</span>
+				</p>
+				
+				<p>
+					Вот уравнение прямой, проходящей через точку
+					<span class="math">M (x<sub>0</sub>; y<sub>0</sub>; z<sub>0</sub>)</span> и имеющей направляющий вектор
+					<span class="math"><b>a</b> = {l; m; n}</span>:
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x - x<sub>0</sub></td></tr><tr><td>—</td></tr><tr><td>l</td></tr></table>
+					=
+					<table class="fraction"><tr><td>y - y<sub>0</sub></td></tr><tr><td>—</td></tr><tr><td>m</td></tr></table>
+					=
+					<table class="fraction"><tr><td>z - z<sub>0</sub></td></tr><tr><td>—</td></tr><tr><td>n</td></tr></table>
+					</span><span align="right"><i>(4)</i></span>
+				</p>
+				
+				<p>
+					Уравнения выше, это <b>канонические уравнения прямой.</b> Их можно найти, следуя определённому алгоритму.
+				</p>
+				
+				<p>
+					В учебнике Н.В. Ефимова сказано, что, чтобы получить канонические уравнения прямой, заданной системой уравнений
+					<i>(3)</i> , сначала нужно определить какую-нибудь точку этой прямой, подставив вместо любой неизвестной координаты
+					этой точки любое число, а остальные две координаты найдя из системы уравнений <i>(3)</i>. Определив точку прямой таким образом,
+					потом находят её направляющий вектор путём вычисления <i>векторного произведения</i> двух векторов, перпендикулярных к плоскостям,
+					их которых получается прямая:<br>
+					<span class="math center"><b>a</b> = [<b>n<sub>1</sub></b><b>n<sub>2</sub></b>],</span><br>
+					где <span class="math"><b>n<sub>1</sub></b> = {A<sub>1</sub>; B<sub>1</sub>; C<sub>1</sub>}</span> и
+					<span class="math"><b>n<sub>2</sub></b> = {A<sub>2</sub>; B<sub>2</sub>; C<sub>2</sub>}</span> (см. систему <i>(3)</i>).
+				</p>
+				
+				<p>
+					В итоге, получившиеся координаты точки и направляющего вектора прямой подставляются в уравнения <i>(4)</i>.
+				</p>
+				
+				<p>
+					И также у прямой есть и её <i>параметрические уравнения</i>, которые получаются из канонических (см. формулу <i>(4)</i>):<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x - x<sub>0</sub></td></tr><tr><td>—</td></tr><tr><td>l</td></tr></table>
+					=
+					<table class="fraction"><tr><td>y - y<sub>0</sub></td></tr><tr><td>—</td></tr><tr><td>m</td></tr></table>
+					=
+					<table class="fraction"><tr><td>z - z<sub>0</sub></td></tr><tr><td>—</td></tr><tr><td>n</td></tr></table>
+					= t;
+					</span><br>
+					<span class="math center">x = x<sub>0</sub> + lt<br>
+					y = y<sub>0</sub> + mt<br>
+					z = z<sub>0</sub> + nt</span><span align="right" style="margin-left: 5rem;"><i>(5)</i></span><br>
+				</p>
+				
+				<p>
+					То есть как и у прямой на плоскости, эти три уравнения описывают координаты точки прямой при любом значении параметра
+					<span class="math">t</span>. Параметрические уравнения удобны при нахождении точки пересечения прямой с плоскостью.
+				</p>
+				
+				<p>
+					Плюс, можно добавить, что движение точки по прямой, заданной параметрическими уравнениями <i>(5)</i>, есть движение равномерное.
+				</p>
+				
+				<p>
+					Кроме того, существуют канонические уравнения прямой, проходящей через две данные точки пространства; уравнение плоскости, проходящей
+					через три точки (уравнение, в левой части которого стоит определитель третьего порядка, составленный из координат этих точек). Выделяют
+					дополнительно ещё и специальные условия параллельности и перпендикулярности двух плоскостей и, вдобавок, условия
+					параллельности и перпендикулярности прямой и плоскости. И прямой и прямой.
+				</p>
+				
+				<h3>Поверхности второго порядка</h3>
+				<p>
+					Такие поверхности имеют уравнения второй степени в своей основе. Ими являются в том числе эллипсоиды и гиперболоиды.
+					Это пространственные аналоги эллипсов и гипербол на плоскости.
+				</p>
+				
+				<p>
+					Каноническое уравнение эллипсоида:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>a<sup>2</sup></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>b<sup>2</sup></td></tr></table>
+					+
+					<table class="fraction"><tr><td>z<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>c<sup>2</sup></td></tr></table>
+					= 1.
+					</span><br>
+				</p>
+				
+				<p>
+					<table class="img" id="pic10">
+					<tr><td><img src="10.jpg" title="Трёхосный эллипсоид: geogebra.org" alt="Изображение с сайта https://www.geogebra.org/3d"></td></tr>
+					<tr><td>Рисунок 10 — Трёхосный эллипсоид</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					<b>Эллипсоид</b> — это замкнутая овальная поверхность, обладающая тремя взаимно перпендикулярными
+					плоскостями симметрии. Эти три плоскости обычно совмещены с плоскостями координат.
+				</p>
+				
+				<p>
+					Величины <span class="math">a</span>, <span class="math">b</span> и <span class="math">c</span> называют
+					<i>полуосями</i> эллипсоида. Когда они все различны, эллипсоид называется <i>трёхосным</i>
+					(см. <a href="#pic10">рис. 10</a>). Когда две из них одинаковы,
+					эллипсоид называется <i>вытянутым (или сжатым) эллипсоидом вращения.</i> В случае <span class="math">a = b = c</span>
+					эллипсоид является сферой.
+				</p>
+				
+				<p>
+					<b>Гиперболоид</b> бывает <i>однополосным</i> и <i>двухполосным.</i>
+				</p>
+				
+				<p>
+					<table class="img" id="pic11">
+					<tr><td><img src="11.jpg" title="Однополосный гиперболоид: geogebra.org" alt="Изображение с сайта https://www.geogebra.org/3d"></td></tr>
+					<tr><td>Рисунок 11 — Однополосный гиперболоид</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Однополосный гиперболоид (см. <a href="#pic11">рис. 11</a>) имеет вид бесконечной трубки, бесконечно расширяющейся в обе стороны от горлового эллипса. Горловой
+					эллипс образуется в сечении однополосного гиперболоида плоскостью <span class="math">z = 0</span> (то есть в самом центре
+					трубки гиперболоида). Это самый маленький эллипс из всех эллипсов-сечений.
+				</p>
+				
+				<p>
+					Однополосный гиперболоид обладает тремя взамно перпендикулярными плоскостями симметрии, которые, как и у эллипсоида,
+					обычно совмещены с плоскостями координат.
+				</p>
+				
+				<p>
+					Уравнение однополосного гиперболоида:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>a<sup>2</sup></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>b<sup>2</sup></td></tr></table>
+					-
+					<table class="fraction"><tr><td>z<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>c<sup>2</sup></td></tr></table>
+					= 1.
+					</span><span align="right"><i>(6)</i></span><br>
+				</p>
+				
+				<p>
+					Величины <span class="math">a</span>, <span class="math">b</span>, <span class="math">c</span> называются, подобно эллипсоиду,
+					полуосями однополосного гиперболоида. В случае <span class="math">a = b</span> уравнения <i>(6)</i> определяют окружность с центром на оси
+					<span class="math">Oz</span>.
+				</p>
+				
+				<p>
+					<table class="img" id="pic12">
+					<tr><td><img src="12.jpg" title="Двухполосный гиперболоид: geogebra.org" alt="Изображение с сайта https://www.geogebra.org/3d"></td></tr>
+					<tr><td>Рисунок 12 — Двухполосный гиперболоид</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Ну и также есть двухполосный гиперболоид. Это поверхность, состоящая из двух отдельных
+					&laquo;полостей&raquo; (см. <a href="#pic12">рис. 12</a>). Каждая из них имеет вид
+					бесконечной выпуклой чаши. И он тоже обладает тремя взаимно перпендикулярными плоскостями симметрии.
+				</p>
+				
+				<p>
+				Уравнение двухполосного гиперболоида:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					<table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>a<sup>2</sup></td></tr></table>
+					+
+					<table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>b<sup>2</sup></td></tr></table>
+					-
+					<table class="fraction"><tr><td>z<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>c<sup>2</sup></td></tr></table>
+					= -1.
+					</span><br>
+				</p>
+				
+				<p>
+					Есть ещё конус второго порядка, параболоиды и их подвиды (эллиптический и гиперболический параболоиды). Кроме того,
+					существуют цилиндры второго порядка: эллиптический цилиндр, гиперболический цилиндр и параболический цилиндр
+					(см. <a href="#pic13">рис. 13</a>).
+				</p>
+				
+				<p>
+					<table class="img" id="pic13">
+					<tr><td><img src="13.jpg" title="Параболический цилиндр: geogebra.org" alt="Изображение с сайта https://www.geogebra.org/3d"></td></tr>
+					<tr><td>Рисунок 13 — Параболический цилиндр</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Каждая из этих поверхностей имеет свой (логичный) общий вид уравнения, который вы можете при желании, если вам это нужно будет,
+					посмотреть в методических пособиях, учебниках, Интернете, где угодно — информация в нашем мире есть везде! :)
+				</p>
+				
+				<h2>Решение заданий с сайта МИРЭА</h2>
+				<h3>Условие 1-го задания</h3>
+				<p>
+					Это задание есть в этом варианте экзамена —
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_202.pdf" target="_blank">priem.mirea.ru (202-й вариант 2019 года)</a>
+				</p>
+				<p>
+					Кривая второго порядка задана уравнением <span class="math">6x<sup>2</sup> - 5xy + y<sup>2</sup> - 6x + 2y - 18 = 0</span>.
+					Определить тип кривой и её уравнение в каноническом виде. Выписать какое-либо преобразование координат,
+					приводящее уравнение кривой к каноническому виду.
+				</p>
+				
+				<h3>Примечание</h3>
+				<p>
+					<i>&laquo;Важной задачей аналитической геометрии является исследование общего уравнения линии второго порядка и привидение
+					его к простейшим (каноническим) формам&raquo;.</i> Так начинается 6 глава, 41-й параграф учебника Н.В. Ефимова (&laquo;Краткий
+					курс аналитической геометрии&raquo;),
+					которая посвящена
+					вопросу привидения общего уравнения кривой второго порядка (как в условии этого задания) к каноническому виду.
+				</p>
+				
+				<p>
+					Тут есть вся необходимая информация по этому поводу. Очень хороший и понятный учебник. Уважение его автору!
+				</p>
+				
+				<p>
+					Есть и другие альтернативные способы решения этой задачи: с использованием <i>квадратичных форм,</i> которые
+					разбираются на курсе линейной алгебры, а не аналитической геометрии.
+				</p>
+				
+				<p>
+					Здесь решение будет приведено с применением прямого способа &laquo;в лоб&raquo;, представленного Ефимовым,
+					где нужно достаточно много вычислять. Это универсальный метод решения задач такого типа.
+					Плюс к этому, другие методы решения, например метод инвариантов, работают не всегда, а метод
+					ортогональных преобразований, который по полной захватывает квадратичные формы,
+					уж очень <span style="font-size:0.7em;">&laquo;задродский&raquo;</span> и трудоёмкий (но зато он тоже
+					универсальный).
+				</p>
+				
+				<p>
+					Решать, каким способом решить эту задачу, только Вам, любознательный читатель!
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Итак, поехали! В целом алгоритм решения этого задания выглядит так:
+					<ol>
+						<li>Прежде всего, нужно попытаться удалить два члена первой степени из общего уравнения
+						(у нас это члены <span class="math">-6x</span> и <span class="math">2y</span>);</li>
+						<li>Затем нужно обязательно убрать член с произведением текущих координат
+						(у нас в задании это член <span class="math">-5xy</span>);</li>
+						<li>Следующим шагом необходимо уничтожить свободный член, если это возможно
+						(в этом задании это член <span class="math">-18</span>).</li>
+					</ol>
+				</p>
+				
+				<p>
+					После проделывания всех этих шагов получается каноническое уравнение. Оно, в отличие от общего уравнения, выглядит
+					более ближе к виду описываемой им кривой. То есть очень наглядно характеризует конкретную линию, с которой
+					оно связано.
+				</p>
+				
+				<p>
+					Итак: следуя представленному алгоритму...
+				</p>
+				
+				<p>
+					<b>1)</b> Переносится центр кривой в начало координат из точки <span class="math">(x<sub>0</sub>, y<sub>0</sub>)</span>:<br>
+					<span class="math center">x = x' + x<sub>0</sub>; y = y' + y<sub>0</sub>.</span><br>
+					Получается относительно новых неизвестных <span class="math">x'</span> и <span class="math">y'</span> новое
+					уравнение:<br>
+					<span class="math center">6x'<sup>2</sup> + 12x'x<sub>0</sub> + 6x<sub>0</sub><sup>2</sup>
+					- 5x'y' - 5x'y<sub>0</sub> - 5x<sub>0</sub>y' - 5x<sub>0</sub>y<sub>0</sub> + y'<sup>2</sup>
+					+ 2y'y<sub>0</sub> + y<sub>0</sub><sup>2</sup> - 6x' - 6x<sub>0</sub> + 2y' + 2y<sub>0</sub>
+					- 18 = 0;
+					</span><br>
+					<span class="math center">6x'<sup>2</sup> - 5x'y' + y'<sup>2</sup> + (12x<sub>0</sub>
+					- 5y<sub>0</sub> - 6)x' + (-5x<sub>0</sub> + 2y<sub>0</sub> + 2)y' + (6x<sub>0</sub><sup>2</sup>
+					- 5x<sub>0</sub>y<sub>0</sub> + y<sub>0</sub><sup>2</sup> - 6x<sub>0</sub> + 2y<sub>0</sub> - 18)
+					= 0.
+					</span><span align="right"><i>&nbsp;&nbsp;&nbsp;&nbsp;(7)</i></span><br>
+				</p>
+				
+				<p>
+					Из уравнения <i>(7)</i> как раз и нужно убрать два члена первой степени, согласно алгоритму.
+					(Это в этом решении сделается
+					путём переноса точки <span class="math">(x<sub>0</sub>, y<sub>0</sub>)</span>,
+					где находится центр исходной кривой, в начало координат.)
+					Для того, чтобы найти текущий центр координат и перенести его, потребуется решить следующую систему уравнений:<br>
+					<span class="math center">12x<sub>0</sub> - 5y<sub>0</sub> - 6 = 0,<br>
+					-5x<sub>0</sub> + 2y<sub>0</sub> + 2 = 0.</span><br>
+				</p>
+				
+				<p>
+					Решением этой системы являются числа:<br>
+					<span class="math center">(-2; -6)</span>
+				</p>
+				
+				<p>
+					Значит, координаты старого центра:<br>
+					<span class="math center">(x<sub>0</sub> = -2; y<sub>0</sub> = -6)</span>
+				</p>
+				
+				<p>
+					А новый центр был только что перенесён в начало координат.
+				</p>
+				
+				<p>
+					Подставляя эти числа вместо <span class="math">x<sub>0</sub></span> и <span class="math">y<sub>0</sub></span> в уравнение <i>(7)</i>, получается уравнение кривой относительно
+					нового центра <span class="math">S(x<sub>0</sub>, y<sub>0</sub>)</span>:<br>
+					<span class="math center">6x'<sup>2</sup> - 5x'y' + y'<sup>2</sup> - 18 = 0.</span>
+				</p>
+				
+				<p>
+					Как видно, все требуемые члены первой степени получилось уничтожить. Цель первого шага достигнута!
+				</p>
+				
+				<p>
+					<b>2)</b> теперь необходимо повернуть получившийся на предыдущем шаге график относительно оси абсцисс
+					на определённый угол <span class="math">&alpha;</span>.
+					Тем самым будет уничтожен член <span class="math">-5x'y'</span>. Каноническое уравнение требует присутствие
+					только квадратов переменных.
+				</p>
+				
+				<p>
+					Выполняется очередная подстановка:<br>
+					<span class="math center">x' = x''cos&alpha; - y''sin&alpha;,<br>
+					y' = x''sin&alpha; + y''cos&alpha;.</span>
+				</p>
+				
+				<p>
+					В итоге:<br>
+					<span class="math center">6(x''<sup>2</sup>cos<sup>2</sup>&alpha; - 2x''y''cos&alpha; sin&alpha;
+					+ y''<sup>2</sup>sin<sup>2</sup>&alpha;) - 5(x''<sup>2</sup>cos&alpha; sin&alpha; 
+					+ x''y''cos<sup>2</sup>&alpha; - x''y''sin<sup>2</sup>&alpha; - y''<sup>2</sup>sin&alpha; cos&alpha;)
+					+ (x''<sup>2</sup>sin<sup>2</sup>&alpha; + 2x''y''cos&alpha; sin&alpha; + y''<sup>2</sup>cos<sup>2</sup>&alpha;)
+					- 18 = 0;
+					</span><span align="right"><i>&nbsp;&nbsp;&nbsp;&nbsp;(8)</i></span>
+				</p>
+				
+				<p>
+					Преобразовывая дальше уравнение <i>(8)</i> и приравнивая его член с произведением неизвестных
+					<span class="math">x''y''</span> к нулю, получается:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					5sin<sup>2</sup>&alpha; - 10cos&alpha; sin&alpha; - 5cos<sup>2</sup>&alpha; = 0;
+					</span><br>
+					<span class="math center">
+					5sin<sup>2</sup>&alpha; - 10cos&alpha; sin&alpha; - 5cos<sup>2</sup>&alpha; = 0; <b>(: cos<sup>2</sup>&alpha;)</b>
+					</span><br>
+					<span class="math center">
+					5tg<sup>2</sup>&alpha; - 10tg&alpha; - 5 = 0; <b>(&alpha; &ne; <table class="fraction"><tr><td>&pi;</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table> + &pi;n)</b>
+					</span><br>
+					<span class="math center">
+					D = b<sup>2</sup> + 4ac = 200;
+					</span><br>
+					<span class="math center">
+					tg&alpha;<sub>1</sub> = 1 + &radic;2,<br>
+					tg&alpha;<sub>2</sub> = 1 - &radic;2.<br>
+					</span><br>
+				</p>
+				
+				<p>
+					Рассуждая дальше, в принципе можно выбрать любой угол из получившихся двух: <span class="math">&alpha;<sub>1</sub></span> или
+					<span class="math">&alpha;<sub>2</sub></span>. Первый из них повернёт изначальный график функции на острый угол против часовой стрелки
+					(см. наглядный тригонометрический круг с осью тангенсов справа). Второй — наоборот, повернёт на острый угол по часовой стрелке.
+				</p>
+				
+				<p>
+					Пусть будет взят угол <span class="math">&alpha;<sub>1</sub></span>, который повернёт график против часовой стрелки.
+					В уравнение (получившееся из уравнения <i>(8)</i>):<br>
+					<span class="math center">x''<sup>2</sup>(6cos<sup>2</sup>&alpha; - 5cos&alpha; sin&alpha;
+					+ sin<sup>2</sup>&alpha;) + y''<sup>2</sup>(6sin<sup>2</sup>&alpha; + 5cos&alpha; sin&alpha; + cos<sup>2</sup>&alpha;)
+					- 18 = 0,
+					</span><br>
+				</p>
+				
+				<p>
+					подставляется найденное значение угла (см. формулы тригонометрических преобразований:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">cos&alpha; =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>————</td></tr><tr><td>&radic;(1 + tg<sup>2</sup>&alpha;)</td></tr></table>
+					</span><br>
+					<span class="math center">sin&alpha; =
+					<table class="fraction"><tr><td>tg&alpha;</td></tr><tr><td>————</td></tr><tr><td>&radic;(1 + tg<sup>2</sup>&alpha;)</td></tr></table>
+					</span><br>
+					).
+				</p>
+				
+				<p>
+					В случае с углом <span class="math">&alpha;<sub>1</sub></span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math">tg&alpha;<sub>1</sub> = 1 + &radic;2 =></span><br>
+					<span class="math">sin&alpha;<sub>1</sub> =
+					<table class="fraction"><tr><td>1 + &radic;2</td></tr><tr><td>———</td></tr><tr><td>&radic;(4 + 2&radic;2)</td></tr></table>,</span><br>
+					<span class="math">cos&alpha;<sub>1</sub> =
+					<table class="fraction"><tr><td>1</td></tr><tr><td>———</td></tr><tr><td>&radic;(4 + 2&radic;2)</td></tr></table>,</span>
+				</p>
+				
+				<p>
+					<b>3)</b> После чего, постепенно выясняется новое уравнение обсуждаемой кривой второго порядка:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x''<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td><table class="fraction"><tr><td>18(4 + 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>4 - 3&radic;2</td></tr></table></td></tr></table>
+					+ <table class="fraction"><tr><td>y''<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td><table class="fraction"><tr><td>18(4 + 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>24 + 17&radic;2</td></tr></table></td></tr></table>
+					= 1.
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;<i>(9)</i><br>
+				</p>
+				
+				<p>
+					Является ли оно каноническим? Если приглядется, то с помощью непрограммируемого калькулятора (его можно использовать
+					в процессе экзамена в магистратуру) можно понять, что<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">a<sup>2</sup> = 
+					<table class="fraction"><tr><td>18(4 + 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>4 - 3&radic;2</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					— это один из двух коэффициентов канонических уравнений кривых второго порядка — меньше нуля. Но нет такого уравнения,
+					которое содержало бы отрицательный <span class="math">a<sup>2</sup></span>-коэффициент. Значит, угол <span class="math">&alpha;<sub>1</sub></span>
+					не годится. Но, как я понял дальше, пока выполнял это задание: оказывается, что если поменять числа в знаменателях дробей уравнения
+					<i>(9)</i> местами, то получится верный ответ.
+				</p>
+				
+				<p>
+					Но на экзамене это действие нужно обосновать. Если вы сможете сделать это, то вы красавец! :) Я не буду делать этого,
+					потому что это, как мне кажется, излишнее (и лень это делать сейчас)).
+					Проще вычислить второй угол <span class="math">&alpha;<sub>2</sub></span>, который повернёт кривую
+					на острый угол уже по часовой стрелке. И в таком случае, результат получится такой:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x''<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td><table class="fraction"><tr><td>18(4 - 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>4 + 3&radic;2</td></tr></table></td></tr></table>
+					+ <table class="fraction"><tr><td>y''<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td><table class="fraction"><tr><td>18(4 - 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>24 - 17&radic;2</td></tr></table></td></tr></table>
+					= 1.
+					</span>
+				</p>
+				
+				<p>
+					А здесь уже коэффициент<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">b<sup>2</sup> = 
+					<table class="fraction"><tr><td>18(4 - 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>24 - 17&radic;2</td></tr></table>
+					</span>
+				</p>
+				
+				<p>
+					— меньше нуля. А коэффициент <span class="math">a<sup>2</sup></span> больше нуля. То есть всё наоборот по
+					сравнению с уравнением <i>(9)</i>. Такой случай бывает у гиперболы. Необходимо поставить знак минус перед
+					отрицательным коэффициентом:<br>
+					<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x''<sup>2</sup></td></tr><tr><td>——</td></tr><tr><td>a<sup>2</sup></tr></table>
+					- <table class="fraction"><tr><td>y''<sup>2</sup></td></tr><tr><td>——</td></tr><tr><td>b<sup>2</sup></tr></table>
+					= 1.
+					</span>
+				</p>
+				
+				<p>
+					Тогда <span class="math">b<sup>2</sup></span> действительно будет в квадрате (отрицательного действительного
+					числа в квадрате не бывает, как мы должны с Вами знать).
+					И получится каноническое уравнение гиперболы (см. подраздел <a href="#another3">Гипербола и парабола</a>).
+				</p>
+				
+				<p>
+					В <b>методе инвариантов</b> (это другой метод решения этой задачи) есть такой интересный
+					и о-очень полезный определитель, при помощи которого можно прямо сразу узнать, какая кривая второго порядка
+					представлена заданным уравнением второй степени (как в условии этого задания).
+				</p>
+				
+				<p>
+					Про этот метод смотрите всё тот же классный и отменный сайт
+					<a class="new-tab-link" target="_blank" href="http://www.mathprofi.ru/kak_privesti_uravnenie_linii_2_poryadka_k_kanonicheskomu_vidu.html">mathprofi.ru</a>
+					<b>Емелина Александра</b>.
+				</p>
+				
+				<p>
+					Хоть теперь уже известно, что за кривая в итоге дана — всё же будет не лишним в решении
+					подтвердить это утверждение очень хорошим способом.
+					Здесь будет использована часть метода инвариантов для выяснения вида кривой второго порядка,
+					заданной уравнением в условии задания. Вычисляется определитель из первых трёх членов уравнения в <a href="#condition0">условии</a>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						|&delta;| =
+						<table class="deter">
+							<tr><td>A</td><td>B</td></tr>
+							<tr><td>B</td><td>C</td></tr>
+						</table> =
+						<table class="deter">
+							<tr><td>6</td><td>-<table class="fraction"><tr><td>5</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></td></tr>
+							<tr><td>-<table class="fraction"><tr><td>5</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></td><td>1</td></tr>
+						</table> =
+						-<table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>4</td></tr></table>
+						&ne; 0<br>
+						=> это точно не парабола.
+					</span>
+				</p>
+				
+				<p>
+					Здесь <span class="math">&delta;</span> — так называемая матрица <b>квадратичной формы</b>
+					<span class="math">6x<sup>2</sup> - 5xy + y<sup>2</sup></span>, которая является частью исходного уравнения
+					(см. <a href="#condition0">условие этой задачи</a>). Метод инвариантов включает теорию о квадратичных формах,
+					которую Вы можете найти либо у меня
+					<a href="../maga7/maga7.php">на сайте</a>, либо где-нибудь ещё, где Вам удобнее. Если Вы не знаете, что это такое.
+				</p>
+				
+				<p>
+					<b>Собственные числа</b> (эту тему см. <a href="../maga6/maga6.php">тут</a>) матрицы <span class="math">&delta;</span>
+					этой квадратичной формы уже способны рассказать о виде кривой второго порядка. Тут они равняются:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">&lambda;<sub>1</sub> =
+					<table class="fraction"><tr><td>7 + 5&radic;2</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>,
+					&lambda;<sub>2</sub> =
+					<table class="fraction"><tr><td>7 - 5&radic;2</td></tr><tr><td>———</td></tr><tr><td>2</td></tr></table>.
+					</span>
+				</p>
+				
+				<p>
+					Т.к. <span class="math">&lambda;<sub>1</sub> &gt; 0</span>, а <span class="math">&lambda;<sub>2</sub> &lt; 0</span>, то
+					описываемая кривая есть гипербола, согласно методу инвариантов.
+				</p>
+				
+				<p>
+					К слову, помимо универсального метода, использованного в этом решении, и метода инвариантов
+					существуют ещё два иногда полезных метода: метод Лагранжа и метод ортогонального преобразования квадратичной формы.
+				</p>
+				
+				<p>
+					Первый <b>способ Лагранжа</b> предполагает просто алгебраические преобразования исходного уравнения (обычно выделение полных квадратов и
+					замена переменных). Применяйте его, если вы ас в подобном предмете.
+				</p>
+				
+				<p>
+					Второй способ из только что перечисленных — <b>ортогонального преобразования квадратичной формы</b> — будет наиболее
+					трудоёмким методом решения задачи приведения уравнения к каноническому виду. Тут нужно понимать уже, плюс ко всему,
+					что такое ортогональные вектора,
+					как составлять ортогональную матрицу из этих векторов и затем вычислять после этого получившиеся преобразования переменных.
+				</p>
+				
+				<p>
+					Короче, к методу ортогонального преобразования прибегайте, дорогой читатель, только после неудавшихся всех остальных
+					методов решения. Такое может быть, но в крайних случаях, когда кривая, грубо говоря, <span style="font-size:0.5em;">&laquo;ахирела&raquo;</span>.
+				</p>
+				
+				<p>
+					<b>Ответ: 1) каноническое уравнение кривой:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center"><table class="fraction"><tr><td>x''<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td><table class="fraction"><tr><td>18(4 - 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>4 + 3&radic;2</td></tr></table></td></tr></table>
+					+ <table class="fraction"><tr><td>y''<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td><table class="fraction"><tr><td>18(4 - 2&radic;2)</td></tr><tr><td>————</td></tr><tr><td>24 - 17&radic;2</td></tr></table></td></tr></table>
+					= 1.
+					</span><br>
+				</p>
+				
+				<p>
+					2) вид кривой: гипербола.<br>
+					3) применённые преобразования, которые сразу приведут исходное уравнение к каноническому виду:<br>
+					<span style="visibility: hidden; position: absolute;" class="math center"><table style="visibility: hidden;" class="fraction"></table></span>
+					<span class="math center">
+					x = x''<table class="fraction"><tr><td>1</td></tr><tr><td>————</td></tr><tr><td>&radic;(4 - 2&radic;2)</td></tr></table> - y''<table class="fraction"><tr><td>1 - &radic;2</td></tr><tr><td>————</td></tr><tr><td>&radic;(4 - 2&radic;2)</td></tr></table> - 2;
+					<br><br>
+					y = x''<table class="fraction"><tr><td>1 - &radic;2</td></tr><tr><td>————</td></tr><tr><td>&radic;(4 - 2&radic;2)</td></tr></table> + y''<table class="fraction"><tr><td>1</td></tr><tr><td>————</td></tr><tr><td>&radic;(4 - 2&radic;2)</td></tr></table> - 6.</b>
+					</span>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					Как показывает онлайн-сервис <a class="new-tab-link" href="https://www.mathway.com/ru/graph" target="_blank">mathway.com</a>,
+					график общего уравнения из условия и график канонического уравнения похожи друг на друга (см. <a href="#pic14">рис. 14</a>).
+				</p>
+				
+				<p>
+					<table class="img" id="pic14">
+					<tr><td><img src="14.jpg" title="Исходный и канонический графики: https://www.mathway.com/ru/graph" alt="Построение в онлайн-сервисе mathway.com исследуемых графиков"></td></tr>
+					<tr><td>Рисунок 14 — Построение в онлайн-сервисе исследуемых графиков</td></tr>
+					<tr><td>и подтверждение правильности результата</td></tr>
+					</table>
+				</p>
+				
+				<p>
+					Просто график канонического уравнения нужно повернуть по часовой стрелке на угол <span class="math">&alpha;<sub>2</sub></span>
+					(это вытекает из решения выше) и перенести его центр в точку<br>
+					<span class="math center">(-2; -6).
+					</span><br>
+				</p>
+
+				<p>
+					Тогда получится исходная кривая. Канонический вид кривой упрощает её представление, поэтому приведением к каноническому виду
+					математики
+					очень часто занимаются. С этим видом уравнения легче описать заданную им кривую.
+				</p>
+				
+				<p>
+					Метод инвариантов также очень хорошо помогает решить это задание. Его ответ точно такой же!
+					Этот метод действует не во всех случаях, но зато он более короткий по времени и не требует очень
+					глубоких знаний линейной алгебры.
+				</p>
+				
+				<p>
+					Вдобавок, хочу также сказать, что каноническая гипербола должна обязательно иметь осью симметрии ось ординат. А не ось абсцисс!
+					(см. <a href="#pic14">рис. 14</a>)
+				</p>
+				
+				<h2>Завершение</h2>
+				<p>
+					Об аналитической геометрии всё, дорогой читатель! Поздравляю тебя с долистыванием до конца этого раздела.
+					Задачки на аналитическую геометрию с некоторой вероятностью могут появиться во вступительном экзамене, поэтому ты молодец,
+					что решил с ними познакомиться поближе! Хорошего настроения тебе!
+				</p>
+				
+				<p>
+					И не переживай, если что-то у тебя не получается. Больше попрактикуйся, и
+					всё будет норм! Удачи тебе на экзамене :) Спасибо за внимание!
+				</p>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga2/maga2.php">Предыдущая статья</a></span><span class="next"><a href="../maga4/maga4.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga3/maga3.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

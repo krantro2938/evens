@@ -1,0 +1,634 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 23.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Определённый интеграл</h1>
+				<p>
+					В этом разделе &laquo;допроходится&raquo;
+					тема <b>&laquo;Неопределённый интеграл. Интегрирование некоторых классов функций.
+					Определённый интеграл. Свойства опредёленного интеграла и теорема
+					Ньютона-Лейбница. Приложения определённого интеграла&raquo;,</b>
+					касательно определённых интегралов.
+				</p>
+				
+				<p>
+					Статья основана на многочисленных источниках, в том числе на книге <b>Николая Семеновича Пискунова</b>
+					&laquo;Дифференциальное и интегральное исчисления&raquo; (том 1-й,
+					глава 11) и на книге <b>Дмитрия Трофимовича Письменного</b> &laquo;Конспект лекций по высшей математике&raquo;.
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Определённый интеграл</a>
+						<li><a href="#h2_2">Свойства определённого интеграла</a>
+						<li><a href="#h2_3">Приложения определённого интеграла</a>
+						<li><a href="#h2_4">Несобственные интегралы</a>
+						<li><a href="#h2_5">Заключение</a>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Определённый интеграл и Ньютон и Лейбниц</h2>
+				<p>
+					Скажу сразу, дорогой читатель, для того чтобы вычислять определённые интегралы, Вам необходим навык
+					вычисления первообразной функции, то есть <b><a href="../maga13/maga13.php">неопределённого интеграла</a>.</b>
+				</p>
+				
+				<p>
+					<b>Определённый интеграл,</b> как следует из названия, есть определённое число. То есть не множество функций
+					(неопределённый интеграл), а число.
+				</p>
+				
+				<p>
+					Определение определённого интеграла даётся в виде предела так называемых <i>интегральных сумм</i> (см. <a href="#pic1">рис. 1</a>):<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						s<sub>n</sub> = <sup><sup><table class="fraction"><tr><td>n</td></tr><tr><td></td></tr><tr><td>&sum;</td></tr><tr><td></td></tr>
+						<tr><td>i = 1</td></tr></table></sup></sup>
+						f(&xi;<sub>i</sub>) Δx<sub>i</sub>,
+					</span>
+				</p>
+				
+				<p>
+					где <span class="math">f(&xi;<sub>i</sub>)</span> — значение функции
+					в точке <span class="math">&xi;<sub>i</sub></span>, лежащей на отрезке длины
+					<span class="math">Δx<sub>i</sub></span> кривой <span class="math">y = f(x)</span>.
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="Н.С. Пискунов &laquo;Дифференциальное и интегральное исчисления&raquo;" alt="Составление интегральных сумм с помощью рисунка Н.С. Пискунова"></td></tr>
+					<tr><td>Рисунок 1 — Составление интегральных сумм</td></tr>
+					<tr><td>путём разбиения графика функции на отрезки</td></tr>
+					<tr><td>длиной Δx<sub>i</sub> каждый<sup><a href="#ref1">1</a></sup></td></tr>
+				</table>
+				</p>
+				
+				<p>
+					То есть в пределе при <span class="math">n —> &infin;</span> длины всех отрезков
+					графика функции <span class="math">y = f(x)</span> стремятся к нулю: <span class="math">Δx<sub>i</sub> —> 0</span>.
+				</p>
+				
+				<p>
+					И если этот предел (при любых видах разбиения графика на отрезки
+					на промежутке от <span class="math">x = a</span> включительно до <span class="math">x = b</span> включительно)
+					существует, то
+					его называют <b>определённым интегралом</b> от функции <span class="math">y = f(x)</span>
+					с пределами <span class="math">a</span> и <span class="math">b</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+						<tr><td>a</td></tr></table></sup></sup> f(x)dx =
+						<table class="fraction"><tr><td>lim</td></tr><tr><td></td></tr><tr><td></td></tr>
+						<tr><td>n —> &infin;</td></tr></table>
+						<sup><sup><table class="fraction"><tr><td>n</td></tr><tr><td></td></tr><tr><td>&sum;</td></tr><tr><td></td></tr>
+						<tr><td>i = 1</td></tr></table></sup></sup>
+						f(&xi;<sub>i</sub>) Δx<sub>i</sub>
+					</span>
+				</p>
+				
+				<p>
+					Число <span class="math">a</span> называется <b>нижним пределом интегрирования</b>, число <span class="math">b</span> —
+					<b>верхним,</b> а <span class="math">x</span> зовётся <b>переменной интегрирования.</b>
+				</p>
+				
+				<p>
+					В геометрическом смысле определённый интеграл есть площадь криволинейной трапеции,
+					находящейся под графиком некоторой неотрицательной функции и заключённой также между прямыми <span class="math">x = a</span>
+					и <span class="math">x = b</span> и снизу — осью абсцисс <span class="math">Ox</span> (см. <a href="#pic2">рис. 2 ниже</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="Википедия: https://ru.wikipedia.org/wiki/Определённый_интеграл" alt="Рисунок из Википедии, изображающий эту криволинейную трапецию"></td></tr>
+					<tr><td>Рисунок 2 — Площадь фигуры, или криволинейной трапеции</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Существует теорема, которая уже указывалась ранее в разделе <a href="../maga13/maga13.php">&laquo;Неопределённые интегралы&raquo;</a>,
+					что если функция непрерывна на отрезке <span class="math">[a; b]</span>, то она интегрируема на этом отрезке.
+				</p>
+				
+				<p>
+					Раньше, ещё в Древние века, люди вычисляли интегралы, которые были им по силам, путём составления и вычисления
+					интегральных сумм. Это довольно сложная затея, включающая в себя представление о числовых рядах, их суммах и
+					умении не рассредоточиться, пока считаешь это всё <b>:)</b> . Поэтому гениальным учёным <b>Исааком Ньютоном</b> и умнейшим философом
+					<b>Готфридом Лейбницем</b> была придумана <b>более эффективная формула</b> —<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+						<tr><td>a</td></tr></table></sup></sup> f(x)dx = F(b) - F(a),
+					</span>
+				</p>
+				
+				<p>
+					названная их именами. Формула Ньютона–Лейбница дала возможность вычислять интегралы в два момента! И очень хорошо до сих пор
+					служит человечеству.
+				</p>
+				
+				<p>
+					В ней <span class="math">F(x)</span> — это первообразная (неопределённый интеграл)
+					от функции <span class="math">f(x)</span>.
+				</p>
+				
+				<p>
+					Пример вычисления определённого интеграла см., например, <a href="../maga13/maga13.php#h2_2">здесь на сайте, в предыдущем разделе.</a>
+				</p>
+				
+				<h2 id="h2_2">Свойства определённого интеграла</h2>
+				<p>
+					Из свойств определённого интеграла можно отметить следующие:
+				</p>
+				
+				<ol>
+				<p>
+					<li>
+						постоянный множитель можно выносить за знак определённого интеграла:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> C f(x)dx =
+							C <sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx;
+						</span>
+					</li>
+				</p>
+				
+				<p>
+					<li>
+						определённый интеграл от алгебраической суммы равен
+						алгебраической сумме определённых интегралов от каждого из слагаемых:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> [f(x) + g(x)]dx =
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx +
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> g(x)dx;
+						</span>
+					</li>
+				</p>
+				
+				<p>
+					<li>
+						если на отрезке <span class="math">[a; b]</span>, где <span class="math">a &lt; b</span>,
+						функции <span class="math">f(x)</span> и <span class="math">g(x)</span> удовлетворяют
+						условию <span class="math">f(x) &le; g(x)</span>, то:<br>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx &le;
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> g(x)dx;
+						</span>
+					</li>
+				</p>
+				</ol>
+				
+				<p>
+					Доказательства этих свойств смотрите, к примеру, в книге Николая Пискунова
+					&laquo;Дифференциальное и интегральное исчисления&raquo; (том 1-й, глава 11, параграф 3).
+				</p>
+				
+				<p>
+					Есть ещё минимум три свойства определённых интегралов, в том числе и <i>теорема о среднем:</i>
+				</p>
+				
+				<p style="border-top: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+					<i>Если функция <span class="math">f(x)</span> непрерывна на отрезке <span class="math">[a; b]</span>,
+					то на этом отрезке найдётся такая точка <span class="math">&xi;</span>,
+					что справедливо следующее равенство:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span style="border-bottom: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em" class="math center">
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx = (b - a)f(&xi;).
+						</span>
+				</p>
+				
+				<p>
+					Остальные свойства, если Вам интересно, смотрите в любой подходящей для Вас научной литературе.
+				</p>
+				
+				<h2 id="h2_3">Практические приложения определённого интеграла</h2>
+				<h3>Площадь криволинейной трапеции</h3>
+				<p>
+					С помощью понятия определённого интеграла можно значительно легче вычислить,
+					как уже нетрудно догадаться, площадь некоторой фигуры.
+				</p>
+				
+				<p>
+					Эта фигура может быть ограничена одной какой-нибудь кривой, например <span class="math">y = sin(x)</span>
+					(см. <a href="#pic3">рис. 3</a>), или
+					быть охвачена сразу несколькими кривыми снизу и сверху. Главное помнить, что <i>площадь криволинейной трапеции,
+					ограниченной кривой <span class="math">y = f(x)</span>, осью <span class="math">Ox</span> и прямыми
+					<span class="math">x = a</span> и <span class="math">x = b</span>,
+					выражается формулой:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span style="border-bottom: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em" class="math center">
+							S = <sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx.
+						</span>
+				</p>
+				
+				<p>
+				<table class="img" id="pic3">
+					<tr><td><img src="3.jpg" title="Н.С. Пискунов &laquo;Дифференциальное и интегральное исчисления&raquo;" alt="Пример фигуры, ограниченной графиком синуса на некотором отрезке"></td></tr>
+					<tr><td>Рисунок 3 — Фигура, ограниченная графиком синуса на</td></tr>
+					<tr><td>отрезке [0; 2&pi;] (S = 4)</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					При этом нужно понимать, что если график функции ниже оси абсцисс <span class="math">Ox</span>,
+					т.е. <span class="math">y = f(x) &le; 0</span>, то
+					и соответствующий интеграл будет <span class="math">&le; 0</span>. В этом случае,
+					площадь фигуры будет выражаться значением интеграла от <i>модуля</i> неположительной функции.
+				</p>
+				
+				<p>
+					Также существует формула для нахождения площади фигуры, ограниченной функцией,
+					которая задана параметрически, т.е. <span class="math">x = &phi;(t)</span>,
+					<span class="math">y = &omega;(t)</span>
+					(<span class="math">t &isin; [&alpha;; &beta;]</span>):<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							S = <sup><sup><table class="fraction"><tr><td>&beta;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>&alpha;</td></tr></table></sup></sup> &omega;(t) &phi;'(t)dt.
+						</span>
+				</p>
+				
+				<h3>Площадь криволинейного сектора<br>в полярных координатах</h3>
+				<p>
+					Пусть в полярной системе координат имеется кривая, заданная уравнением
+					<span class="math">&rho; = f(&theta;)</span>, где <span class="math">f(&theta;)</span> —
+					непрерывная функция от угла <span class="math">&theta; &isin; [&alpha;; &beta;]</span>.
+				</p>
+				
+				<p>
+					<i>Площадь сектора,</i> ограниченного двумя значениями угла
+					поворота радиус-вектора — <span class="math">&alpha;</span> и
+					<span class="math">&beta;</span> (см. <a href="#pic4">рис. 4</a>) — и графиком функции
+					<span class="math">&rho; = f(&theta;)</span>, равна:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							S =
+							 <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td></td></tr><tr><td>—</td></tr><tr><td></td></tr>
+							<tr><td>2</td></tr></table></sup></sup>
+							<sup><sup><table class="fraction"><tr><td>&beta;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>&alpha;</td></tr></table></sup></sup> &rho;<sup>2</sup> d&theta;.
+						</span>
+				</p>
+				
+				<p>
+				<table class="img" id="pic4">
+					<tr><td><img src="4.jpg" title="Н.С. Пискунов &laquo;Дифференциальное и интегральное исчисления&raquo;" alt="Наглядное изображение сектора, площадь которого вычисляется"></td></tr>
+					<tr><td>Рисунок 4 — Сектор, ограниченный углами поворота</td></tr>
+					<tr><td>&alpha; и &beta; и графиком функции &rho; = f(&theta;)</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Напомню, для разнообразия материала <b>:)</b> , что в полярных координатах могут хорошо описываться уравнениями
+					и поэтому встречаться наиболее часто кривые, типа, спирали Архимеда,
+					полярной розы, лемнискаты, кардиоиды, логарифмической спирали, — и другие кривые.
+				</p>
+				
+				<h3>Длина дуги кривой</h3>
+				<p>
+					Пусть в прямоугольных координатах на плоскости дана кривая уравнением
+					<span class="math">y = f(x)</span>. Тогда длина <span class="math">L</span> некоторой
+					дуги <span class="math">AB</span>
+					этой кривой, заключённой между вертикальными прямыми <span class="math">x = a</span> и
+					<span class="math">x = b</span> (см. <a href="#pic5">рис. 5</a>), равняется:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							L = <sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> &radic;(1 + [f'(x)]<sup>2</sup>)dx
+						</span>
+				</p>
+				
+				<p>
+				<table class="img" id="pic5">
+					<tr><td><img src="5.jpg" title="Н.С. Пискунов &laquo;Дифференциальное и интегральное исчисления&raquo;" alt="Изображение графика функции с его дугой AB"></td></tr>
+					<tr><td>Рисунок 5 — График функции с дугой AB</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Есть также формула для вычисления длины дуги кривой, заданной уравнением
+					в полярных координатах:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							L<sub>пол. коор.</sub> = <sup><sup><table class="fraction"><tr><td>&beta;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>&alpha;</td></tr></table></sup></sup> &radic;(&rho;'<sup>2</sup> + &rho;<sup>2</sup>)d&theta;
+						</span>
+				</p>
+				
+				<p>
+					Здесь <span class="math">&alpha;</span> и <span class="math">&beta;</span> —
+					углы поворота радиус-вектора; <span class="math">&rho;(&theta;)</span> — функция в полярных
+					координатах.
+				</p>
+				
+				<h3>Другие приложения</h3>
+				<p>
+					С помощью определённого интеграла упрощаются вычисления таких величин, как:
+					<ul>
+						<li><i>объём и площадь поверхности тела вращения</i> (образованного вращением
+						некоторой криволинейной трапеции, ограниченной графиком <span class="math">y = f(x)</span>,
+						осью <span class="math">Ox</span>, прямыми <span class="math">x = a</span> и <span class="math">x = b</span>
+						— вокруг оси <span class="math">Ox</span>);</li>
+						<li><i>объём тела по площадям параллельных сечений</i> (так можно вычислить, например, объём
+						трёхосного эллипсоида [см. подробнее про эту фигуру раздел <a href="../maga3/maga3.php">&laquo;Поверхности&raquo;</a>]
+						и т.д.);</li>
+						<li><i>работа</i> некоторой силы <span class="math">F</span>;</li>
+						<li><i>центр масс</i> плоской линии или плоской фигуры;</li>
+						<li><i>момент инерции</i> линии (напр., стержня),
+						круга (окружности), круглого цилиндра.</li>
+					</ul>
+				</p>
+				
+				<p>
+					Подробнее про эти приложения определённого интеграла, смотрите по Вашему желанию, например,
+					книгу <b>Николая Пискунова &laquo;Дифференциальное и интегральное исчисления&raquo;</b>, т. 1, гл. 12, и
+					другие источники.
+				</p>
+				
+				<h2 id="h2_4">Несобственные интегралы</h2>
+				<p>
+					Также существуют интегралы с <i>бесконечными пределами интегрирования:</i><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>+&infin;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx =
+							<sup><table class="fraction"><tr><td style="font-size: 1.2em">lim</td></tr><tr><td></td></tr>
+							<tr><td>b —> +&infin;</td></tr></table></sup>
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx.
+						</span>&nbsp;&nbsp;&nbsp;&nbsp;(1)
+				</p>
+				
+				<p>
+					Если существует предел (1), то его называют <b>несобственным интегралом</b> от функции <span class="math">y = f(x)</span> на интервале
+					<span class="math">[a; +&infin;)</span> (в случае если функция <span class="math">y = f(x)</span>
+					определена и непрерывна на всём этом интервале).
+				
+				<p>
+					Если предел (1) существует, то ещё говорят, что несобственный интеграл <b>сходится,</b> и если предела не существует, или он получается
+					не в виде конечного числа, а как бесконечность, то здесь уже говорят, что несобственный интеграл <b>расходится.</b>
+				</p>
+				
+				<p>
+					Также существуют и другие виды таких несобственных интегралов:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>-&infin;</td></tr></table></sup></sup> f(x)dx =
+							<sup><table class="fraction"><tr><td style="font-size: 1.2em">lim</td></tr><tr><td></td></tr>
+							<tr><td>a —> -&infin;</td></tr></table></sup>
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>a</td></tr></table></sup></sup> f(x)dx;
+						</span>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>+&infin;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>-&infin;</td></tr></table></sup></sup> f(x)dx =
+							<sup><sup><table class="fraction"><tr><td>c</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>-&infin;</td></tr></table></sup></sup> f(x)dx +
+							<sup><sup><table class="fraction"><tr><td>+&infin;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>c</td></tr></table></sup></sup> f(x)dx.
+						</span>
+				</p>
+				
+				<p>
+					В последнем случае, несобственный интеграл слева сходится, если сходятся оба несобственных интеграла справа.
+				</p>
+				
+				<p>
+					Как Вы поняли, несобственный интеграл — это тоже число, как и определённый интеграл. И способ его решения включает
+					формулу Ньютона–Лейбница, как и у определённого интеграла. Кроме того, иногда вычислить несобственный интеграл
+					обычными методами невозможно, поэтому в некоторых задачах могут попросить доказать сходимость или расходимость несобственного интеграла.
+					Делается это с помощью специальных признаков, которые в этой статье не озвучиваются.
+				</p>
+				
+				<p>
+					Все перечисленные выше три типа интеграла объединяются одним названием: несобственные интегралы <b>первого рода.</b> Так как
+					интегрируемая функция <i>определена и непрерывна</i> на всём интервале интегрирования и не имеет точек разрыва в нём. Иначе,
+					несобственный интеграл называют несобственным интегралом <b>второго рода.</b> Который может внешне
+					выглядить также, как и обычный определённый интеграл,
+					но только иметь <i>точки разрыва</i> либо на конце (-ах) области интегрирования, либо внутри области интегрирования — в одной точке или на каком-нибудь
+					внутреннем интервале (отрезке).
+				</p>
+				
+				<p>
+					Методы вычисления несобственных интегралов первого и второго рода различаются. Но их можно на практике освоить и закрепить (как и везде <b>:)</b> ).
+					См., например, отличный сайт со статьёй о вычислении несобственных интегралов <b>Александра Емелина</b>
+					<a class="new-tab-link" href="http://www.mathprofi.ru/nesobstvennye_integraly.html" target="_blank">mathprofi.ru</a>.
+				</p>
+				
+				<p>
+					<b id="example1">Пример 1.</b> Вычислить интеграл или установить его расходимость:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>+&infin;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>1</td></tr></table></sup></sup> <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr>
+							<tr><td>x<sup>2</sup></td></tr></table></sup></sup>dx.
+						</span>
+				</p>
+				
+				<p>
+					Т.к. на всём интервале интегрирования функция <span class="math">1/x<sup>2</sup></span> непрерывна и не имеет точек разрыва,
+					то это несобственный интеграл первого рода (см. <a href="#pic6">рисунок 6</a>). Поэтому тут можно сразу делать переход к пределу и его вычислению:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span class="math center">
+							<sup><sup><table class="fraction"><tr><td>+&infin;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>1</td></tr></table></sup></sup> <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr>
+							<tr><td>x<sup>2</sup></td></tr></table></sup></sup>dx =
+							<sup><table class="fraction"><tr><td style="font-size: 1.2em">lim</td></tr><tr><td></td></tr>
+							<tr><td>b —> +&infin;</td></tr></table></sup>
+							<sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>1</td></tr></table></sup></sup> x<sup>-2</sup>dx =<br>
+							= <sup><table class="fraction"><tr><td style="font-size: 1.2em">lim</td></tr><tr><td></td></tr>
+							<tr><td>b —> +&infin;</td></tr></table></sup>
+							(-<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr>
+							<tr><td>x</td></tr></table></sup></sup>)<b><sup><sup><table class="fraction"><tr><td>b</td></tr><tr><td></td></tr><tr><td>|</td></tr><tr><td></td></tr>
+							<tr><td>1</td></tr></table></sup></sup></b> =<br>
+							<sup><table class="fraction"><tr><td style="font-size: 1.2em">lim</td></tr><tr><td></td></tr>
+							<tr><td>b —> +&infin;</td></tr></table></sup>
+							(-<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr>
+							<tr><td>b</td></tr></table></sup></sup> + <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr>
+							<tr><td>1</td></tr></table></sup></sup>) =<br>
+							0 + 1 = 1.
+						</span>
+				</p>
+				
+				<p>
+					Таким образом, этот несобственный интеграл сходится и равен единице.
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+							<sup><sup><table class="fraction"><tr><td>+&infin;</td></tr><tr><td></td></tr><tr><td>&int;</td></tr><tr><td></td></tr>
+							<tr><td>1</td></tr></table></sup></sup> <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr>
+							<tr><td>x<sup>2</sup></td></tr></table></sup></sup>dx = 1.
+					</span></b>
+				</p>
+				
+				<p>
+				<table class="img" id="pic6">
+					<tr><td><img src="6.jpg" title="mathway.com" alt="Изображение графика функции 1/x<sup>2</sup> и наглядное представление площади бесконечной криволинейной трапеции, которой равен исследуемый несобственный интеграл"></td></tr>
+					<tr><td>Рисунок 6 — График функции 1/x<sup>2</sup>;</td></tr>
+					<tr><td>несобственный интеграл <a href="#example1">примера 1</a></td></tr>
+					<tr><td>численно равен площади</td></tr>
+					<tr><td>бесконечной криволинейной трапеции,</td></tr>
+					<tr><td>ограниченной графиком этой функции,</td></tr>
+					<tr><td>осью Ox и прямой x = 1</td></tr>
+				</table>
+				</p>
+				
+				<h2 id="h2_5">Заключение</h2>
+				
+				<p>
+					<b>На этом всё, дорогой читатель! :) Желаю успехов Вам на экзамене, в каком бы учебном заведении или на каком бы онлайн-курсе
+					Вы его не писали!</b>
+				</p>
+			</div>
+			
+			<div class="references">
+				<p id="ref1"><b>1:</b> Конечно, если Вы заметили, дорогой читатель, разбивается на отрезки не сам график функции, а
+				ось абсцисс под этим графиком. И на графике отмечаются соответствующие точки разбиения (к <a href="#pic1">рисунку 1</a>).</p>
+			</div>
+			
+			<div>
+				<span class="previous"><a href="../maga13/maga13.php">Предыдущая статья</a></span><span class="next"><a href="../maga15/maga15.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga14/maga14.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

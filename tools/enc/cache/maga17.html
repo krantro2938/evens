@@ -1,0 +1,688 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 02.08.2022</b></i></p>
+				<p><i><b>Дополнена: 07.08.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Дифференциальные уравнения</h1>
+				<p>
+					В этом разделе обсуждается тема
+					<b>&laquo;Дифференциальные уравнения&raquo;</b>
+					из программы, требуемой для успешного поступления в магистратуру при РТУ МИРЭА
+					(<a class="new-tab-link" href="https://priem.mirea.ru/docs/2022/official/programs/prog_math_mag.pdf" target="_blank">&laquo;Содержание разделов вступительного испытания&raquo;</a>).
+				</p>
+				
+				<p>
+					Про дифуры можно почитать, дорогой читатель, к примеру, в:
+					<ol>
+						<li>
+							пособии <b>Николая Семёновича Пискунова</b>
+							&laquo;Дифференциальное и интегральное исчисления&raquo; (т.2);
+						</li>
+						<li>
+							порешать задачки на тему дифуров можно, например, в задачнике <b>А.Ф. Филиппова</b>
+							<a class="new-tab-link" href="https://docs.yandex.ru/docs/view?tm=1659201590&tld=ru&name=%D0%A4%D0%B8%D0%BB%D0%B8%D0%BF%D0%BF%D0%BE%D0%B2-%D0%90.%D0%A4.-%D0%A1%D0%B1%D0%BE%D1%80%D0%BD%D0%B8%D0%BA-%D0%B7%D0%B0%D0%B4%D0%B0%D1%87-%D0%BF%D0%BE-%D0%B4%D0%B8%D1%84%D1%84%D0%B5%D1%80%D0%B5%D0%BD%D1%86%D0%B8%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%BC-%D1%83%D1%80%D0%B0%D0%B2%D0%BD%D0%B5%D0%BD%D0%B8%D1%8F%D0%BC-2000.pdf&text=%D0%B7%D0%B0%D0%B4%D0%B0%D1%87%D0%BD%D0%B8%D0%BA%20%D0%BF%D0%BE%20%D0%B4%D0%B8%D1%84%D1%83%D1%80%D0%B0%D0%BC&url=http%3A%2F%2Fvgupetrova.ru%2Fwp-content%2Fuploads%2F2015%2F09%2F%25D0%25A4%25D0%25B8%25D0%25BB%25D0%25B8%25D0%25BF%25D0%25BF%25D0%25BE%25D0%25B2-%25D0%2590.%25D0%25A4.-%25D0%25A1%25D0%25B1%25D0%25BE%25D1%2580%25D0%25BD%25D0%25B8%25D0%25BA-%25D0%25B7%25D0%25B0%25D0%25B4%25D0%25B0%25D1%2587-%25D0%25BF%25D0%25BE-%25D0%25B4%25D0%25B8%25D1%2584%25D1%2584%25D0%25B5%25D1%2580%25D0%25B5%25D0%25BD%25D1%2586%25D0%25B8%25D0%25B0%25D0%25BB%25D1%258C%25D0%25BD%25D1%258B%25D0%25BC-%25D1%2583%25D1%2580%25D0%25B0%25D0%25B2%25D0%25BD%25D0%25B5%25D0%25BD%25D0%25B8%25D1%258F%25D0%25BC-2000.pdf&lr=213&mime=pdf&l10n=ru&sign=2fb37e818a0832f5f21fe02518ebf52f&keyno=0&nosw=1&serpParams=tm%3D1659201590%26tld%3Dru%26name%3D%25D0%25A4%25D0%25B8%25D0%25BB%25D0%25B8%25D0%25BF%25D0%25BF%25D0%25BE%25D0%25B2-%25D0%2590.%25D0%25A4.-%25D0%25A1%25D0%25B1%25D0%25BE%25D1%2580%25D0%25BD%25D0%25B8%25D0%25BA-%25D0%25B7%25D0%25B0%25D0%25B4%25D0%25B0%25D1%2587-%25D0%25BF%25D0%25BE-%25D0%25B4%25D0%25B8%25D1%2584%25D1%2584%25D0%25B5%25D1%2580%25D0%25B5%25D0%25BD%25D1%2586%25D0%25B8%25D0%25B0%25D0%25BB%25D1%258C%25D0%25BD%25D1%258B%25D0%25BC-%25D1%2583%25D1%2580%25D0%25B0%25D0%25B2%25D0%25BD%25D0%25B5%25D0%25BD%25D0%25B8%25D1%258F%25D0%25BC-2000.pdf%26text%3D%25D0%25B7%25D0%25B0%25D0%25B4%25D0%25B0%25D1%2587%25D0%25BD%25D0%25B8%25D0%25BA%2B%25D0%25BF%25D0%25BE%2B%25D0%25B4%25D0%25B8%25D1%2584%25D1%2583%25D1%2580%25D0%25B0%25D0%25BC%26url%3Dhttp%253A%2F%2Fvgupetrova.ru%2Fwp-content%2Fuploads%2F2015%2F09%2F%2525D0%2525A4%2525D0%2525B8%2525D0%2525BB%2525D0%2525B8%2525D0%2525BF%2525D0%2525BF%2525D0%2525BE%2525D0%2525B2-%2525D0%252590.%2525D0%2525A4.-%2525D0%2525A1%2525D0%2525B1%2525D0%2525BE%2525D1%252580%2525D0%2525BD%2525D0%2525B8%2525D0%2525BA-%2525D0%2525B7%2525D0%2525B0%2525D0%2525B4%2525D0%2525B0%2525D1%252587-%2525D0%2525BF%2525D0%2525BE-%2525D0%2525B4%2525D0%2525B8%2525D1%252584%2525D1%252584%2525D0%2525B5%2525D1%252580%2525D0%2525B5%2525D0%2525BD%2525D1%252586%2525D0%2525B8%2525D0%2525B0%2525D0%2525BB%2525D1%25258C%2525D0%2525BD%2525D1%25258B%2525D0%2525BC-%2525D1%252583%2525D1%252580%2525D0%2525B0%2525D0%2525B2%2525D0%2525BD%2525D0%2525B5%2525D0%2525BD%2525D0%2525B8%2525D1%25258F%2525D0%2525BC-2000.pdf%26lr%3D213%26mime%3Dpdf%26l10n%3Dru%26sign%3D2fb37e818a0832f5f21fe02518ebf52f%26keyno%3D0%26nosw%3D1" target="_blank">&laquo;Сборник задач по дифференциальным уравнениям&raquo;</a>.
+						</li>
+						<li>
+							конечно, нельзя обойти стороной замечательный сайт <b>Емелина Александра</b>
+							<a class="new-tab-link" href="http://www.mathprofi.ru/differencialnye_uravnenija_primery_reshenii.html" target="_blank">mathprofi.ru/differencialnye_uravnenija_primery_reshenii.html</a>.
+							На сайте, помимо прочего, можно найти информацию и о дифурах высших порядков
+							и методах их решения, в частности решения дифуров второго порядка:
+							<a class="new-tab-link" href="http://www.mathprofi.ru/differencialnye_uravnenija_vtorogo_poryadka.html" target="_blank">mathprofi.ru/differencialnye_uravnenija_vtorogo_poryadka.html</a>.
+						</li>
+					</ol>
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Общие понятия дифуров</a></li>
+						<li><a href="#h2_2">Разновидности</a></li>
+						<li><a href="#h2_3">Примеры вычисления дифуров</a></li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Общие понятия дифуров</h2>
+				<p>
+					<b>Дифференциальным уравнением</b> называется уравнение, в котором участвуют независимая переменная <span class="math">x</span>,
+					искомая функция <span class="math">y</span> и её производные <span class="math">y', . . ., y<sup>(n)</sup></span>
+					первого и более порядков.
+				</p>
+				
+				<p>
+					К дифференциальному уравнению (далее просто — дифуру; или ДУ) приводят те прикладные задачи, в которых легче увидеть зависимость между производной, самой функцией
+					и её аргументом (независимой переменной), чем определять сразу саму эту функцию <span class="math">y(x)</span>. Решить дифур называют также словом
+					<b>проинтегрировать дифур.</b> Это потому, что смысл решения дифура закладывается в интеграле.
+				</p>
+				
+				<p>
+					Обозначают дифференциальное уравнение в общем виде, например, так:<br>
+					<span class="math center">
+						f(x, y, y', y'', . . ., y<sup>(n)</sup>) = 0.
+					</span>
+				</p>
+				
+				<p>
+					Обычно в начале изучения дифуров изучают <b>обыкновенные</b> дифференциальные уравнения, где искомая функция зависит от одной переменной.
+					В случае функции от <i>нескольких</i> аргументов <span class="math">z(x, y, . . .)</span> дифур называют словосочетанием <b>&laquo;в частных производных&raquo;.</b>
+				</p>
+				
+				<p>
+					<b>Порядком</b> дифференциального уравнения называют наивысший порядок среди всех порядков производных в этом уравнении. Например, следующее
+					уравнение<br>
+					<span class="math center">
+						y' + y<sup>IV</sup> + 2y<sup>8</sup> = 5x
+					</span>
+				</p>
+				
+				<p>
+					имеет своим порядком число 4.
+				</p>
+				
+				<p>
+					<b>Решением,</b> или <b>интегралом,</b> дифура называется всякая функция <span class="math">y = f(x)</span>, которая при
+					подставлении её в исходный дифур превращает этот дифур в верное тождество <span class="math">&equiv;</span>.
+				</p>
+				
+				<p>
+					К примеру, функция<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y = <sup><sup><table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> - 5
+					</span>
+				</p>
+				
+				<p>
+					является решением дифура<br>
+					<span class="math center">
+						y' = x
+					<span style="float: right;">(1)</span></span>
+				</p>
+				
+				<p>
+					потому что при подставлении её производной в это уравнение оно обращается в тождество <span class="math">x &equiv; x</span> (проверьте это! для
+					развития Ваших навыков в этой теме).
+				</p>
+				
+				<p>
+					Да и вообще. Решением дифура (1) является <i>любая</i> функция вида
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y = <sup><sup><table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> + C
+					</span>
+				</p>
+				
+				<p>
+					(и это тоже проверьте, любознательный читатель! просто подставьте производную этой функции в дифур (1))
+				</p>
+				
+				<p>
+					Итак. <b>Общим решением</b> дифференциального уравнения первого порядка (а уравнение (1) это и есть ДУ первого порядка)
+					называется функция<br>
+					<span class="math center">
+						y = &phi;(x, C),
+					<span style="float: right;">(2)</span></span>
+				</p>
+				
+				<p>
+					которая имеет одну произвольную постоянную <span class="math">C</span> и удовлетворяет дифференциальному уравнению
+					при любом значении константы <span class="math">C</span>.
+				</p>
+				
+				<p>
+					То есть у дифура может существовать целое <i>СЕМЕЙСТВО</i> решений.
+				</p>
+				
+				<p>
+					Порой выразить <span class="math">y</span> через <span class="math">x</span> и <span class="math">C</span>, как в (2), не представляется возможным,
+					или такое выражение получить очень трудно, или оно просто выглядит слишком уж громоздко. Тогда этот <i>последний</i> этап решения дифуров опускают и
+					оставляют всё как есть, в неявном виде, то есть:<br>
+					<span class="math center">
+						&Phi;(x, y, C) = 0.
+					<span style="float: right;">(3)</span></span>
+				</p>
+				
+				<p>
+					Уравнение (3), задающее семейство функций-решений <span class="math">y = f(x)</span> в <i>НЕЯВНОМ</i> виде, называется
+					<b>общим интегралом</b> дифференциального уравнения.
+				</p>
+				
+				<p>
+					<b>На практике Вы во всём разберётесь, дорогой читатель, не волнуйтесь! :)</b>
+				</p>
+				
+				<p>
+					Также — при постановке так называемой <b>задачи Коши</b> в условии — нужно получить конкретную функцию из общего решения дифура.
+					Она называется <b>частным решением</b> (или <b>частным интегралом</b> в неявном виде). Его получают после подстановки в уравнения (2) или (3)
+					конкретного числового значения константы <span class="math">C</span>.
+				</p>
+				
+				<h3>Геометрический смысл ДУ</h3>
+				<p>
+					Если затрагивать <b>геометрический смысл</b> дифура первого порядка, то можно сказать следующее. Пусть некоторая функция <span class="math">y</span>
+					является решением некоторого дифура. Тогда каждому значению её производной
+					<span class="math">y' = f(x, y) = k</span> (<span class="math">k = const</span>) будет соответствовать своя кривая,
+					в каждой точке которой угол наклона
+					касательной к графику функции <span class="math">y</span> один и тот же. Эти кривые называются <b>изоклинами</b> (см., например,
+					<a href="#pic1">рис. 1</a>, на котором изоклины представлены совокупностью окружностей).
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="http://alwebra.com.ua/" alt="Геометрический смысл дифференциального уравнения в виде рисунка-примера"></td></tr>
+					<tr><td>Рисунок 1 — Геометрический смысл дифференциального уравнения</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					По изоклинам можно построить так называемые <b>интегральные кривые,</b> которые представляют собой в совокупности семейство решений ДУ.
+					Одной из интегральных кривых и является наша функция <span class="math">y</span>.
+				</p>
+				
+				<h3>Приближённые методы решения дифуров</h3>
+				<p>
+					На практике удаётся не всегда найти точное решение того или иного дифференциального уравнения. Поэтому изобретены, а некоторые из них и улучшены,
+					различные методы нахождения приближённых численных решений ДУ.
+				</p>
+				
+				<p>
+					Одним из <b>приближённых методов</b> решения дифура является как раз нахождение достаточного количества изоклин <span class="math">y' = f(x, y) = k</span>
+					и построение по ним кривых (т.е. решений дифура) (см. <a href="#pic1">рис. 1</a>).
+				</p>
+				
+				<p>
+					Существует также <b>метод ломаных Эйлера</b>
+					(см. <a href="#pic2">рис. 2</a>), который заменяет часть интегральной кривой соответствующей касательной прямой линией.
+					Этот метод также имеет свои <i>улучшенные</i> версии (<b>&laquo;Улучшенный метод ломаных Эйлера&raquo;</b> и
+					<b>&laquo;Улучшенный метод Эйлера - Коши&raquo;</b>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic2">
+					<tr><td><img src="2.jpg" title="Википедия" alt="Метод Эйлера в сравнении с точным решением дифура"></td></tr>
+					<tr><td>Рисунок 2 — Образец результата метода Эйлера из Википедии</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					Другим методом решения дифуров является <b>&laquo;Метод Рунге-Кутта&raquo;,</b> который использует разложение функции в
+					<a href="../maga16/maga16.php">ряд Тейлора</a> (см. подробнее, например, тут
+					<a class="new-tab-link" href="https://matica.org.ua/metodichki-i-knigi-po-matematike/obyknovennye-differentcialnye-uravneniia/3-1-priblizhennye-metody-resheniia-differentcialnykh-uravnenii" target="_blank">matica.org.ua/metodichki-i-knigi-po-matematike</a>).
+					Он более точный по сравнению с методом Эйлера. Кроме того, выделяют распространённый <b>&laquo;Метод сеток&raquo;.</b>
+					И другие.
+				</p>
+				
+				<h2 id="h2_2">Разновидности</h2>
+				<p>
+					Существуют виды ДУ, которые поддаются точному вычислению. Такими являются уравнения первого порядка <b>с разделяющимися (-ёнными) переменными,</b>
+					<b>линейные однородные уравнения</b> и <b>линейные неоднородные уравнения.</b> Кроме того, существуют <b>линейные уравнения высших порядков с постоянными коэффициентами</b>
+					и <b>уравнения, допускающие понижение порядка.</b>
+				</p>
+				
+				<p>
+					В
+					<a class="new-tab-link" href="https://ru.wikipedia.org/wiki/%D0%94%D0%B8%D1%84%D1%84%D0%B5%D1%80%D0%B5%D0%BD%D1%86%D0%B8%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B5_%D1%83%D1%80%D0%B0%D0%B2%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5#%D0%9B%D0%B8%D0%BD%D0%B5%D0%B9%D0%BD%D1%8B%D0%B5_%D0%B8_%D0%BD%D0%B5%D0%BB%D0%B8%D0%BD%D0%B5%D0%B9%D0%BD%D1%8B%D0%B5_%D0%B4%D0%B8%D1%84%D1%84%D0%B5%D1%80%D0%B5%D0%BD%D1%86%D0%B8%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5_%D1%83%D1%80%D0%B0%D0%B2%D0%BD%D0%B5%D0%BD%D0%B8%D1%8F" target="_blank">Википедии</a>
+					также упоминаются <b>нелинейные</b> ДУ, некоторые частные классы которых могут быть вычислены тем или иным путём.
+				</p>
+				
+				<h2 id="h2_3">Примеры вычисления дифуров</h2>
+				<p>
+					Очень богат на примеры, начиная с самых простых, которые легки для Вашего понимания, дорогой читатель, сайт <b>Емелина Александра</b> —
+					<a class="new-tab-link" href="http://www.mathprofi.ru/differencialnye_uravnenija_primery_reshenii.html" target="_blank">mathprofi.ru/differencialnye_uravnenija_primery_reshenii.html</a>.
+				</p>
+				
+				<p>
+					В этой статье будут приведены разные другие примеры заданий на дифуры.
+				</p>
+				
+				<h3>Условие задачи №1</h3>
+				<p>
+					Эта задача взята из задачника <b>А.Ф. Филиппова</b>
+					&laquo;Сборник задач по дифференциальным уравнениям&raquo; (стр. 13).
+				</p>
+				
+				<p>
+				<table class="img" id="pic3">
+					<tr><td><img src="3.jpg" title="Задачник А.Ф. Филиппова" alt="Задача №71 параграфа 3"></td></tr>
+					<tr><td>Рисунок 3 — Задача №71 параграфа 3</td></tr>
+				</table>
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					В задачах такого типа, необходимо взять уравнение искомой кривой за <span class="math">y</span>. А остальные
+					величины, типа <span class="math">x</span> и <span class="math">y'</span>, отыскать в соответствии с условием.
+				</p>
+				
+				<p>
+					После этого, как пишет Филиппов в своём задачнике, получается дифференциальное уравнение, решением которого и является
+					искомая функция <span class="math">y = f(x)</span>.
+				</p>
+				
+				<p>
+					Итак. Сначала рисуется чертёж, и из него находятся все данные (см. <a href="#pic4">рис. 4</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic4">
+					<tr><td><img src="6.jpg" title="График кривой и производные к ней в разных точках" alt="Моя тетрадь с графиками и краткими выводами из них"></td></tr>
+					<tr><td>Рисунок 4 — Чертёж к заданию</td></tr>
+				</table>
+				</p>
+				
+				<p>
+					То есть производная функции по своему геометрическому смыслу является тангенсом угла наклона касательной
+					в определённой точке относительно оси абсцисс. А значит, выражая стороны прямоугольного треугольника через тангенс этого угла
+					наклона <span class="math">&alpha;</span>, можно найти зависимость стороны треугольника <span class="math">|Δx|</span> от
+					производной и самой функции:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y' = tg &alpha; = <sup><sup><table class="fraction"><tr><td>y</td></tr><tr><td>—</td></tr><tr><td>|Δx|</td></tr></table></sup></sup> &rArr;<br>
+						&rArr; |Δx| = <sup><sup><table class="fraction"><tr><td>y</td></tr><tr><td>—</td></tr><tr><td>y'</td></tr></table></sup></sup>
+					</span>
+				</p>
+				
+				<p>
+					Всё это делалось в предположении, что площадь прямоугольного треугольника равняется половине произведения его катетов
+					(см. <a href="#pic4">рис. 4</a>), и следовательно:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						S = <sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>2</td></tr></table></sup></sup> |Δx| y =<br>
+						= <sup><sup><table class="fraction"><tr><td>y<sup><sup><table class="fraction"><tr><td style="font-size: 1.5em;">y</td></tr><tr><td style="font-size: 1.5em;">—</td></tr><tr><td style="font-size: 1.5em;">y'</td></tr></table></sup></sup></td></tr><tr><td>——</td></tr><tr><td>2</td></tr></table></sup></sup> =<br>
+						= <sup><sup><table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>2y'</td></tr></table></sup></sup> = a<sup>2</sup>.
+					</span>
+				</p>
+				
+				<p>
+					Таким образом, получено дифференциальное уравнение первого порядка:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>2y'</td></tr></table></sup></sup> = a<sup>2</sup>,
+					<span style="float: right;">(4)</span></span>
+				</p>
+				
+				<p>
+					которое нужно сейчас решить.
+				</p>
+				
+				<p>
+					Это ДУ с разделяющимися переменными, поэтому переносятся в разные стороны от знака равенства переменные
+					<span class="math">y</span> и <span class="math">x</span>, и полученные выражения затем отдельно интегрируются.
+					То есть:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>——</td></tr><tr><td>2<sup><sup><table class="fraction"><tr><td style="font-size: 1.5em;">dy</td></tr><tr><td style="font-size: 1.5em;">—</td></tr><tr><td style="font-size: 1.5em;">dx</td></tr></table></sup></sup></td></tr></table></sup></sup> = a<sup>2</sup>;
+					</span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>dx</td></tr><tr><td>——</td></tr><tr><td>2a<sup>2</sup></td></tr></table></sup></sup> = &int; <sup><sup><table class="fraction"><tr><td>dy</td></tr><tr><td>——</td></tr><tr><td>y<sup>2</sup></td></tr></table></sup></sup>;
+					</span>
+				</p>
+				
+				<p>
+					Во время переносов множителей из одной стороны от знака равенства в другую не забывайте про <i>пропадающие конкретные решения</i> дифура, например, здесь это решения
+					<span class="math">y = 0</span> и <span class="math">y' = 0</span>. Они не являются решениями изначального ДУ, поэтому
+					можно про них спокойно забыть.
+				</p>
+				
+				<p>
+					Общее решение после интегрирования получается таким:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y = <sup><sup><table class="fraction"><tr><td>2a<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td>-x + C</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					Но это только <i>часть</i> общего решения ДУ (4), когда производная (тангенс угла наклона касательной) кривой
+					<i>больше нуля</i> (см. <a href="#pic4">рис. 4</a>). Когда она меньше — надо не забыть поставить знак &laquo;минуса&raquo;, вот здесь:
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						-<sup><sup><table class="fraction"><tr><td>y<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>2y'</td></tr></table></sup></sup> = a<sup>2</sup>,
+					</span>
+				</p>
+				
+				<p>
+					и ещё раз проинтегрировать полученный второй дифур. В итоге, получится общее решение:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y = <sup><sup><table class="fraction"><tr><td>2a<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td>&plusmn;x + C</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					<b>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+						ОТВЕТ:<br>
+							y = <sup><sup><table class="fraction"><tr><td>2a<sup>2</sup></td></tr><tr><td>————</td></tr><tr><td>&plusmn;x + C</td></tr></table></sup></sup>.
+					</span></b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					<b>Большое спасибо автору статьи
+					<a class="new-tab-link" href="http://xn--e1avkt.xn--p1ai/%D0%BC%D0%B0%D1%82%D0%B5%D0%BC%D0%B0%D1%82%D0%B8%D0%BA%D0%B0/%D0%A4%D0%B8%D0%BB%D0%B8%D0%BF%D0%BF%D0%BE%D0%B2/71/" target="_blank">решу.рф/математика/Филиппов/71/</a>
+					за решение этой задачи!</b>
+				</p>
+				
+				<p>
+					В задачнике точно такой же ответ (см. <a href="#pic5">рис. ниже</a>)!
+				</p>
+				
+				<p>
+				<table class="img" id="pic5">
+					<tr><td><img src="5.jpg" title="Ответы в конце задачника А.Ф. Филиппова" alt="Скриншот части ответов в задачнике Филиппова"></td></tr>
+					<tr><td>Рисунок 5 — Ответы в конце задачника А.Ф. Филиппова</td></tr>
+				</table>
+				</p>
+				
+				<h3>Условие задачи №2</h3>
+				<p>
+					Эта задача также находится в задачнике <b>А.Ф. Филиппова</b>
+					&laquo;Сборник задач по дифференциальным уравнениям&raquo; (стр. 14).
+				</p>
+				
+				<p>
+					Сосуд объемом в 20 л содержит воздух (80% азота и 20% кислорода).
+					В сосуд втекает 0,1 л азота в секунду, который
+					непрерывно перемешивается, и вытекает такое
+					же количество смеси. Через сколько времени в сосуде будет
+					99% азота?
+				</p>
+				
+				<h3>Решение</h3>
+				<p>
+					Как советует автор задачника, при решении таких задач
+					нужно прежде всего понять, какую величину принять за независимую переменную
+					<span class="math">x</span>,
+					а какую — за функцию <span class="math">y(x)</span>.
+				</p>
+				
+				<p>
+					Следующим шагом необходимо составить приращение функции <span class="math">y(x)</span>:
+					<span class="math">y(x + Δx) - y(x)</span>, —
+					которое затем нужно поделить на приращение аргумента <span class="math">Δx</span> и
+					после этого перейти к пределу при <span class="math">Δx -> 0</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>dy</td></tr><tr><td>——</td></tr><tr><td>dx</td></tr></table></sup></sup> =
+						<sup><table class="fraction"><tr><td style="font-size: 1.5em;">lim</td></tr><tr><td></td></tr><tr><td>Δx -> 0</td></tr></table></sup>
+						<sup><sup><table class="fraction"><tr><td>y(x + Δx) - y(x)</td></tr><tr><td>——————</td></tr><tr><td>Δx</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					В итоге должно получиться дифференциальное уравнение. Общее решение которого затем
+					уточняется выполнением задачи Коши, которое в условии, вероятнее всего, присутствует
+					(задача Коши, как говорит Филиппов, есть в условии большинства подобных задач, если не всех).
+				</p>
+				
+				<p>
+					И в конце находится требуемая в задаче величина! Опять же, дорогой читатель, чем больше
+					практики, тем лучше будет пониматься и решаться! Так что перейдём быстро к делу! <b>:)</b>
+				</p>
+				
+				<p>
+					<b>Итак,</b> следуя описанному алгоритму, получается: пусть <span class="math">t</span> (время в секундах) будет
+					независимой переменной в этой задаче, а <span class="math">y(t)</span> — объем азота в сосуде в
+					конкретную секунду после начала опыта (в литрах) — будет искомой функцией (зависимой переменной).
+				</p>
+				
+				<p>
+					Тогда, если за <span class="math">1</span>-ну секунду втекает <span class="math">0,1</span> литров
+					азота, то, по пропорции, за <span class="math">Δt</span> секунд втечёт
+					<span class="math">0,1Δt</span> литров азота.
+				</p>
+				
+				<p>
+					Теперь составим формулу вытекающего объема смеси воздуха (вытекает именно смесь, а не просто азот).
+					В начале опыта в сосуде находится <span class="math">20</span> литров воздуха, в котором
+					содержится <span class="math">y(t)</span> литров азота. Тогда, также по пропорции,
+					в объеме вытекшего воздуха <span class="math">0,1Δt</span> (он равен объему втекающего) содержится
+					<span class="math">y(t) * 0,1Δt * 1/20</span> литров азота.
+				</p>
+				
+				<p>
+					Но нужно учесть тот факт, что азот вытекает из сосуда неравномерно (не чисто по пропорции).
+					Значит, нужно прибавить бесконечно малую <span class="math">&alpha;</span>
+					(при <span class="math">Δt —> 0</span>)
+					к функции <span class="math">y(t)</span>.
+				</p>
+				
+				<p>
+					Тогда приращение функции <span class="math">Δy = y(t + Δt) - y(t)</span> будет равно
+					разности объема втекающего в сосуд азота и вытекающего из сосуда воздуха:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y(t + Δt) - y(t) = [0,1Δt] - [<sup><sup><table class="fraction"><tr><td>[y(t) + &alpha;] * Δt</td></tr><tr><td>——————</td></tr><tr><td>200</td></tr></table></sup></sup>].
+					<span style="float: right;">(5)</span></span>
+				</p>
+				
+				<p>
+					Теперь обе части уравнения (5) делятся на приращение аргумента
+					<span class="math">Δt</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>y(t + Δt) - y(t)</td></tr><tr><td>——————</td></tr><tr><td>Δt</td></tr></table></sup></sup> =
+						0,1 -
+						<sup><sup><table class="fraction"><tr><td>y(t) + &alpha;</td></tr><tr><td>————</td></tr><tr><td>200</td></tr></table></sup></sup>.
+					</span>
+				</p>
+				
+				<p>
+					И делается переход к пределу при <span class="math">Δt —> 0</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y'(t) = 0,1 -
+						<sup><sup><table class="fraction"><tr><td>y(t)</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup>.
+					<span style="float: right;">(6)</span></span>
+				</p>
+				
+				<p>
+					Уравнение (6) — это и есть дифференциальное уравнение, которого требует эта задача.
+					Теперь нужно вычислить его общее решение. Это ДУ с разделяющимися переменными, значит:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&int; <sup><sup><table class="fraction"><tr><td>dy</td></tr><tr><td>————</td></tr><tr><td>0,1 - <sup><sup><table class="fraction"><tr><td style="font-size: 1.5em">y</td></tr><tr><td>——</td></tr><tr><td style="font-size: 1.5em">200</td></tr></table></sup></sup></td></tr></table></sup></sup> =
+						&int; dt;
+					</span><br>
+					<span class="math center">
+						-200 ln[<sup><sup><table class="fraction"><tr><td>-y</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup> + 0,1] =
+						t + C;
+					</span><br>
+					<span class="math center">
+						<sup><sup><table class="fraction"><tr><td>-y</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup> + 0,1 =
+						C<sup>*</sup> e<sup><sup><sup><table class="fraction"><tr><td>-t</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup></sup>;
+					</span><br>
+					<span class="math center">
+						y =
+						C<sup>**</sup> e<sup><sup><sup><table class="fraction"><tr><td>-t</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup></sup> + 20;
+					<span style="float: right;">(7)</span></span>
+				</p>
+				
+				<p>
+					Равенство (7) и есть общее решение дифференциального уравнения. Но, чтобы применить это решение
+					непосредственно к самой задаче, нужно найти его частное решение, которое подходит под условие.
+				</p>
+				
+				<p>
+					Для этого учитываются остальные данные задачи: в начале опыта, т.е. при <span class="math">t = 0</span>,
+					в сосуде было <span class="math">y(0) = 16</span> литров азота (80% от 20 литров всего воздуха).
+				</p>
+				
+				<p>
+					Таким образом, решая задачу Коши:<br>
+					<span class="math center">
+						C = -4.
+					</span>
+				</p>
+				
+				<p>
+					И частное решение будет выглядить так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y =
+						-4 e<sup><sup><sup><table class="fraction"><tr><td>-t</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup></sup> + 20;
+					</span>
+				</p>
+				
+				<p>
+					Из этого уравнения находится ответ к задаче (<span class="math">19,8</span> литров — это спрашиваемый в задаче
+					конечный объем азота, т.е. 99% от 20 литров воздуха):<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						19,8 =
+						-4 e<sup><sup><sup><table class="fraction"><tr><td>-t</td></tr><tr><td>——</td></tr><tr><td>200</td></tr></table></sup></sup></sup> + 20;
+					</span><br>
+					<span class="math center">
+						t =
+						-200 ln<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>20</td></tr></table></sup></sup>;
+					</span><br>
+					<span class="math center">
+						t &asymp; 599,1 с. &asymp; 10 мин.
+					</span><br>
+				</p>
+				
+				<p>
+					<b>
+						<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+						<span style="font-size: 1.2em; border: 0.2em solid red; padding: 0.5em" class="math center">
+							ОТВЕТ:<br>
+								t =
+								-200 ln<sup><sup><table class="fraction"><tr><td>1</td></tr><tr><td>—</td></tr><tr><td>20</td></tr></table></sup></sup>
+								&asymp; 10 мин.
+						</span>
+					</b>
+				</p>
+				
+				<h3>Проверка</h3>
+				<p>
+					В ответах задачника А.Ф. Филиппова дан точно такой же ответ (см. <a href="#pic5">рис. 5</a> задачу №77).
+				</p>
+			<div>
+				<span class="previous"><a href="../maga16/maga16.php">Предыдущая статья</a></span><span class="next"><a href="../maga17/maga17.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga17/maga17.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

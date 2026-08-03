@@ -1,0 +1,209 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 28.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Числовые и функциональные ряды. Разложение функций в ряд Тейлора</h1>
+				<p>
+					В этом разделе обсуждается тема
+					<b>&laquo;Числовые ряды. Свойства сходящихся рядов. Положительные ряды.
+					Знакопеременные ряды. Абсолютно сходящиеся ряды.
+					Функциональные ряды. Свойства равномерно сходящихся рядов.
+					Степенные ряды. Свойства степенных рядов. Ряд Тейлора. Разложение функций
+					в ряд Тейлора&raquo;.</b>
+				</p>
+				
+				<p>
+					Эти темы читайте, дорогой посетитель этого сайта, в следующих хороших учебниках и методичках:
+					<ol>
+						<li>
+							<b>Краснов, Киселёв, Макаренко, Шикин, Заляпин, Соболев. Вся высшая математика. т. 3, М. URSS, 2020 г.</b>, которая
+							рекомендована к ознакомлению в
+							<a class="new-tab-link" href="https://priem.mirea.ru/docs/2022/official/programs/prog_math_mag.pdf" target="_blank">описании</a>
+							вступительного испытания в магистратуру в РТУ МИРЭА 2022-го г.,
+						</li>
+						<li>
+							серия замечательных и доступных для обычного человека статей о как числовых, так и функциональных рядах —
+							<a class="new-tab-link" href="http://www.mathprofi.ru/ryady_dlya_chajnikov.html" target="_blank">mathprofi.ru
+							&laquo;Ряды для чайников. Примеры решений&raquo;</a>,
+						</li>
+						<li>
+							методичка
+							<a class="new-tab-link" href="https://volpi.ru/files/vpf/vpf_library/Funkcionalnye_rjady.pdf" target="_blank">Афонасенков О. В.,
+							Матвеева Т. А. Функциональные ряды, ряды и интеграл
+							Фурье: Учеб. пособие / ВолгГТУ. – Волгоград, 2008. – 96 с.</a>
+						</li>
+						<li>
+							более продвинутые ребята могут почитать про функции комплексных переменных и заодно закрепить их практические навыки тут:
+							<a class="new-tab-link" href="https://site-697567.mozfiles.com/files/697567/an___4_semestr___2017.pdf" target="_blank">И.М. Аксененкова, Т.Р. Игонина, О.А. Малыгина,
+							А.В. Татаринцев, Н.С. Чекалкин – МАТЕМАТИЧЕСКИЙ АНАЛИЗ IV семестр – МОСКОВСКИЙ ТЕХНОЛОГИЧЕСКИЙ УНИВЕРСИТЕТ (сейчас – РТУ МИРЭА)</a>.
+							Это если вы уже освоили нужную Вам часть материала выше.
+						</li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Что тут главное</h2>
+				<p>
+					Итогом этой темы должно стать для Вас, дорогой читатель, понимание сути <b>числовых рядов,</b>
+					их <b>суммы</b> и всех их <b>признаков сходимости.</b>
+					Это признаки: <i>необходимый признак сходимости ряда,</i> <i>признак сравнения,</i> <i>предельный признак сравнения,</i>
+					<i>признак Даламбера</i> и <i>два признака Коши</i> (радикальный и интегральный),
+					а также <i>признак Лейбница</i> для знакочередующихся рядов.
+				</p>
+				
+				<p>
+					Затем делается переход к теме <b>функциональных рядов</b> и их <b>областям сходимости.</b>
+					Нужно научиться определять интервалы сходимости различных функциональных рядов и их сходимость на
+					граничных точках этих интервалов. Здесь очень сильно помогут знания признаков Даламбера и Коши.
+				</p>
+				
+				<p>
+					Отдельно Вами должны быть разобраны <b>степенные функциональные ряды</b> со своим арсеналом теорем и свойств.
+				</p>
+				
+				<p>
+					В конце, Вами должны быть освоены приёмы <b>разложения функций в ряды Тейлора (Маклорена)</b> и определения области сходимости
+					полученного ряда к разлагающейся функции.
+				</p>
+				
+				<p>
+					Также следует почитать о <b>равномерно сходящихся рядах</b> и <b>признаке Вейерштрасса.</b>
+				</p>
+				
+				<p>
+					Всё это послужит основой для Вашего успешного изучения <b>ряда (интеграла) Фурье,</b> а также разложения функций комплексного переменного
+					в <b>ряд Лорана</b> (который, по сути, включает в себя ряд Тейлора) и для, помимо всего прочего,
+					<b><a href="../maga9/maga9.php#h2_3" title="пример">вычисления вычетов</a></b> в любых точках комплексных функций.
+				</p>
+				
+				<p>
+					<b>Удачи Вам! И, главное, никогда не сомневайтесь в своих силах! При желании у любого человека
+					получится достигнуть того, чего он хочет. (Но только при желании :) )</b>
+				</p>
+			<div>
+				<span class="previous"><a href="../maga15/maga15.php">Предыдущая статья</a></span><span class="next"><a href="../maga17/maga17.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga16/maga16.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>

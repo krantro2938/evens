@@ -1,0 +1,670 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Магистратура РТУ МИРЭА</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="../../../icons/graduated.png">
+	</head>
+	<body>
+		<header id="header">
+			﻿<link rel="stylesheet" href="../../../styles_16/main.css">
+
+<script>
+	// Обработчик события клика у тела документа (кликом по странице убирается открытое подменю):
+	function bodyClicked() {
+			const submenus = document.getElementsByClassName("submenu")
+			const visible_submenus = []
+			for (let submenu of submenus)
+				if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+					visible_submenus.push(submenu)
+			
+			for (submenu of visible_submenus) {
+				submenu.style.display = "inline-flex"
+				submenu.style.visibility = "hidden"
+				submenu.style.backgroundImage = "none"
+				submenu.style.backgroundPosition = "none"
+				submenu.style.backgroundRepeat = "no-repeat"
+				submenu.style.backgroundSize = "0"
+				submenu.style.backgroundColor = "none"
+			}
+			
+			document.body.removeEventListener("click", this)
+		}
+	
+	/* Всплытие подменю одного из разделов верхнего меню: */
+	function show_submenu(event) {
+		const submenus = document.getElementsByClassName("submenu")		// если уже есть подменю, то не вызывать второе
+		for (let submenu of submenus)
+			if (window.getComputedStyle(submenu, null).getPropertyValue("visibility") == "visible")
+				return
+		
+		const chapter = event.currentTarget				// получить целевой элемент (щелчка мышью или тапа пальцем)
+		const submenu = chapter.querySelector("ul")		// получить подменю нажатого раздела
+		submenu.style.display = "inline-flex"			// изменить CSS-свойства подменю...
+		submenu.style.visibility = "visible"
+		submenu.style.position = "absolute"
+		submenu.style.zIndex = "2"
+		submenu.style.backgroundImage = "url(\"http://matesspace.h1n.ru/img/background-submenu.jpg\")"
+		submenu.style.backgroundPosition = "center center"
+		submenu.style.backgroundRepeat = "no-repeat"
+		submenu.style.backgroundSize = "cover"
+		submenu.style.backgroundColor = "transparent"
+		
+		// уничтожить событие "click", чтобы потом не сработал сразу обработчик "bodyClicked"
+		// и не убрал только что появившееся подменю:
+		event.stopPropagation()
+
+		// добавить обработчик события клика телу страницы:
+		document.body.addEventListener('click', bodyClicked)
+	}
+</script>
+
+<nav>
+	<ul class="topmenu">
+		<li id="main" class="chapter" style="list-style-type: none" onclick="window.location.href = 'https://matesspace.h1n.ru/index.php';"><span>Главная</span></li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Статьи</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/articles/nets/nets0/nets0.php">Сети</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/music/music0/music0.php">Музыка</a></li>
+				<li><a href="https://matesspace.h1n.ru/articles/ros/ros0/ros0.php">ROS</a></li>
+			</ul>
+		</li>
+		<li class="chapter" onclick="show_submenu(event)">
+			<span>Всячина</span>
+			<ul class="submenu">
+				<li><a href="https://matesspace.h1n.ru/file-reader.php">Считать файл</a></li>
+			</ul>
+		</li>
+	</ul>
+</nav>
+
+<div id="image_window" style="visibility: hidden; position: absolute; width: 90vw; height: 100vh; text-align: center; vertical-align: middle;"></div>		</header>
+		
+	    <main>
+			<div>
+				<p><i><b>Дата написания статьи: 13.07.2022</b></i></p>
+			</div>
+
+	        <div>
+				<h1>Производная</h1>
+				<p>
+					В этом разделе разбираются вопросы <b>&laquo;Производная и дифференциал. Свойства дифференцируемых функций.
+					Формула Тейлора. Дифференциальное исследование функции, теоремы о среднем.
+					Кривые на плоскости. Исследование функций и построения графиков&raquo;.</b>
+				</p>
+				
+				<p>
+					Производная строится на понятии предела функции (см. <a href="../maga10/maga10.php">предыдущий раздел</a> про пределы).
+					Вычислять производную нужно обязательно уметь, придя на вступительный экзамен в магистратуру РТУ МИРЭА.
+					Всё понимание достигается именно практикой, дорогой читатель, как и везде! Поэтому открывай любой задачник и смело
+					решай побольше разных номеров с производными! Чем больше ты практикуешься (и не только с производными),
+					тем больше ты готов к экзамену.
+				</p>
+				
+				<h2>Оглавление</h2>
+				<p>
+					<ol>
+						<li><a href="#h2_1">Производная функции</a></li>
+						<li><a href="#h2_2">Таблица производных</a></li>
+						<li><a href="#h2_3">Формула Тейлора</a></li>
+						<li><a href="#h2_4">Исследование графика функции</a></li>
+						<li><a href="#h2_5">Дифференциал</a></li>
+						<li><a href="#h2_6">Производные n-го порядка</a>
+							<ul><li><a href="#example">задание из демоварианта экзамена</a></li></ul>
+						</li>
+					</ol>
+				</p>
+				
+				<h2 id="h2_1">Производная функции</h2>
+				<p>
+					<b>Производной данной функции</b> <span class="math">y = f(x)</span> по аргументу
+					<span class="math">x</span> называется предел отношения приращения функции
+					<span class="math">Δy</span> к приращению аргумента <span class="math">Δx</span>,
+					когда последнее произвольным образом стремится к нулю:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f'(x) =
+						<table class="fraction"><tr><td style="font-size: 1.5em">lim</td></tr><tr><td>Δx—>0</td></tr></table>
+						<sup><table class="fraction"><tr><td>f(x + Δx) - f(x)</td></tr><tr><td>——————</td></tr><tr><td>Δx</td></tr></table></sup>
+						=
+						<table class="fraction"><tr><td style="font-size: 1.5em">lim</td></tr><tr><td>Δx—>0</td></tr></table>
+						<sup><table class="fraction"><tr><td>Δy</td></tr><tr><td>—</td></tr><tr><td>Δx</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					Для производной употребляются и другие обозначения: <span class="math">y'</span> или <span class="math">dy/dx</span>.
+					Последнее обозначение — <span class="math">dy/dx</span> —
+					чаще обычного применяется в дифференциальных уравнениях в процессе их решения.
+				</p>
+				
+				<p>
+					Операция нахождения производной от функции называется <b>дифференцированием</b> этой функции.
+				</p>
+				
+				<h3>Геометрическое и механическое<br>значения производной</h3>
+				<p>
+					Значение производной <span class="math">f'(x)</span> при данном значении
+					аргумента <span class="math">x</span> равняется <b>тангенсу угла,</b> образованного
+					с положительным направлением оси абсцисс касательной к графику функции
+					<span class="math">f(x)</span> в соответствующей точке
+					<span class="math">M<sub>0</sub>(x; y)</span>. Т.е.:<br>
+						<span class="math center">
+							f'(x) = tg &alpha;
+						</span>
+				</p>
+				
+				<p>
+					Кроме того, производная от функции пути (<span class="math">s'(t)</span>,
+					где <span class="math">t</span> — это время) является выражением <b>скорости</b>
+					тела <b>в данный момент</b>
+					при его <i>неравномерном движении.</i>
+					(<b>Вторая</b> производная этой же функции будет <b>мгновенным ускорением</b> того же тела.)
+				</p>
+				
+				<h3>Свойства дифференцируемых функций</h3>
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<i>
+					<b>Теорема.</b> Если функция <span class="math">f(x)</span> дифференцируема в некоторой точке
+					<span class="math">x<sub>0</sub></span>,
+					то она в этой точке непрерывна.
+					</i>
+				</p>
+				
+				<p>
+					Доказательство этой теоремы см., например, в
+					<a class="new-tab-link" href="https://www.nntu.ru/frontend/web/ngtu/files/org_structura/library/resurvsy/pervokursnik/its/matem/osnovn/9.pdf" target="_blank">книге <b>Н.С. Пискунова</b>
+					&laquo;Дифференциальное и интегральное исчисления&raquo; (глава 3, параграф 4)</a> или где угодно в Интернете и других учебниках.
+				</p>
+				
+				<p>
+					Но обратное утверждение может быть неверно: из того, что функция в некоторой точке непрерывна ещё не следует,
+					что она в этой точке дифференцируема (т.е. имеет производную).
+				</p>
+				
+				<p>
+					Кроме того, существуют следующие теоремы о производных.
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<b>Теорема Ролля.</b> Если функция <span class="math">f(x)</span>
+					непрерывна на отрезке <span class="math">[a,b]</span>, дифференцируема
+					во всех внутренних точках этого отрезка и на концах <span class="math">x = a</span>
+					и <span class="math">x = b</span> обращается в нуль <span class="math">f(a) = f(b) = 0</span>
+					то существует внутри отрезка <span class="math">[a,b]</span> по крайней мере одна точка
+					<span class="math">x = c</span>, <span class="math">a &lt; c &lt; b</span>,
+					в которой производная <span class="math">f'(x)</span> обращается в нуль, т.е.<br>
+						<span class="math center">
+							f'(c) = 0.
+						</span>
+				</p>
+				
+				<p>
+					Число <span class="math">c</span> называется <i>корнем.</i> Вдобавок, эта доказанная
+					теорема действует и в том случае, когда на концах отрезка <span class="math">[a,b]</span>
+					функция <span class="math">f(x)</span> не обращается в нуль, но принимает одинаковые значения:
+					<span class="math">f(a) = f(b)</span>. В этом случае доказательство аналогично (см. его в любой
+					научной литературе, в частности в учебнике Н.С. Пискунова; глава 4, параграф 1).
+				</p>
+				
+				<p>
+					При этом производная должна существовать в абсолютно всех точках
+					отрезка <span class="math">[a,b]</span>, иначе теорема Ролля не будет справедливой.
+				</p>
+				
+				<p style="border: 0.2em solid red; padding: 0.5em">
+					<b>Теорема Лагранжа (или о конечных приращениях).</b> Если функция <span class="math">f(x)</span>
+					непрерывна на отрезке <span class="math">[a,b]</span>, дифференцируема
+					во всех внутренних точках этого отрезка, то внутри отрезка <span class="math">[a,b]</span>
+					найдётся по крайней мере одна точка <span class="math">c</span>,
+					<span class="math">a &lt; c &lt; b</span>, что<br>
+						<span class="math center">
+							f(b) - f(a) = f'(c)(b - a)
+						</span>
+				</p>
+				
+				<p>
+					Доказательство в статье не приведено.
+				</p>
+				
+				<p style="border-top: 0.2em solid red; border-left: 0.2em solid red; border-right: 0.2em solid red; padding: 0.5em">
+					<b>Теорема Коши (или об отношении приращений двух функций).</b>
+					<i>Если <span class="math">f(x)</span> и <span class="math">&phi;(x)</span> суть
+					две функции, непрерывные на отрезке <span class="math">[a,b]</span> и
+					дифференцируемые внутри него, причём <span class="math">&phi;'(x)</span>
+					нигде внутри отрезка не обращается в нуль, то внутри отрезка <span class="math">[a,b]</span>
+					найдётся такая точка <span class="math">x = c</span>, <span class="math">a &lt; c &lt; b</span>,
+					что<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span style="border-bottom: 0.2em solid red;" class="math center">
+						<sup><table class="fraction"><tr><td>f(b) - f(a)</td></tr><tr><td>—————</td></tr><tr><td>&phi;(b) - &phi;(a)</td></tr></table></sup>
+						=
+						<sup><table class="fraction"><tr><td>f'(c)</td></tr><tr><td>—</td></tr><tr><td>&phi;'(c)</td></tr></table></sup>
+					</span>
+				</i></p>
+				
+				<p>
+					Доказательство этой теоремы см. в других нравящихся тебе источниках.
+				</p>
+				
+				<p>
+					Перечисленные три последние теоремы называются <b>теоремами о среднем.</b> К списку этих теорем
+					причисляют ещё <b>теорему Ферма,</b> или <b>необходимое условие локального экстремума.</b>
+					Она справедливо утверждает, что
+					<i>&laquo;если функция определена на интервале (именно интервале,
+					для отрезков это теорема не верна), и этот интервал содержит
+					точку экстремума и в добавок если функция дифференцируема в этой точке,
+					то ее производная равна нулю в этой точке&raquo;</i> (см. сайт
+					<a class="new-tab-link" href="https://artemarakcheev.com/2018-01-28/derivative" target="_blank">artemarakcheev.com
+					— Производная и теоремы о среднем</a>).
+				</p>
+				
+				<p>
+					Из теоремы Коши следует <b>правило Лопиталя,</b> или теорема раскрытия неопределённостей вида<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><table class="fraction"><tr><td>0</td></tr><tr><td>—</td></tr><tr><td>0</td></tr></table></sup> и
+						<sup><table class="fraction"><tr><td>&infin;</td></tr><tr><td>—</td></tr><tr><td>&infin;</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					в пределах. Правило Лопиталя было затронуто в решении одного из пределов <a href="../maga10/maga10.php#condition0">в предыдущем разделе.</a>
+				</p>
+				
+				<h2 id="h2_2">Правила дифференцирования</h2>
+				<p>
+					Производные разных функций: степенных, показательных, сложных показательных,
+					логарифмических, тригонометрических функций; производные суммы, произведения,
+					частного; производные сложных и обратных функций; неявных функций и заданных параметрически
+					— берут, опираясь на чёткие правила. Их ты
+					можешь посмотреть, например, в учебнике Пискунова, в третьей главе. Существуют хорошие таблицы производных
+					с очень полезными формулами дифференцирования (см. <a href="#pic1">рис. 1</a>).
+				</p>
+				
+				<p>
+				<table class="img" id="pic1">
+					<tr><td><img src="1.jpg" title="Источник: книга Пискунова, стр. 88" alt="Часть таблицы производных из книги Н.С. Пискунова"></td></tr>
+					<tr><td>Рисунок 1 — Часть таблицы производных из книги Н.С. Пискунова</td></tr>
+				</table>
+				</p>
+				
+				<h2 id="h2_3">Формула Тейлора</h2>
+				<p>
+					<b>Формула Тейлора</b> создаёт некоторой функции <span class="math">f(x)</span>
+					приближённый (до нужной степени погрешности)
+					альтернативный многочлен <span class="math">P<sub>n</sub>(x)</span>
+					степени не выше
+					<span class="math">n</span>, значения которого
+					(и его производных) в некоторой точке
+					<span class="math">x = a</span> равняются значениям исходной функции
+					(и её соответствующих производных):<br>
+					<span class="math center">
+						f(x) = P<sub>n</sub>(x) + R<sub>n</sub>(x).
+					</span>
+				</p>
+				
+				<p>
+					Соответствующая формула<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(x) = f(a) +
+						<sup><table class="fraction"><tr><td>x - a</td></tr><tr><td>———</td></tr><tr><td>1!</td></tr></table></sup>f'(a) +
+						<sup><table class="fraction"><tr><td>(x - a)<sup>2</sup></td></tr><tr><td>———</td></tr><tr><td>2!</td></tr></table></sup>f''(a) +
+						. . . +
+						<sup><table class="fraction"><tr><td>(x - a)<sup>n</sup></td></tr><tr><td>———</td></tr><tr><td>n!</td></tr></table></sup>f<sup>(n)</sup>(a) +
+						<sup><table class="fraction"><tr><td>(x - a)<sup>n+1</sup></td></tr><tr><td>———</td></tr><tr><td>(n+1)!</td></tr></table></sup>f<sup>(n+1)</sup>(a + &theta;(x - a))
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(1)
+				</p>
+				
+				<p>
+					называется формулой Тейлора.
+				</p>
+				
+				<p>
+					Замыкающий формулу (1) член<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><table class="fraction"><tr><td>(x - a)<sup>n+1</sup></td></tr><tr><td>———</td></tr><tr><td>(n+1)!</td></tr></table></sup>f<sup>(n+1)</sup>[a + &theta;(x - a)]
+					</span>
+				</p>
+				
+				<p>
+					называют <b>остаточным членом</b> многочлена Тейлора и обозначают
+					<span class="math">R<sub>n</sub>(x)</span>. Именно значение остаточного члена
+					влияет на точность замены функции <span class="math">f(x)</span> многочленом
+					<span class="math">P<sub>n</sub>(x)</span>.
+				</p>
+				
+				<p>
+					Частный случай формулы Тейлора при <span class="math">a = 0</span> называют — <b>формулой Маклорена.</b> Наглядно:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(x) = f(0) +
+						<sup><table class="fraction"><tr><td>x</td></tr><tr><td>—</td></tr><tr><td>1!</td></tr></table></sup>f'(0) +
+						<sup><table class="fraction"><tr><td>x<sup>2</sup></td></tr><tr><td>—</td></tr><tr><td>2!</td></tr></table></sup>f''(0) +
+						. . . +
+						<sup><table class="fraction"><tr><td>x<sup>n</sup></td></tr><tr><td>—</td></tr><tr><td>n!</td></tr></table></sup>f<sup>(n)</sup>(0) +
+						<sup><table class="fraction"><tr><td>x<sup>n+1</sup></td></tr><tr><td>—</td></tr><tr><td>(n+1)!</td></tr></table></sup>f<sup>(n+1)</sup>(&theta;x)
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(2)
+				</p>
+				
+				<p>
+					По формуле Маклорена удобно раскладываются в ряд функции <span class="math">e<sup>x</sup></span>, <span class="math">sin <i>x</i></span> и
+					<span class="math">cos <i>x</i></span>.
+				</p>
+				
+				<h2 id="h2_4">Исследование функций с помощью производных</h2>
+				<p>
+					В общем говоря, по значениям производных заданной функции
+					можно понять интервалы, на которых
+					эта функция <b>убывает/возрастает;</b> точки, в которых она
+					имеет <b>максимум</b> или <b>минимум;</b> можно вычислить
+					вообще все её <b>критические точки;</b>
+					интервалы <b>вогнутости/выпуклости</b> и <b>точки перегиба.</b>
+				</p>
+				
+				<p>
+					Подробнее см. в любой нравящейся тебе литературе, посвящённой матанализу.
+				</p>
+				
+				<p>
+					Если кратко, то <i>критические точки,</i> это такие точки функции <span class="math">y = f(x)</span>,
+					в которых производная
+					функции принимает значение <i>ноль</i> — <span class="math">f'(x) = 0</span>.
+					Эти критические точки могут быть точками <i>максимума</i> и <i>минимума.</i>
+					По теореме Ферма (см. <a href="#another1">&laquo;Теоремы о дифференцируемых функциях&raquo;</a>)
+					в точке <i>экстремума</i> (максимуме или минимуме) производная функции будет <i>равна нулю</i> по-любому.
+					Но не наоборот. Не всякая критическая точка, в которой производная равна нулю, будет точкой экстремума функции!
+					Поэтому это надо проверять.
+				</p>
+				
+				<p>
+					Чтобы это проверить, нужно выявить монотонность функции в соседних от данной критической точки интервалах.
+					Т.е. убывает она там или возрастает. В точке минимума, например, слева от точки функция будет убывать, а справа
+					— возрастать. У возрастающей функции производная на интервале возрастания будет <i>больше нуля</i>
+					<span class="math">f'(x) &gt; 0</span>, а на интервале убывания —
+					<i>меньше</i> нуля <span class="math">f'(x) &lt; 0</span>.
+				</p>
+				
+				<p>
+					Точно также и с точками <i>перегиба</i> функции. Только тут работа происходит со <i>второй производной</i>
+					<span class="math">f''(x)</span> функции. В предполагаемой точке
+					перегиба вторая производная будет равна нулю. Если вторая производная, переходя через эту точку, ещё и меняет знак, то
+					эта точка и есть точка перегиба. Иначе это не точка перегиба.
+				</p>
+				
+				<p>
+					На интервале, в котором вторая производная <i>больше нуля</i> <span class="math">f''(x) &gt; 0</span>,
+					график функции обращён выпуклостью вниз (кривая вогнута), если же
+					вторая производная функции <i>отрицательна</i> <span class="math">f''(x) &lt; 0</span>,
+					то кривая будет выпуклой, или обращённой выпуклостью вверх.
+				</p>
+				
+				<p>
+					Зная все эти моменты у некоторой функции, её график может быть легко построен (приблизительно).
+				</p>
+				
+				<p>
+					Плюс к этому, в полное исследование графика включается и нахождение его <b>асимптот</b>
+					(см. раздел <a href="../maga10/maga10.php">&laquo;Пределы&raquo;</a>).
+				</p>
+				
+				<h2 id="h2_5">Дифференциал</h2>
+				<p>
+					Из определения производной<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f'(x) =
+						<table class="fraction"><tr><td style="font-size: 1.5em">lim</td></tr><tr><td>Δx—>0</td></tr></table>
+						<sup><table class="fraction"><tr><td>Δy</td></tr><tr><td>—</td></tr><tr><td>Δx</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					можно получить выражение, где значится <b>дифференциал</b> функции <span class="math">y = f(x)</span>:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<sup><table class="fraction"><tr><td>Δy</td></tr><tr><td>—</td></tr><tr><td>Δx</td></tr></table></sup> =
+						f'(x) + &alpha;;
+					</span><br>
+					<span class="math center">
+						Δy = f'(x)Δx + &alpha;Δx;
+					</span><br>
+					<span class="math center">
+						Δy = dy + &alpha;Δx.
+					</span>&nbsp;&nbsp;&nbsp;&nbsp;(3)
+				</p>
+				
+				<p>
+					В формуле (3), в которой <span class="math">dy = f'(x)Δx</span>, выражение <span class="math">f'(x)Δx</span>, обозначаемое
+					как <span class="math">dy</span>, называется <b>главной частью приращения</b> функции, или <b>дифференциалом функции.</b>
+				</p>
+				
+				<p>
+					Также дифференциал существует не только у функции, но и у независимой переменной:<br>
+					<span class="math center">
+						dx = Δx.
+					</span>
+				</p>
+				
+				<p>
+					т.е. дифференциал независимой переменной совпадает с приращением этой переменной.
+				</p>
+				
+				<p>
+					Производную же функции можно рассматривать как <b>отношение дифференциала этой функции к дифференциалу
+					независимой переменной:</b><br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f'(x) =
+						<sup><table class="fraction"><tr><td>dy</td></tr><tr><td>—</td></tr><tr><td>dx</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					Дифференциал может использоваться в приближённых вычислениях, исходя из того, что последнее слагаемое в (3)
+					<span class="math">&alpha;Δx</span> можно просто убрать, потому что оно представляет собой бесконечно малую функцию высшего порядка.
+				</p>
+				
+				<p>
+					Дифференциал функции находится как производная, с той поправкой, что дифференциал независимой переменной остаётся рядом. Например:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y = x<sup>2</sup>;
+					</span><br>
+					<span class="math center">
+						dy = y'dx = 2xdx.
+					</span>
+				</p>
+				
+				<p>
+					<b>Правила вычисления</b> дифференциала остаются также похожими на правила вычисления производной функции. Например, дифференциал суммы
+					двух функций равен сумме дифференциалов этих функций, и т.д.
+				</p>
+				
+				<p>
+					<b>Геометрическое значение</b> дифференциала функции состоит в том, что он является приращением ординаты касательной к кривой
+					в данной точке.
+				</p>
+				
+				<h2 id="h2_6">Производные n-го порядка</h2>
+				<p>
+					При вычислении производных любого порядка обычно опираются на то, что можно вывести зависимость вида
+					<span class="math">n</span>-ой производной
+					путём последовательного нахождения <span class="math">i</span>-ой производной
+					от <span class="math">(i-1)</span>-й производной. Например:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&omega;(x) = <sup><table class="fraction"><tr><td>1</td></tr><tr><td>———</td></tr><tr><td>x - 1</td></tr></table></sup>;
+					</span><br>
+					<span class="math center">
+						&omega;'(x) = <sup><table class="fraction"><tr><td>-1</td></tr><tr><td>———</td></tr><tr><td>(x - 1)<sup>2</sup></td></tr></table></sup>;
+					</span><br>
+					<span class="math center">
+						&omega;''(x) = <sup><table class="fraction"><tr><td>2</td></tr><tr><td>———</td></tr><tr><td>(x - 1)<sup>3</sup></td></tr></table></sup>;
+					</span><br>
+					<span class="math center">
+						&omega;<sup>(3)</sup>(x) = <sup><table class="fraction"><tr><td>-6</td></tr><tr><td>———</td></tr><tr><td>(x - 1)<sup>4</sup></td></tr></table></sup>;
+					</span><br>
+					<span class="math center">
+						&omega;<sup>(4)</sup>(x) = <sup><table class="fraction"><tr><td>24</td></tr><tr><td>———</td></tr><tr><td>(x - 1)<sup>5</sup></td></tr></table></sup>;
+					</span>
+				</p>
+				
+				<p>
+					Значит, общий вид <span class="math">n</span>-ой производной будет выглядеть так:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						&omega;<sup>(n)</sup>(x) = <sup><table class="fraction"><tr><td>n! * (-1)<sup>n</sup></td></tr><tr><td>————</td></tr><tr><td>(x - 1)<sup>n+1</sup></td></tr></table></sup>;
+					</span>
+				</p>
+				
+				<p>
+					Кроме этого, при вычислении <span class="math">n</span>-ой производной произведения
+					двух функций на помощь может прийти <b>формула Лейбница</b>, которая внешне выглядит как <i>бином Ньютона,</i> только
+					вместо степеней в ней стоят производные различных порядков:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						y<sup>(n)</sup> = (uv)<sup>(n)</sup> =
+						u<sup>(n)</sup>v + nu<sup>(n-1)</sup>v' +<br>
+						+ <b>C<sup><table class="fraction"><tr><td>2</td></tr><tr><td></td></tr><tr><td>n</td></tr></table></sup></b>u<sup>(n-2)</sup>v'' + < . . . > +<br>
+						+ <b>C<sup><table class="fraction"><tr><td>k</td></tr><tr><td></td></tr><tr><td>n</td></tr></table></sup></b>u<sup>(n-k)</sup>v<sup>(k)</sup> + < . . . > +<br>
+						+ uv<sup>(n)</sup>.
+					</span>
+				</p>
+				
+				<p>
+					где<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						<b>C<sup><table class="fraction"><tr><td>k</td></tr><tr><td></td></tr><tr><td>n</td></tr></table></sup></b> = <sup><table class="fraction"><tr><td>n!</td></tr><tr><td>————</td></tr><tr><td>(n - k)! * k!</td></tr></table></sup>;
+					</span>
+				</p>
+				
+				<p>
+					— <i>биномиальные коэффициенты.</i>
+				</p>
+				
+				<p>
+					<b id="example">Пример.</b>
+					В одном из вариантов вступительного экзамена в магистратуру РТУ МИРЭА прошлых лет было такое задание (см.
+					<a class="new-tab-link" href="https://priem.mirea.ru/docs/2020/samples/math_mag_201.pdf" target="_blank">math_mag_201.pdf</a>):
+					найти 2019-ую производную функции<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(x) =
+						<sup><table class="fraction"><tr><td>x - 7</td></tr><tr><td>————</td></tr><tr><td>x<sup>2</sup> - 1</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					в точке <span class="math">x = 0</span>.
+				</p>
+				
+				<p>
+					Искать напрямую зависимость вида производной <span class="math">f<sup>(n)</sup>(x)</span> от её номера <span class="math">n</span>
+					плохая затея.
+				</p>
+				
+				<p>
+					Но можно сделать это задание, воспользовавшись формулой Лейбница — разложив представленную дробь на два множителя, к примеру:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(x) = u(x) * v(x) =
+						(x - 7) * <sup><table class="fraction"><tr><td>1</td></tr><tr><td>————</td></tr><tr><td>x<sup>2</sup> - 1</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					Получится, что функция <span class="math">u(x)</span> будет иметь только одну отличную от нуля производную,
+					что сильно упростит дальнейшие выкладки.
+				</p>
+				
+				<p>
+					А <span class="math">v(x)</span> можно разложить ещё на два множителя:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						v(x) = &omega;(x) * &theta;(x) =
+						<sup><table class="fraction"><tr><td>1</td></tr><tr><td>————</td></tr><tr><td>x - 1</td></tr></table></sup> *
+						<sup><table class="fraction"><tr><td>1</td></tr><tr><td>————</td></tr><tr><td>x + 1</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					что приведёт к явной зависимости вида <span class="math">n</span>-ой производной каждой из функций
+					<span class="math">&omega;(x)</span> и <span class="math">&theta;(x)</span> от <span class="math">n</span>.
+				</p>
+				
+				<p>
+					Также на киберфоруме
+					<a class="new-tab-link" href="https://www.cyberforum.ru/mathematical-analysis/thread2673434.html" target="_blank">cyberforum.ru</a>
+					посоветовали разбить исходную дробь функции методом неопределённых коэффициентов на два слагаемых, как это делается для вычисления интегралов
+					частного двух многочленов:<br>
+					<span style="visibility: hidden; position: absolute;" class="math"><table style="visibility: hidden" class="fraction"></table></span>
+					<span class="math center">
+						f(x) =
+						<sup><table class="fraction"><tr><td>x - 7</td></tr><tr><td>————</td></tr><tr><td>x<sup>2</sup> - 1</td></tr></table></sup> =
+						<sup><table class="fraction"><tr><td>-3</td></tr><tr><td>———</td></tr><tr><td>x - 1</td></tr></table></sup> +
+						<sup><table class="fraction"><tr><td>4</td></tr><tr><td>———</td></tr><tr><td>x + 1</td></tr></table></sup>
+					</span>
+				</p>
+				
+				<p>
+					И почленно найти <span class="math">n</span>-ые производные от двух этих слагаемых.
+				</p>
+				
+				<p>
+					В результате должно получиться число <b><span class="math">-(2019!)</span> в ответе.</b>
+				</p>
+				
+				<p>
+					Производные <span class="math">n</span>-го порядка
+					от <i>неявной функции</i> и <i>функции, заданной параметрически,</i> находятся также: путём поиска зависимости
+					<span class="math">n</span>-ой производной от номера <span class="math">n</span>.
+				</p>
+			</div>
+			<div>
+				<span class="previous"><a href="../maga10/maga10.php">Предыдущая статья</a></span><span class="next"><a href="../maga12/maga12.php">Следующая статья</a></span>
+			</div>
+			
+			<div id="comments">
+    			<p>
+    <h2 style="margin-top: 5rem">Комментарии</h2>
+    <form style='text-align: center; background: #F3F3F3; border-radius: 20%; border: dash 2px black' onsubmit='findCommentFunc(); return false' action="https://matesspace.h1n.ru/php/commentFilter.php" method="post">
+        <h4>Поиск комментария</h4>
+        <p><input type='text' name='find-comment-text' id='find-comment-text' placeholder='Автор, дата или текст комментария' style='width: 50%'></input></p>
+        <p><input type='submit' name='find-comment-button' id='find-comment-button' value='Найти'></input></p>
+        <p id="searchResults"></p>
+    </form>
+    <p><table class='comments'><tr style="background-color: #FFEF9F"><th>Дата</th><th>Автор</th><th>Комментарий</th></tr><tr style="background-color: #FFCF7F"><td>2024-03-20</td><td>ашалеть</td><td>Крутая статья, жалко что туплю дико и не понимаю, но в магу как-то поступать надо</td></tr><tr style="background-color:#FFDF8F"><td>2024-03-22</td><td style="background:orange; font-weight:bold;">Тимофей</td><td><b>@ашалеть</b>, успехов с поступлением! Некоторые набираются смелости и просто списывают прямо на экзамене, плюс ты можешь заскочить на платку, что гораздо проще, если есть деньги. Тебе решать, заниматься ли этим конкретно или просто пробежаться по задачкам</td></tr><tr style="background-color: #FFCF7F"><td>2025-07-17</td><td>ппееннннннн</td><td>иссссс</td></tr><tr style="background-color:#FFDF8F"><td>2025-07-21</td><td>Умный человек в очках</td><td>Введите сюда ваш комментарий </td></tr><tr style="background-color: #FFCF7F"><td>2025-07-23</td><td>Артём Акишин лох</td><td><b>@Артём Акишин лох</b></td></tr><tr style="background-color:#FFDF8F"><td>2025-08-07</td><td>артем акишин</td><td>я не лох
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-07</td><td>раздача пива</td><td>на спавне</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-10</td><td>артем акишин</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Алабуга политех
+</td></tr><tr style="background-color: #FFCF7F"><td>2025-08-13</td><td>Осас</td><td>Ребят, спасибо огромное!!!
+Очень помогли с подготовкой в Унгабунга политех</td></tr><tr style="background-color:#FFDF8F"><td>2025-08-13</td><td>бронятеней</td><td>сдал на 30 баллов!! это на 30 больше, чем мои возможности до посещения этого сайта!!!</td></tr><tr style="background-color: #FFCF7F"><td>2025-09-08</td><td style="background:orange; font-weight:bold;">Тимофей</td><td>бронятеней, Осас, <b>@артем акишин</b>, ахах, в любом случае больше, чем ничего))) поступил в магу хоть (платка мб, если не бюджет)?</td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-10</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-10</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-01-18</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-01-18</td><td>Яя</td><td>Хочу пиццы</td></tr><tr style="background-color:#FFDF8F"><td>2026-07-21</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-22</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-22</td><td>2026</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-23</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-23</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-24</td><td>2025</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-25</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-27</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-27</td><td>2025</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-28</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-07-30</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-07-30</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-01</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-02</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-02</td><td>2026</td><td></td></tr><tr style="background-color: #FFCF7F"><td>2026-08-03</td><td>2027</td><td></td></tr><tr style="background-color:#FFDF8F"><td>2026-08-03</td><td>2026</td><td></td></tr></table></p></p>
+
+<p>
+	<form action="https://matesspace.h1n.ru/php/send.php" method="get" class="form_comments">
+	    <p><input type="text" maxlength="250" minlength="2" name="comment_author" id="comment_author" placeholder="Введите сюда Ваше имя" required /></p>
+		<p><textarea maxlength="250" minlength="5" name="comment_text" id="comment_text" placeholder="Введите сюда Ваш комментарий" required></textarea></p>
+		<p><input type="submit" value="Отправить" name="button_1" id="button_1" /></p>
+		<p hidden><input type="text" name="page" id="page" value="/articles/maga/maga11/maga11.php" /></p>
+	</form>
+</p>			</div>
+	    </main>
+
+		<footer id="footer">
+			﻿<p style="margin: 0;"><b>Замечтательно!)</b></p>
+<p>Wooowww! It works! Thank You, <a href="https://hostiman.ru/"><b>Hostiman</b></a>!)</p>
+<p><i>21.04.2022 — site started!</i></p>
+
+<script src="/src/new_h.js"></script>               <!--Для работы с заголовками третьего уровня-->
+<script src="/src/img2.js"></script>	            <!--Для работы с размером изображений-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/sidebar_button.js"></script>	    <!--Для выдвижения бокового меню-->
+<script src="/src/cmd_processing.js"></script>      <!--Для примера отработки разных команд и показа их вывода-->
+<script src="/src/commentFilter.js"></script>       <!--Для поиска комментариев-->
+<script src="/src/showContentSection.js"></script>  <!--Для раскрытия и закрытия разделов в содержании на главной странице всех статей-->		</footer>
+	</body>
+</html>
