@@ -28,6 +28,11 @@ import {
     DOC_PAGER_Y,
     DOC_SOLVE_ID,
     DOC_TILE_IDS,
+    ENC_BODY_ID,
+    ENC_BROWSE_ID,
+    ENC_EVENT_LAYER_ID,
+    ENC_PAGER_ID,
+    ENC_TILE_IDS,
     FOCUSED_COLOR,
     GESTURE_EVENTS,
     HUD_FEEDBACK_RECT,
@@ -35,12 +40,14 @@ import {
     IMAGE_PAYLOAD,
     MENU_ITEMS,
     PAGES,
+    PAGE_H,
     PANEL_INK_RATIO,
     PANEL_SPACE_W,
     SETTINGS_ID,
     SOLVE_RECT,
     TILE_H,
     TILE_W,
+    TILES_X,
     Z_BACKDROP,
     Z_FEEDBACK,
     Z_FEEDBACK_LARGE,
@@ -83,6 +90,21 @@ import {
 } from "./settings";
 import { enterAdriPage, handleAdriPageEvent, leaveAdriPage } from "./adri";
 import { enterMinePage, handleMinePageEvent, leaveMinePage } from "./mine";
+import {
+    enterMineHubPage,
+    handleMineHubPageEvent,
+    leaveMineHubPage,
+} from "./enc/hub";
+import {
+    enterEncBrowsePage,
+    handleEncBrowsePageEvent,
+    leaveEncBrowsePage,
+} from "./enc/browser";
+import {
+    enterEncReadPage,
+    handleEncReadPageEvent,
+    leaveEncReadPage,
+} from "./enc/reader";
 import { tileLayout } from "./render/tiles";
 import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
@@ -437,6 +459,15 @@ function handleGestureEvent(gesture: GESTURE_EVENTS) {
         case PAGES.MESSAGES:
             handleMessagesPageEvent(gesture);
             break;
+        case PAGES.MINE_HUB:
+            handleMineHubPageEvent(gesture);
+            break;
+        case PAGES.ENC_BROWSE:
+            handleEncBrowsePageEvent(gesture);
+            break;
+        case PAGES.ENC_READ:
+            handleEncReadPageEvent(gesture);
+            break;
         // A default rather than a named case per page: whatever page gets added
         // next should be escapable before it is finished, not after. Adri was a
         // placeholder whose own text said "Double click to go back" while no
@@ -478,6 +509,15 @@ function leaveCurrentPage() {
             break;
         case PAGES.MESSAGES:
             leaveMessagesPage();
+            break;
+        case PAGES.MINE_HUB:
+            leaveMineHubPage();
+            break;
+        case PAGES.ENC_BROWSE:
+            leaveEncBrowsePage();
+            break;
+        case PAGES.ENC_READ:
+            leaveEncReadPage();
             break;
     }
 }
@@ -721,6 +761,43 @@ export async function buildPage(page: PAGES) {
             await buildMessagesPage();
             break;
 
+        // The Mine chooser and the encyclopedia's tree browser: one full-screen
+        // text container each, the same shape as Settings and for the same
+        // reason — a list and a line about the focused row, nothing to stack
+        // against. The browser deliberately draws NO tiles: it is the thing you
+        // use with a half-finished problem in front of you, and a navigation
+        // step that costs a BLE image push is one you stop using.
+        case PAGES.MINE_HUB:
+        case PAGES.ENC_BROWSE:
+            await bridge.rebuildPageContainer(
+                new RebuildPageContainer({
+                    containerTotalNum: 1,
+                    textObject: [
+                        new TextContainerProperty({
+                            xPosition: 0,
+                            yPosition: 0,
+                            width: BODY_W,
+                            height: BODY_H,
+                            borderWidth: 0,
+                            borderColor: 5,
+                            paddingLength: CONTAINER_PAD,
+                            containerID: ENC_BROWSE_ID,
+                            containerName: "encBrowse",
+                            content: " ",
+                            isEventCapture: 1,
+                            ...zOrder(Z_BACKDROP),
+                        }),
+                    ],
+                }),
+            );
+            await (page === PAGES.MINE_HUB ? enterMineHubPage() : enterEncBrowsePage());
+            break;
+
+        case PAGES.ENC_READ:
+            await buildEncReadPage();
+            await enterEncReadPage();
+            break;
+
         default:
             const text = new TextContainerProperty({
                 xPosition: 0,
@@ -748,6 +825,96 @@ export async function buildPage(page: PAGES) {
     }
 }
 
+/**
+ * The encyclopedia reader: four image tiles, a body text container over them,
+ * and a pager.
+ *
+ * ONE layout for both kinds of page. A node interleaves prose that shipped as
+ * text with formulas that shipped as images (see tools/enc/paginate.ts), and
+ * rebuilding the container set on every switch would flash the panel on a
+ * gesture that is meant to be a page turn. So both are always present and the
+ * reader blanks whichever one this page is not using.
+ *
+ * The body is a SEPARATE container from the event layer. `isEventCapture: 1` on
+ * a container holding real text is one of the two known causes of the host
+ * attaching its own scroller, and that scroller then swallows the swipes that
+ * turn the page.
+ */
+async function buildEncReadPage(): Promise<void> {
+    const eventLayer = new TextContainerProperty({
+        xPosition: 0,
+        yPosition: 0,
+        width: BODY_W,
+        height: BODY_H,
+        borderWidth: 0,
+        borderColor: 0,
+        paddingLength: 0,
+        containerID: ENC_EVENT_LAYER_ID,
+        containerName: "encEvent",
+        content: " ",
+        isEventCapture: 1,
+        ...zOrder(Z_BACKDROP),
+    });
+
+    const body = new TextContainerProperty({
+        xPosition: 0,
+        yPosition: 0,
+        width: BODY_W,
+        height: PAGE_H,
+        borderWidth: 0,
+        borderColor: 0,
+        paddingLength: CONTAINER_PAD,
+        containerID: ENC_BODY_ID,
+        containerName: "encBody",
+        content: " ",
+        isEventCapture: 0,
+        // Above the tiles: on a text page the tiles are the black background
+        // this text is read against.
+        ...zOrder(Z_SOLVE),
+    });
+
+    const pager = new TextContainerProperty({
+        xPosition: 0,
+        yPosition: DOC_PAGER_Y,
+        width: BODY_W,
+        height: DOC_PAGER_H,
+        borderWidth: 0,
+        borderColor: 5,
+        paddingLength: 4,
+        containerID: ENC_PAGER_ID,
+        containerName: "pager",
+        content: "...",
+        isEventCapture: 0,
+        ...zOrder(Z_PAGER),
+    });
+
+    const tiles = ENC_TILE_IDS.map((containerID, i) =>
+        new ImageContainerProperty({
+            xPosition: (i % TILES_X) * TILE_W,
+            yPosition: Math.floor(i / TILES_X) * TILE_H,
+            width: TILE_W,
+            height: TILE_H,
+            containerID,
+            containerName: `tile${i}`,
+            ...zOrder(Z_TILE_BASE + i),
+        }),
+    );
+
+    const textObject = [eventLayer, body, pager];
+    const payload = new RebuildPageContainer({
+        containerTotalNum: textObject.length + tiles.length,
+        textObject,
+        imageObject: tiles,
+    });
+
+    const zCheck = validateEvenHubPageContainerZOrder(payload);
+    if (!zCheck.valid) {
+        appLog("Z-ORDER INVALID (enc)", formatEvenHubPageContainerValidationError(zCheck));
+    }
+    const built = await bridge.rebuildPageContainer(payload);
+    appLog("Enc reader rebuild", built ? "ok" : "FAILED");
+}
+
 export function navigate(page: PAGES) {
     if (GlobalState.currentPage !== page) leaveCurrentPage();
     GlobalState.currentPage = page;
@@ -756,9 +923,22 @@ export function navigate(page: PAGES) {
 }
 
 export function navigateBack() {
-    appLog("Navigate back to dashboard");
     switch (GlobalState.currentPage) {
+        // Both halves of the Mine tile go back to its chooser rather than all
+        // the way out. Leaving to the dashboard would make one gesture mean two
+        // different things depending on how deep you were, and would put four
+        // levels of tree between reading one worked example and the next.
+        case PAGES.MINE:
+        case PAGES.ENC_BROWSE:
+            appLog("Navigate back to the Mine hub");
+            navigate(PAGES.MINE_HUB);
+            break;
+        case PAGES.ENC_READ:
+            appLog("Navigate back to the encyclopedia");
+            navigate(PAGES.ENC_BROWSE);
+            break;
         default:
+            appLog("Navigate back to dashboard");
             navigate(PAGES.DASHBOARD);
             GlobalState.currentPage = PAGES.DASHBOARD;
     }

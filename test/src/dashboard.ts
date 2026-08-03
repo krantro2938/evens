@@ -19,7 +19,7 @@ const DESTINATIONS: Record<MenuItem, PAGES> = {
     AI: PAGES.AI,
     Assign: PAGES.ASSIGNMENT,
     Adri: PAGES.ADRI,
-    Mine: PAGES.MINE,
+    Mine: PAGES.MINE_HUB,
     Msgs: PAGES.MESSAGES,
     Camera: PAGES.CAMERA,
     Setup: PAGES.SETTINGS,

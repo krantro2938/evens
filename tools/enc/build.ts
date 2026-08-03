@@ -18,7 +18,7 @@ import { loadAuthored } from "./authored";
 import { leafTerms, writePack, type Built, type Leaf } from "./pack";
 import { SECTIONS, topicOf } from "./syllabus";
 import { closeBrowser } from "./render";
-import { checkBlocks, report, type Finding } from "./check";
+import { auditPages, checkBlocks, report, type Finding } from "./check";
 
 const args = new Set(process.argv.slice(2));
 const only = (() => {
@@ -112,6 +112,10 @@ async function main(): Promise<void> {
                 if (page.kind === "text") textPages++;
                 else tilePages++;
             }
+            // Checked on the finished pages, not on the blocks: whether a page
+            // fits the panel and whether the font can draw it are properties of
+            // the output, and both fail silently on the glasses.
+            findings.push(...auditPages(leaf.id, leaf.pages));
         }
 
         topicNodes.set(no, leaves);
@@ -137,6 +141,7 @@ async function main(): Promise<void> {
             terms: leafTerms(sheetDoc.title, "Шпаргалка"),
         };
         for (const page of sheet.pages) page.kind === "text" ? textPages++ : tilePages++;
+        findings.push(...auditPages("sheet", sheet.pages));
     }
 
     report(findings);

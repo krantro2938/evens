@@ -160,6 +160,12 @@ export enum PAGES {
     CAMERA,
     SETTINGS,
     MESSAGES,
+    /** The Mine tile's chooser: your own answer, or the encyclopedia. */
+    MINE_HUB,
+    /** Walking the encyclopedia's tree. Text only — see src/enc/browser.ts. */
+    ENC_BROWSE,
+    /** Reading one encyclopedia node. See src/enc/reader.ts. */
+    ENC_READ,
 }
 
 export enum GESTURE_EVENTS {
@@ -187,6 +193,12 @@ export const DOC_BASE_ASSIGNMENT = "/assignment";
 export const DOC_BASE_ADRI = "/adri";
 /** Your own answer to the scanned assignment, also hand-written. See src/mine.ts. */
 export const DOC_BASE_MINE = "/mine";
+/**
+ * The offline study pack. NOT a document base — there is no /enc/markdown and
+ * no /enc/events, because nothing about it is live: it is 151 nodes of pages
+ * that were rendered once by tools/enc and committed. See src/enc/pack.ts.
+ */
+export const DOC_BASE_ENC = "/enc";
 
 // Image containers are capped at 288×144 and 4 per page, so a full 576×288
 // frame is a 2×2 grid of 288×128 tiles (the bottom ~30px is left for a text
@@ -217,6 +229,42 @@ export const DOC_SOLVE_ID = 9; // AI only: the trigger button / solve progress
  * unique on a PAGE, and only one page is ever built.
  */
 export const SETTINGS_ID = 1;
+
+// ── the encyclopedia's two pages (src/enc/) ─────────────────────────────────
+//
+// The browser is one text container and nothing else, like Settings, and for
+// the same reason: it says one thing at a time and has no tiles to stack
+// against. It shares id 1 with every other single-container page — ids need to
+// be unique on a PAGE, and only one page is ever built.
+export const ENC_BROWSE_ID = 1;
+
+/**
+ * The reader's containers.
+ *
+ * ONE layout for both kinds of page. A node interleaves prose that ships as
+ * text with formulas that ship as images (see tools/enc/paginate.ts), and
+ * rebuilding the page container on every switch would flash the panel and cost
+ * a round of BLE on a gesture that is supposed to be a page turn. So the page
+ * carries both: a text page blanks the tiles and writes the body, an image
+ * page blanks the body and pushes the tiles.
+ *
+ * ENC_BODY_ID is deliberately NOT the event layer. `isEventCapture: 1` on a
+ * container holding real text is one of the two known causes of the host
+ * attaching its own scroller, and that scroller then swallows the swipes that
+ * turn the page.
+ */
+export const ENC_EVENT_LAYER_ID = 1;
+/**
+ * The same four ids a document page uses — an ALIAS, not a copy.
+ *
+ * render/tilePush.ts resolves an index to a container through DOC_TILE_IDS
+ * directly, so a second list that merely happened to hold the same numbers
+ * would work right up until one of them was changed, and then push tiles to
+ * the wrong containers with nothing to explain why.
+ */
+export const ENC_TILE_IDS = DOC_TILE_IDS;
+export const ENC_PAGER_ID = 6;
+export const ENC_BODY_ID = 7;
 
 // ── the Messages page: one container per bubble ─────────────────────────────
 //

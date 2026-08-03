@@ -40,10 +40,12 @@ import {
     type PhotoMeta,
 } from "./gallery";
 import { ago } from "./utils";
+import { warmAll, type WarmProgress } from "./enc/pack";
+import { labelMode, toggleLabelMode } from "./enc/labels";
 import { serverUrl, getMode, setMode, isOffline, type Mode } from "./services/backend";
 
 /** The actions, in the order the list draws them. */
-const ACTIONS = ["photo", "mode", "restart"] as const;
+const ACTIONS = ["photo", "mode", "encWarm", "encLabels", "restart"] as const;
 type Action = (typeof ACTIONS)[number];
 
 const MODE_CYCLE: Mode[] = ["auto", "online", "offline"];
@@ -51,6 +53,8 @@ const MODE_CYCLE: Mode[] = ["auto", "online", "offline"];
 const LABELS: Record<Action, string> = {
     photo: "Publish photo",
     mode: "Mode: auto",
+    encWarm: "Download encyclopedia",
+    encLabels: "Enc labels: RU",
     restart: "Restart app",
 };
 
@@ -159,6 +163,28 @@ function detail(): string[] {
         return lines;
     }
 
+    if (focused() === "encWarm") {
+        // The one action here that has to be taken BEFORE it is needed. Every
+        // other page degrades to "the server is down"; the encyclopedia can
+        // simply carry on, but only if the pages are already on the phone.
+        return [
+            warmMessage || "Puts all 151 pages on the phone.",
+            warmMessage ? "" : "Then it works with everything off.",
+            warming ? "Downloading..." : "Tap to download",
+        ].filter((line, i, all) => line !== "" || all[i + 1] !== "");
+    }
+
+    if (focused() === "encLabels") {
+        return [
+            "Script for the encyclopedia's menus.",
+            // The reason this exists at all, said where the decision is made:
+            // the font tables say Cyrillic is fine, and if the firmware ever
+            // disagrees the failure is blank rows and no error.
+            "Switch to LAT if the lists look empty.",
+            "Tap to switch",
+        ];
+    }
+
     switch (phase) {
         case "checking":
             return [clamp(message || "Looking for the phone's gallery...")];
@@ -248,6 +274,36 @@ function syncTicker(): void {
     } else if (!moving && ticker) {
         clearInterval(ticker);
         ticker = null;
+    }
+}
+
+// ── the encyclopedia ────────────────────────────────────────────────────────
+
+let warming = false;
+let warmMessage = "";
+
+async function downloadEncyclopedia(): Promise<void> {
+    if (warming) return;
+    warming = true;
+    warmMessage = "Starting...";
+    void repaint();
+
+    try {
+        const result = await warmAll((p: WarmProgress) => {
+            // Percentage rather than "37 / 151": the number of nodes is an
+            // implementation detail, and the bar is the only thing anyone reads
+            // during a download that takes a minute.
+            warmMessage = `${Math.round((p.done / Math.max(1, p.total)) * 100)}% of ${p.total}`;
+            void repaint();
+        });
+        warmMessage = result.failed
+            ? `${result.total - result.failed} of ${result.total} - ${result.failed} failed`
+            : `All ${result.total} pages on the phone`;
+    } catch (err) {
+        warmMessage = err instanceof Error ? err.message : String(err);
+    } finally {
+        warming = false;
+        void repaint();
     }
 }
 
@@ -352,6 +408,11 @@ export async function enterSettingsPage(): Promise<void> {
     armed = null;
     armedAt = 0;
     restarting = false;
+    // Both of these are persisted, so the row has to be re-read rather than
+    // left at whatever the module initialised it to — otherwise the label says
+    // RU on a session that starts in LAT.
+    LABELS.encLabels = `Enc labels: ${labelMode().toUpperCase()}`;
+    LABELS.mode = `Mode: ${getMode()}`;
     // The container is brand new and blank; without this the dedup below would
     // compare against what the last visit left on screen and write nothing.
     shown = "";
@@ -406,6 +467,16 @@ export function handleSettingsPageEvent(gesture: GESTURE_EVENTS): void {
     if (focused() === "restart") return arm("restart");
 
     if (focused() === "mode") return void cycleMode();
+
+    // Neither of these is armed. Arming exists for the two actions that are
+    // hard to take back — a restart, and rewriting the assignment — and
+    // downloading pages you already have, or flipping a script, are neither.
+    if (focused() === "encWarm") return void downloadEncyclopedia();
+
+    if (focused() === "encLabels") {
+        LABELS.encLabels = `Enc labels: ${toggleLabelMode().toUpperCase()}`;
+        return void repaint();
+    }
 
     switch (phase) {
         case "working":

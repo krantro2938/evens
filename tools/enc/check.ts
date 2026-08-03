@@ -12,6 +12,8 @@
 
 import type { Block } from "./convert";
 import { texToSvg } from "../../server/render/math";
+import { getAdvW } from "@evenrealities/pretext";
+import { lineCount, TEXT_MAX_LINES } from "./unicode";
 
 export interface Finding {
     where: string;
@@ -61,6 +63,59 @@ export function checkBlocks(where: string, blocks: Block[]): Finding[] {
             const svg = texToSvg(tex, true);
             if (/merror|data-mjx-error|math-error/.test(svg)) note("MathJax rejected", tex);
         }
+    }
+    return found;
+}
+
+/**
+ * The finished pages, checked against the panel that has to show them.
+ *
+ * This is a different question from "did the maths parse", and it is the one
+ * that caught the bug worth having a check for: a placeholder the authored-
+ * markdown parser leaves behind when it fails to match its own token was
+ * shipping as a literal control character in the middle of 514 pages. Every
+ * formula parsed, no markup was left over, and the pages were wrong anyway.
+ *
+ * Two things a text page must satisfy, both measurable:
+ *
+ *   - It fits. Nine 27px rows fit the reader's body container and a tenth does
+ *     not, and content taller than its container makes the host attach a
+ *     scroller that then swallows the swipes that turn the page. The budget is
+ *     eight, for slack.
+ *   - Every character has a glyph. getAdvW returns 0 for a codepoint the panel
+ *     font cannot draw — the same table that would have caught the missing "▸"
+ *     in menu.ts — and a glyph that isn't there fails SILENTLY, as a gap.
+ */
+export function auditPages(
+    where: string,
+    pages: readonly { kind: string; text?: string }[],
+): Finding[] {
+    const found: Finding[] = [];
+    const missing = new Map<string, string>();
+    let over = 0;
+    let worst = "";
+
+    for (const page of pages) {
+        if (page.kind !== "text" || !page.text) continue;
+
+        const lines = lineCount(page.text);
+        if (lines > TEXT_MAX_LINES) {
+            over++;
+            if (!worst) worst = `${lines} lines: ${page.text.slice(0, 80)}`;
+        }
+        for (const ch of page.text) {
+            if (ch === "\n" || ch === " " || missing.has(ch)) continue;
+            if (getAdvW(ch.codePointAt(0)!) === 0) missing.set(ch, page.text.slice(0, 80));
+        }
+    }
+
+    if (over) found.push({ where, what: `${over} text page(s) over the line budget`, sample: worst });
+    for (const [ch, sample] of missing) {
+        found.push({
+            where,
+            what: `no glyph for U+${ch.codePointAt(0)!.toString(16).padStart(4, "0").toUpperCase()}`,
+            sample,
+        });
     }
     return found;
 }
