@@ -188,6 +188,52 @@ place and an agent cannot reason its way around them:
 | `REVIEW_MAX_ROUNDS` | `3` | total attempts at a problem, first included |
 | `REVIEW_ENABLED` | `1` | `0` grades nothing, routine or no routine |
 
+## The encyclopedia
+
+A maths reference you can browse mid-problem, under the **Mine** tile — which
+now asks which half you want: your own answer, or the study pack.
+
+Its content is the seventeen-article МИРЭА entrance-exam course from
+[matesspace.h1n.ru](https://matesspace.h1n.ru/articles/maga/maga0/maga0.php),
+plus, per topic, a **Формулы** sheet and a **Как решать** guide that the course
+does not have — formulas alone, and "recognise the shape, pick the method".
+Three topics the site leaves as stubs (линейные пространства, кратные
+интегралы, ряды) are written out in full. There is one global **Шпаргалка**, a
+**По заданию** shortcut that matches the assignment the camera read against the
+pack's term index, and **Недавнее**.
+
+**Nothing is rendered at runtime.** `tools/enc` converts the site's HTML maths
+to TeX, cuts it into 151 nodes and renders every page once, here, with the same
+Playwright + MathJax pipeline that renders your solutions. The result is
+committed as `content/enc` and both backends do nothing but read a file:
+
+    GET /enc/toc            the tree, node titles, page counts, term index
+    GET /enc/node?id=m13.f  one node's pages
+
+`server/enc.ts` and `offline/encyclopedia.py` are the same two routes over the
+same files, so the glasses cannot tell which answered. That is the point: the
+phone has no Chromium and no MathJax, and in the room where you want this it
+has no network either.
+
+**Text where text is enough, images where it is not**, decided per run of
+blocks at pack time. A text page is ~400 bytes and paints in one container
+write; a tile page is ~10 KB and four BLE pushes. The decision is measured, not
+guessed — `@evenrealities/pretext` exposes the real panel font's advance widths,
+so a glyph the firmware cannot draw scores zero and forces the page to be
+rendered instead. Currently 44% text.
+
+The tree browser is one text container and no images: a swipe repaints a
+string. The reader carries both page kinds in one container layout, so moving
+between prose and a formula is a write rather than a page rebuild.
+
+    bun run tools/enc/build.ts            rebuild the pack from the cached course
+    bun run tools/enc/build.ts --fetch    refresh that cache from the site first
+    bun run tools/enc/offline-check.ts    warm the cache, cut the servers, reload
+
+`tools/enc/cache/*.html` is committed on purpose — the source is one person's
+shared host with no archive behind it, and the pack has to stay rebuildable
+after it stops answering.
+
 ## Messages
 
 A chat widget in the bottom-right of `cam.aansl.com`, and a `Msgs` tile on the

@@ -10,6 +10,10 @@
 //               phone's own camera roll via the gallery bridge
 //   Assignment  what the reader made of it, with a copy button
 //   Solution    your own answer: one document, written and read back here
+//   Справочник  search the offline study pack and open a node on the glasses —
+//               the tree browser there has four gestures and no keyboard, so
+//               "which topic covers this" is a question only this screen can
+//               answer
 //
 // The Adri documents are edited in the CAMERA web app (cam.aansl.com), not
 // here — see lookcam/web. They are typed on a keyboard rather than a phone, and
@@ -32,6 +36,7 @@
 import { mountPhotoTab } from "./photo";
 import { mountAssignmentTab } from "./assignment";
 import { mountSolutionTab } from "./solution";
+import { mountEncyclopediaTab } from "./encyclopedia";
 import { el } from "./dom";
 
 export interface Tab {
@@ -47,6 +52,9 @@ const TABS: Tab[] = [
     { id: "photo", label: "Photo", ...mountPhotoTab() },
     { id: "assignment", label: "Assignment", ...mountAssignmentTab() },
     { id: "solution", label: "Solution", ...mountSolutionTab() },
+    // Last, because it is the only tab that is not part of getting an answer
+    // out of a sheet of paper — it is the reference you consult while doing it.
+    { id: "enc", label: "Справочник", ...mountEncyclopediaTab() },
 ];
 
 const ACTIVE_KEY = "evens.companion.tab";

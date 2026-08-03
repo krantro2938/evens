@@ -110,6 +110,7 @@ import { menuContainer } from "./menu";
 import { panelContainer } from "./panel";
 import { appLog } from "./debug";
 import { mountCompanion } from "./companion";
+import { startEncJumpWatch } from "./enc/jump";
 import { loadBridge } from "./gallery";
 import { getMode, initBackend, remoteReachable } from "./services/backend";
 
@@ -132,6 +133,12 @@ if (companionHost) mountCompanion(companionHost);
 // In the simulator this resolves immediately; on hardware it waits
 // for the WebView to initialize the SDK bridge.
 export const bridge = await waitForEvenAppBridge();
+
+// Started once the bridge exists, because acting on a request means navigating
+// a page. Watches for the companion app's "open this on the glasses" — the
+// phone has a keyboard and the glasses have four gestures, so finding a topic
+// and reading it are deliberately two different devices. See enc/jump.ts.
+startEncJumpWatch();
 
 /**
  * The dashboard's footer, awake — a status line, not a gesture target.

@@ -73,6 +73,26 @@
       .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
       .row > .input { flex: 1 1 200px; }
 
+      /* The Справочник tab's results. A list of tappable rows rather than the
+         .row flex helper above, which is a form layout and not a list item. */
+      .enc-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+      .enc-hit {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .enc-hit:active { opacity: 0.6; }
+      .enc-hit-title { font-weight: 600; }
+      .enc-hit-path { font-size: 0.85em; opacity: 0.65; }
+
       .btn {
         padding: 11px 14px;
         border: 1px solid var(--line);

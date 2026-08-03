@@ -283,11 +283,57 @@ export function handleEncBrowsePageEvent(gesture: GESTURE_EVENTS): void {
     }
 }
 
-/** Jump straight to a node — the companion app's search result. */
+/** The chain of ids from the root down to `id`, or null if it isn't in the tree. */
+function trailTo(id: string, from = "root", seen: string[] = []): string[] | null {
+    if (from === id) return [...seen, from];
+    const node = toc?.nodes[from];
+    if (!node?.children) return null;
+    for (const child of node.children) {
+        const found = trailTo(id, child, [...seen, from]);
+        if (found) return found;
+    }
+    return null;
+}
+
+/**
+ * Jump straight to something — the companion app's search result.
+ *
+ * A LEAF opens in the reader. A BRANCH rebuilds the browser's stack down to it
+ * and shows its contents, which is why searching "Производные" on the phone is
+ * useful at all: the topic itself is a branch, and a search that could only
+ * open leaves silently dropped every topic name you typed.
+ *
+ * Either way the stack is rebuilt from the root, so going back from a jumped-to
+ * page walks up through the tree instead of falling straight out to the hub.
+ */
 export async function jumpTo(id: string): Promise<boolean> {
     if (!toc) toc = await loadToc();
     const node = toc?.nodes[id];
-    if (!node?.pages) return false;
+    if (!node) return false;
+
+    const trail = trailTo(id);
+    if (trail) {
+        stack = [rootLevel()];
+        // Every ancestor becomes a level, with its selection already on the
+        // child the trail goes through.
+        for (let i = 0; i < trail.length - 1; i++) {
+            const level = stack[stack.length - 1];
+            const at = level.entries.findIndex((e) => e.id === trail[i + 1]);
+            if (at >= 0) level.selected = at;
+            const next = toc!.nodes[trail[i + 1]];
+            if (next?.children?.length && i + 1 < trail.length - 1) {
+                stack.push(levelFor(next));
+            }
+        }
+    }
+
+    if (!node.pages) {
+        // A branch: show what is inside it rather than opening anything.
+        if (node.children?.length) stack.push(levelFor(node));
+        navigate(PAGES.ENC_BROWSE);
+        return true;
+    }
+
     rememberVisit(id);
     await openNode(id);
     navigate(PAGES.ENC_READ);

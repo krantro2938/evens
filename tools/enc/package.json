@@ -7,7 +7,8 @@
   "scripts": {
     "build": "bun run build.ts",
     "fetch": "bun run build.ts --fetch",
-    "check": "bun run build.ts --check-only"
+    "check": "bun run build.ts --check-only",
+    "offline-check": "bun run offline-check.ts"
   },
   "dependencies": {
     "@evenrealities/pretext": "^0.1.4",
