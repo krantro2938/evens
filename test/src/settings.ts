@@ -169,7 +169,7 @@ function detail(): string[] {
         // simply carry on, but only if the pages are already on the phone.
         return [
             warmMessage || "Puts all 151 pages on the phone.",
-            warmMessage ? "" : "Then it works with everything off.",
+            warmMessage ? warmHint : "Then it works with everything off.",
             warming ? "Downloading..." : "Tap to download",
         ].filter((line, i, all) => line !== "" || all[i + 1] !== "");
     }
@@ -281,11 +281,14 @@ function syncTicker(): void {
 
 let warming = false;
 let warmMessage = "";
+/** Second line of the download's report — the fix, when there is one to name. */
+let warmHint = "";
 
 async function downloadEncyclopedia(): Promise<void> {
     if (warming) return;
     warming = true;
     warmMessage = "Starting...";
+    warmHint = "";
     void repaint();
 
     try {
@@ -296,11 +299,23 @@ async function downloadEncyclopedia(): Promise<void> {
             warmMessage = `${Math.round((p.done / Math.max(1, p.total)) * 100)}% of ${p.total}`;
             void repaint();
         });
-        warmMessage = result.failed
-            ? `${result.total - result.failed} of ${result.total} - ${result.failed} failed`
-            : `All ${result.total} pages on the phone`;
+        if (result.error === "no-pack") {
+            // The server answered, so the app and the network are both fine —
+            // the study pack is simply not on the machine that replied.
+            warmMessage = "This server has no study pack.";
+            warmHint = "Offline: re-run setup-termux.sh";
+        } else if (result.error === "unreachable") {
+            warmMessage = "No server answered.";
+            warmHint = "Check the mode above.";
+        } else if (result.failed) {
+            warmMessage = `${result.total - result.failed} of ${result.total} - ${result.failed} failed`;
+            warmHint = "Tap again to retry the rest.";
+        } else {
+            warmMessage = `All ${result.total} pages on the phone`;
+        }
     } catch (err) {
         warmMessage = err instanceof Error ? err.message : String(err);
+        warmHint = "";
     } finally {
         warming = false;
         void repaint();

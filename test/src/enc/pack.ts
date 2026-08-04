@@ -131,11 +131,24 @@ async function put(key: string, value: unknown): Promise<void> {
 
 // ── fetching ───────────────────────────────────────────────────────────────
 
+/**
+ * Why the last fetch failed.
+ *
+ * Logged is not good enough for one caller: Setup's download has a person
+ * standing in front of it, and the two ways it fails need different things
+ * done about them. A 503 means the server is up and has no pack — the study
+ * pack was never checked out (offline/setup-termux.sh) or never mounted
+ * (docker-compose.yml). Anything else means nothing answered at all. From the
+ * outside both look like zero pages downloaded.
+ */
+let lastFailure = "";
+
 async function fetchJson<T>(path: string): Promise<T | null> {
     try {
         const res = await docFetch(path);
         if (!res.ok) {
             appLog("enc", `${path} -> ${res.status}`);
+            lastFailure = String(res.status);
             return null;
         }
         // The server sends pre-gzipped bytes with content-encoding: gzip;
@@ -143,6 +156,7 @@ async function fetchJson<T>(path: string): Promise<T | null> {
         return (await res.json()) as T;
     } catch (err) {
         appLog("enc", `${path} failed`, err);
+        lastFailure = "unreachable";
         return null;
     }
 }
@@ -186,6 +200,14 @@ export interface WarmProgress {
     done: number;
     total: number;
     failed: number;
+    /**
+     * Set when the tree itself never arrived, so nothing could even be
+     * attempted. Distinct from `failed`, which counts nodes that were tried:
+     * with no tree the totals are all zero, and reporting that as a failure
+     * count made Setup print arithmetic on a sentinel ("-1 of 0") instead of
+     * the one sentence that says what to go and fix.
+     */
+    error?: "no-pack" | "unreachable";
 }
 
 /**
@@ -197,8 +219,20 @@ export interface WarmProgress {
  * populate the same rows these requests populate anyway.
  */
 export async function warmAll(onProgress: (p: WarmProgress) => void): Promise<WarmProgress> {
+    lastFailure = "";
     const toc = await loadToc();
-    if (!toc) return { done: 0, total: 0, failed: 1 };
+    if (!toc) {
+        return {
+            done: 0,
+            total: 0,
+            failed: 0,
+            // Any HTTP status at all means something answered, so the network
+            // and the mode are fine and the pack is the thing missing. 503 is
+            // the packed-in answer for "no pack"; a 404 is an older server
+            // that predates these routes, which needs the same update anyway.
+            error: lastFailure === "unreachable" ? "unreachable" : "no-pack",
+        };
+    }
 
     const ids = Object.entries(toc.nodes)
         .filter(([, node]) => node.pages)
