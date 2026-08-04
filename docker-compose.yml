@@ -113,6 +113,12 @@ services:
       SHEET_SCALE: ${SHEET_SCALE:-2}
     volumes:
       - solver_data:/app/data
+      # The encyclopedia, mounted rather than baked in. It is ~5MB of content
+      # that changes on its own schedule, and the image above spends most of
+      # its build installing Chromium — so a new pack is `git pull` plus a
+      # restart, not a rebuild. Read-only: the server only ever reads it.
+      # Absent, /enc/* answers 503 enc_not_packed and nothing else notices.
+      - ./content/enc:/app/content/enc:ro
     networks: [lookcam]
 
 volumes:
