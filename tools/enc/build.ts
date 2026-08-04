@@ -19,6 +19,7 @@ import { leafTerms, writePack, type Built, type Leaf } from "./pack";
 import { SECTIONS, topicOf } from "./syllabus";
 import { closeBrowser } from "./render";
 import { auditPages, checkBlocks, report, type Finding } from "./check";
+import { mirror } from "./mirror";
 
 const args = new Set(process.argv.slice(2));
 const only = (() => {
@@ -160,6 +161,10 @@ async function main(): Promise<void> {
             `(${textPages} text / ${tilePages} tiles, ${pct(textPages, total)} text)`,
     );
     console.log(`      ${(bytes / 1024).toFixed(0)} KB of JSON in content/enc/`);
+    // Here rather than as a step to remember: the phone reads its own copy, and
+    // a copy that is only refreshed when someone thinks of it is a copy that is
+    // silently a version behind at the moment it matters.
+    console.log(`      ${await mirror()}`);
     if (only) console.log("      (partial build — --only was set)");
     if (!only) {
         const covered = new Set([...topicNodes.keys()]);
