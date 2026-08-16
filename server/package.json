@@ -8,6 +8,7 @@
     "start": "bun run index.ts"
   },
   "dependencies": {
+    "@evenrealities/pretext": "^0.1.4",
     "hono": "^4.6.0",
     "marked": "^18.0.7",
     "mathjax-full": "^3.2.2",

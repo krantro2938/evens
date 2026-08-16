@@ -1,0 +1,10 @@
+{
+    "name": "kura-info-indexer",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "description": "Turns ../../../info/*.pdf into ../../content/info/index.json, the corpus the Инфоблок assistant answers from. Dev-machine only — nothing here ships to the phone, the glasses or the VPS.",
+    "scripts": {
+        "build": "bun run build.ts"
+    }
+}

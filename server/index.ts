@@ -127,6 +127,15 @@ import { docSource, isDocSlug, readDoc, saveDoc } from "./docs";
 import { encAvailable, readNode, readToc } from "./enc";
 import { triggerDescription } from "./trigger";
 import { description as backupDescription } from "./backup";
+import {
+  ask,
+  getRun,
+  infoConfigured,
+  infoStatus,
+  resetThread,
+  subscribeRun,
+  description as infoDescription,
+} from "./info";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // solution.md lives in the repo root, one level up from server/.
@@ -153,6 +162,18 @@ const PORT = Number(process.env.PORT ?? 8787);
 const HEARTBEAT_MS = 10_000;
 /** Seconds. Bun caps this at 255; 0 would disable the timeout entirely. */
 const IDLE_TIMEOUT_S = 120;
+
+/**
+ * The largest recording POST /info/ask will read.
+ *
+ * 40 seconds of 16 kHz mono s16le, against a client that stops itself at 30 —
+ * the slack is for a client that has drifted, not for a longer question. This
+ * is the ONLY unbounded-by-default input this server has: Bun buffers a request
+ * body eagerly, so an uncapped audio route is a way to make a 1g container
+ * disappear from anywhere on the internet. See the OOM note in the compose file
+ * for the time that actually happened to the camera gateway.
+ */
+const INFO_MAX_BODY_BYTES = 40 * 16_000 * 2;
 
 // ── solution.md: the file-backed source ─────────────────────────────────────
 
@@ -1340,6 +1361,131 @@ app.get("/messages/events", (c) =>
   }),
 );
 
+// ── the Инфоблок assistant ──────────────────────────────────────────────────
+//
+// A question asked out loud on the glasses, answered from info/. See info.ts
+// for the three hops; these routes are the two halves of one exchange.
+//
+// TWO REQUESTS, NOT ONE, and the reason is EventSource: it is GET-only and
+// cannot carry a megabyte of audio, and `fetch` with a streamed response body
+// is not something this WebView is known to do (nothing else in test/ or kura/
+// relies on it, while EventSource is proven on this hardware by
+// /messages/events). So the audio goes up in a POST that answers with an id as
+// soon as there is a transcript, and the answer comes back down a stream keyed
+// on that id.
+//
+// Open, like /solution/status and the assignment controls, and for the same
+// reason: the client is an app packed onto a pair of glasses and cannot hold a
+// secret. The cost of that is bounded here — a body larger than a half-minute
+// of audio is refused before it is read.
+app.post("/info/ask", async (c) => {
+  if (!infoConfigured()) {
+    return c.json({ error: "info_unavailable", detail: infoDescription() }, 503);
+  }
+
+  const sampleRate = Number(c.req.header("x-sample-rate") ?? 16000) || 16000;
+  // Bun buffers a request body as it arrives, so the guard has to be the
+  // declared length, checked before the read — not the size of what was read.
+  const declared = Number(c.req.header("content-length") ?? 0);
+  const cap = INFO_MAX_BODY_BYTES;
+  if (declared > cap) {
+    return c.json({ error: "too_long", detail: `${declared} bytes, limit ${cap}` }, 413);
+  }
+
+  const body = new Uint8Array(await c.req.arrayBuffer());
+  if (body.byteLength > cap) {
+    return c.json({ error: "too_long", detail: `${body.byteLength} bytes, limit ${cap}` }, 413);
+  }
+
+  // One thread per device, so two people wearing two pairs against the same
+  // server do not finish each other's sentences. The client generates it and
+  // keeps it in localStorage; it identifies nobody.
+  const device = (c.req.header("x-device") ?? "unknown").slice(0, 64);
+
+  try {
+    return c.json(await ask(body, { device, sampleRate }));
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    // The three the client has a specific screen for. Everything else is a
+    // vendor being down and reads as one line on the panel.
+    if (reason === "too_short" || reason === "too_long" || reason === "no_speech") {
+      return c.json({ error: reason }, 400);
+    }
+    console.error("[info] ask failed:", err);
+    return c.json({ error: "ask_failed", detail: reason.slice(0, 300) }, 502);
+  }
+});
+
+/**
+ * The answer, as it is written.
+ *
+ * One `state` event carrying the whole RunState, on connect and on every
+ * change — the same full-snapshot shape as /messages/events, chosen for the
+ * same reason. A delta protocol would save a few hundred bytes per answer and
+ * cost a second implementation on the device that has no way to report having
+ * got it wrong.
+ *
+ * It replays from the run rather than from the moment of subscription, so the
+ * client racing its own POST — which is exactly what it does — cannot miss the
+ * first tokens, or a whole short answer.
+ */
+app.get("/info/ask/:id/events", (c) => {
+  const id = c.req.param("id");
+  if (!getRun(id)) return c.json({ error: "unknown_run" }, 404);
+
+  return streamSSE(c, async (stream) => {
+    let closed = false;
+    stream.onAbort(() => {
+      closed = true;
+    });
+
+    let chain: Promise<void> = Promise.resolve();
+    const write = (event: string, data: string): Promise<void> => {
+      chain = chain
+        .then(async () => {
+          if (closed) return;
+          await stream.writeSSE({ event, data });
+        })
+        .catch(() => {
+          closed = true;
+        });
+      return chain;
+    };
+
+    let finished = false;
+    const send = async () => {
+      const state = getRun(id);
+      if (!state) return;
+      if (state.done) finished = true;
+      await write("state", JSON.stringify(state));
+    };
+
+    const unsubscribe = subscribeRun(id, () => void send());
+    await send();
+
+    try {
+      // Ends itself once the answer is whole. Unlike /messages/events this
+      // stream belongs to one exchange, and a client that has the final state
+      // has no reason to hold a connection open across the walk to another
+      // page.
+      while (!closed && !finished) {
+        await write("ping", "");
+        await stream.sleep(HEARTBEAT_MS);
+      }
+    } finally {
+      unsubscribe();
+    }
+  });
+});
+
+/** Leaving the page ends the thread — the next question starts cold. */
+app.post("/info/reset", async (c) => {
+  resetThread((c.req.header("x-device") ?? "unknown").slice(0, 64));
+  return c.json({ ok: true });
+});
+
+app.get("/info/status", (c) => c.json(infoStatus()));
+
 startUpstream();
 
 console.log(`Document server on http://localhost:${PORT}`);
@@ -1367,6 +1513,7 @@ console.log(
     ? "Messages: POST /messages requires MESSAGE_TOKEN"
     : "Messages: MESSAGE_TOKEN unset — POST /messages is OPEN to anyone who can reach this host",
 );
+console.log(infoDescription());
 
 export default {
   port: PORT,

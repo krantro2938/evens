@@ -163,6 +163,52 @@ whether the answer is right; `review.ts` decides what that means. There is no
 "send it back" flag in the payload on purpose — a grader that could set one
 could also be talked out of setting it.
 
+### the Инфоблок assistant
+
+Kura's third tile: a question asked out loud on the glasses, answered from the
+five информационные блоки in `info/`. Three hops — Mistral transcribes,
+`gemini-embedding-001` retrieves, `gemini-3.5-flash` writes — in
+[`info.ts`](info.ts).
+
+| Route | Purpose |
+|---|---|
+| `POST /info/ask` | body is raw PCM s16le mono (`x-sample-rate`, default 16000), `x-device` names the conversation. Transcribes, then answers in the background. Replies `{ id, question }` as soon as there is a transcript, which is a second or two before there is an answer. `400` with `too_short` / `too_long` / `no_speech`; `413` past the body cap; `503` if the corpus or either key is missing. |
+| `GET /info/ask/:id/events` | SSE. One `state` event carrying the whole run — question, wrapped lines, source, done — on connect and on every change, then the stream ends itself. Replays from the run, so a client racing its own POST cannot miss the opening tokens. |
+| `POST /info/reset` | forget `x-device`'s thread. The glasses send this on leaving the page. |
+| `GET /info/status` | corpus size and build date, the three model ids, and whether it is configured at all. |
+
+**Two requests rather than one, because `EventSource` is GET-only** and cannot
+carry a megabyte of audio, and a streamed `fetch` response body is not something
+this WebView is known to do. `EventSource` is proven on this hardware by
+`/messages/events`, so the audio goes up in a POST and the answer comes back on
+a stream keyed to the id it returns.
+
+**The answer is a list of wrapped lines, not a string.** The glasses cannot
+measure their own font, so `info.ts` wraps with `@evenrealities/pretext` — the
+same metrics `tools/deck` uses for the packed content — and the device only
+cuts the lines into screens of eight. The citation under the answer is resolved
+from a `[N]` marker the model is asked to end with, mapped back to the fragment
+list here, rather than from the model naming the document itself.
+
+**It is open**, like `/solution/status` and the assignment controls, for the same
+reason: the client is an app packed onto a pair of glasses and cannot hold a
+secret. What that costs is bounded by the body cap — 40 seconds of audio,
+checked against `content-length` before the body is read, because Bun buffers a
+request body eagerly and this is the only unbounded input the server has.
+
+Three things that cost an afternoon each:
+
+- **Gemini terminates SSE frames with `\r\n\r\n`.** A parser splitting on
+  `"\n\n"` matches nothing at all — the whole answer arrives, is never framed,
+  and the route reports an empty response with no error anywhere.
+- **Thinking tokens are charged against `maxOutputTokens`.** `gemini-3.5-flash`
+  spends ~280 of them on a prompt like this, so a 300-token cap returns nine
+  tokens of answer and `finishReason: MAX_TOKENS` — a sentence cut off mid-word
+  that looks exactly like a network failure. The cap is 2048; the prompt does
+  the shortening.
+- **`thinkingLevel: "none"` is rejected** with a 400 by this model. `"low"` is
+  the floor.
+
 ### Configuration
 
 | Var | Default | Notes |
@@ -200,6 +246,17 @@ could also be talked out of setting it.
 | `REVIEW_QUEUE_TIMEOUT_MS` | `10800000` | a queued review nobody claims fails after this |
 | `SHEET_SCALE` | `2` | how much denser `/assignment/sheet.png` is than the panel. Page images are always 1:1 and unaffected |
 | `DOC_MAX_CHARS` | `200000` | the same ceiling for a hand-written document |
+| `MISTRAL_API_KEY` | — | enables the **Инфоблок assistant**. Unset, `/info/*` answers 503 and Kura's third tile says so on its own page |
+| `INFO_INDEX` | `../content/info/index.json` | the corpus, built by `tools/info` and mounted read-only. Absent, 503 |
+| `INFO_STT_MODEL` | `voxtral-mini-latest` | the transcription-only Voxtral. The `-realtime` and `-tts` variants are different products and 400 here |
+| `INFO_ANSWER_MODEL` | `gemini-3.5-flash` | writes the answer from the retrieved pages |
+| `INFO_EMBED_MODEL` | `gemini-embedding-001` | **must match the model the index was built with** — the server refuses to load an index that disagrees, because a query embedded by one model against documents embedded by another retrieves noise without erroring |
+| `INFO_TOP_K` | `6` | how many chunks reach the prompt |
+| `INFO_MAX_SECONDS` | `30` | longest recording accepted. The glasses stop themselves at the same number; the body cap is separate and stricter |
+| `INFO_MIN_SECONDS` | `0.6` | below this it is a mis-tap, not a question |
+| `INFO_SILENCE_FLOOR` | `100` | sample deviation below which the capture is a dead mic. Only saves the round trip — Voxtral does return an empty string for real silence |
+| `INFO_THREAD_TTL_MS` | `900000` | how long a device's conversation survives without a new question |
+| `INFO_THREAD_TURNS` | `3` | how many previous turns are carried |
 
 CORS is open so the app (served from the Vite dev origin) can reach it.
 

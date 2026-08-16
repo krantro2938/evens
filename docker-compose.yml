@@ -111,6 +111,25 @@ services:
       # How much denser /assignment/sheet.png is than the panel, for the camera
       # site's Assignment tab. Page images are always 1:1 and unaffected.
       SHEET_SCALE: ${SHEET_SCALE:-2}
+
+      # ── the Инфоблок assistant (server/info.ts) ───────────────────────────
+      # Kura's third tile: a question asked out loud, transcribed by Mistral,
+      # answered by Gemini from the corpus mounted below. Unset MISTRAL_API_KEY
+      # and /info/* answers 503 — the glasses show a line saying so and every
+      # other page of that app carries on offline, as it always has.
+      #
+      # As everywhere in this file, EVERY VAR HAS TO BE LISTED HERE: a name that
+      # is only in .env reaches the substitution and never the container.
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      INFO_STT_MODEL: ${INFO_STT_MODEL:-voxtral-mini-latest}
+      INFO_ANSWER_MODEL: ${INFO_ANSWER_MODEL:-gemini-3.5-flash}
+      # Must match the model tools/info built the index with. The server refuses
+      # to load an index that disagrees rather than retrieving noise.
+      INFO_EMBED_MODEL: ${INFO_EMBED_MODEL:-gemini-embedding-001}
+      INFO_TOP_K: ${INFO_TOP_K:-6}
+      INFO_MAX_SECONDS: ${INFO_MAX_SECONDS:-30}
+      INFO_THREAD_TTL_MS: ${INFO_THREAD_TTL_MS:-900000}
+      INFO_THREAD_TURNS: ${INFO_THREAD_TURNS:-3}
     volumes:
       - solver_data:/app/data
       # The encyclopedia, mounted rather than baked in. It is ~5MB of content
@@ -119,6 +138,13 @@ services:
       # restart, not a rebuild. Read-only: the server only ever reads it.
       # Absent, /enc/* answers 503 enc_not_packed and nothing else notices.
       - ./content/enc:/app/content/enc:ro
+      # The Инфоблок corpus — 236 embedded chunks of the five информационные
+      # блоки, ~1.3MB, built by tools/info on a developer machine. Mounted for
+      # the same reason as the encyclopedia above: it is content, it changes on
+      # its own schedule, and rebuilding the image to ship it would mean
+      # reinstalling Chromium to change a JSON file. Absent, /info/* answers
+      # 503 and nothing else notices.
+      - ./content/info:/app/content/info:ro
     networks: [lookcam]
 
 volumes:
