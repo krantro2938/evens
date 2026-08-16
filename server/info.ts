@@ -33,6 +33,20 @@ import { getTextWidth } from "@evenrealities/pretext";
 
 // ── configuration ───────────────────────────────────────────────────────────
 
+/**
+ * A number from the environment, tolerant of the empty string.
+ *
+ * `Number("")` is 0, not NaN, so the obvious `Number(process.env.X ?? 10)`
+ * silently yields ZERO for a var that is present and empty — and every var here
+ * is present and often empty, because docker-compose.yml enumerates the
+ * environment and passes `${X:-}`. A top-k of 0 retrieves nothing and answers
+ * every question with «В материалах этого нет».
+ */
+function num(raw: string | undefined, fallback: number): number {
+    const value = Number(raw);
+    return raw === undefined || raw.trim() === "" || Number.isNaN(value) ? fallback : value;
+}
+
 const cfg = {
     /** Built by tools/info and mounted read-only, exactly like content/enc. */
     index: process.env.INFO_INDEX ?? join(import.meta.dir, "..", "content", "info", "index.json"),
@@ -90,7 +104,7 @@ const cfg = {
      * A model given that fragment and a forty-word budget relays it, which is
      * how this feature came to answer a question by declining to.
      */
-    topK: Number(process.env.INFO_TOP_K ?? 10),
+    topK: num(process.env.INFO_TOP_K, 10),
     /**
      * The longest recording accepted, in seconds. At 16 kHz mono s16le that is
      * 32 KB a second, so 30s is ~960 KB — the client stops at the same number
@@ -99,14 +113,14 @@ const cfg = {
      * deploy notes: a request body is the one thing that bounds this process's
      * memory, so it is bounded here.
      */
-    maxSeconds: Number(process.env.INFO_MAX_SECONDS ?? 30),
+    maxSeconds: num(process.env.INFO_MAX_SECONDS, 30),
     /** Below this there is no question, only a mis-tap. */
-    minSeconds: Number(process.env.INFO_MIN_SECONDS ?? 0.6),
+    minSeconds: num(process.env.INFO_MIN_SECONDS, 0.6),
 
     /** How long a device's thread survives without a new question. */
-    threadTtlMs: Number(process.env.INFO_THREAD_TTL_MS ?? 15 * 60_000),
+    threadTtlMs: num(process.env.INFO_THREAD_TTL_MS, 15 * 60_000),
     /** How many previous turns are carried. */
-    threadTurns: Number(process.env.INFO_THREAD_TURNS ?? 3),
+    threadTurns: num(process.env.INFO_THREAD_TURNS, 3),
 };
 
 /** The panel, as the glasses see it. Mirrors kura/src/constants.ts. */
@@ -350,7 +364,7 @@ function loudness(pcm: Uint8Array): number {
  * nothing at all. Raising it to where it might catch "too quiet" would trade a
  * failure that cannot happen for one that can.
  */
-const SILENCE_FLOOR = Number(process.env.INFO_SILENCE_FLOOR ?? 100);
+const SILENCE_FLOOR = num(process.env.INFO_SILENCE_FLOOR, 100);
 
 async function transcribe(wav: Uint8Array): Promise<string> {
     const form = new FormData();

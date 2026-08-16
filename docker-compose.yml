@@ -132,7 +132,7 @@ services:
       # Must match the model tools/info built the index with. The server refuses
       # to load an index that disagrees rather than retrieving noise.
       INFO_EMBED_MODEL: ${INFO_EMBED_MODEL:-gemini-embedding-001}
-      INFO_TOP_K: ${INFO_TOP_K:-6}
+      INFO_TOP_K: ${INFO_TOP_K:-10}
       INFO_MAX_SECONDS: ${INFO_MAX_SECONDS:-30}
       INFO_MIN_SECONDS: ${INFO_MIN_SECONDS:-0.6}
       # Sample deviation below which a capture is a dead mic rather than a quiet
