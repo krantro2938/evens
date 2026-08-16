@@ -128,6 +128,11 @@ services:
       INFO_EMBED_MODEL: ${INFO_EMBED_MODEL:-gemini-embedding-001}
       INFO_TOP_K: ${INFO_TOP_K:-6}
       INFO_MAX_SECONDS: ${INFO_MAX_SECONDS:-30}
+      INFO_MIN_SECONDS: ${INFO_MIN_SECONDS:-0.6}
+      # Sample deviation below which a capture is a dead mic rather than a quiet
+      # question. Only saves the round trip — Voxtral does answer real silence
+      # with an empty string — so it sits where only a constant signal falls.
+      INFO_SILENCE_FLOOR: ${INFO_SILENCE_FLOOR:-100}
       INFO_THREAD_TTL_MS: ${INFO_THREAD_TTL_MS:-900000}
       INFO_THREAD_TURNS: ${INFO_THREAD_TURNS:-3}
     volumes:
