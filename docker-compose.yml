@@ -122,7 +122,13 @@ services:
       # is only in .env reaches the substitution and never the container.
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       INFO_STT_MODEL: ${INFO_STT_MODEL:-voxtral-mini-latest}
-      INFO_ANSWER_MODEL: ${INFO_ANSWER_MODEL:-gemini-3.5-flash}
+      # The answer models, tried in order. Empty here on purpose — info.ts owns
+      # the default chain, and duplicating it would let the two drift. A CHAIN
+      # because the free tier's generate quota is 20 requests a day PER MODEL,
+      # so five rungs is five buckets; the container prints the chain it got at
+      # startup. INFO_ANSWER_MODEL (singular) still pins one model.
+      INFO_ANSWER_MODELS: ${INFO_ANSWER_MODELS:-}
+      INFO_ANSWER_MODEL: ${INFO_ANSWER_MODEL:-}
       # Must match the model tools/info built the index with. The server refuses
       # to load an index that disagrees rather than retrieving noise.
       INFO_EMBED_MODEL: ${INFO_EMBED_MODEL:-gemini-embedding-001}

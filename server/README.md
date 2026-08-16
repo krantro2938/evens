@@ -208,6 +208,16 @@ Three things that cost an afternoon each:
   the shortening.
 - **`thinkingLevel: "none"` is rejected** with a 400 by this model. `"low"` is
   the floor.
+- **The free-tier generate quota is 20 requests a day, per model, per project**
+  (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`) — not per minute. That
+  is what the answer chain is for, and why a 429 gets its own message on the
+  panel («Слишком много вопросов подряд») rather than reading as a dead server.
+
+**It never sends you somewhere else.** The prompt forbids deflecting to the
+website, the СДО or a person, because the corpus itself deflects: Университет
+с. 6 says in as many words that the reader can look the history up at
+`mirea.ru`, and a model handed that fragment relays it. That is how the feature
+came to answer «расскажи историю университета» by declining to.
 
 ### Configuration
 
@@ -249,9 +259,10 @@ Three things that cost an afternoon each:
 | `MISTRAL_API_KEY` | — | enables the **Инфоблок assistant**. Unset, `/info/*` answers 503 and Kura's third tile says so on its own page |
 | `INFO_INDEX` | `../content/info/index.json` | the corpus, built by `tools/info` and mounted read-only. Absent, 503 |
 | `INFO_STT_MODEL` | `voxtral-mini-latest` | the transcription-only Voxtral. The `-realtime` and `-tts` variants are different products and 400 here |
-| `INFO_ANSWER_MODEL` | `gemini-3.5-flash` | writes the answer from the retrieved pages |
+| `INFO_ANSWER_MODELS` | five flash models | the answer chain, tried in order. **A chain because the free-tier generate quota is 20 requests a day _per model_** — five rungs is five buckets. It only falls through before the first token; a model that fails mid-stream has already put text on the panel |
+| `INFO_ANSWER_MODEL` | — | pins one model, ignoring the chain |
 | `INFO_EMBED_MODEL` | `gemini-embedding-001` | **must match the model the index was built with** — the server refuses to load an index that disagrees, because a query embedded by one model against documents embedded by another retrieves noise without erroring |
-| `INFO_TOP_K` | `6` | how many chunks reach the prompt |
+| `INFO_TOP_K` | `10` | how many chunks reach the prompt. Six was too few for «расскажи историю университета»: that section is six chunks on its own, so the rest of the set was whatever else scored well |
 | `INFO_MAX_SECONDS` | `30` | longest recording accepted. The glasses stop themselves at the same number; the body cap is separate and stricter |
 | `INFO_MIN_SECONDS` | `0.6` | below this it is a mis-tap, not a question |
 | `INFO_SILENCE_FLOOR` | `100` | sample deviation below which the capture is a dead mic. Only saves the round trip — Voxtral does return an empty string for real silence |
